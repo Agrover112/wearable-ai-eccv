@@ -68,8 +68,8 @@ def main():
     for q in df.question: hits.update(m.lower() for m in pat.findall(q))
     emit("- Top cues: " + ", ".join(f"{w} ({n})" for w, n in hits.most_common(6)) + "\n")
 
-    # 5. SHORTCUT CHECK — is the correct option usually the longest?
-    emit("## 5. Shortcut check — length bias")
+    # 5. SHORTCUT CHECK — where does the correct option fall by length?
+    emit("## 5. Shortcut check — option length")
     def parse(opts):
         parts = re.split(r"(?=[A-D]\.\s)", str(opts).strip())
         d = {}
@@ -78,16 +78,37 @@ def main():
             if len(p) >= 2 and p[0] in "ABCD" and p[1] == ".":
                 d[p[0]] = p[2:].strip()
         return d
-    longest_correct = 0; usable = 0
+    LAB = {1:"longest",2:"2nd longest",3:"3rd longest",4:"shortest"}
+    ranks, short_letters = [], []
     for _, r in df.iterrows():
         d = parse(r.mcq_options); gold = str(r.mcq_answer).strip().upper()
         if len(d) < 2 or gold not in d: continue
-        usable += 1
-        if len(d[gold]) == max(len(v) for v in d.values()):
-            longest_correct += 1
-    emit(f"- Correct option is the **longest**: {longest_correct}/{usable} = "
-         f"**{100*longest_correct/max(usable,1):.1f}%** (random ~25%)")
-    emit(f"  - >25% ⇒ a 'pick longest' baseline beats chance ⇒ length is a real shortcut.\n")
+        order = sorted(d, key=lambda k: len(d[k]), reverse=True)  # longest first
+        rk = order.index(gold) + 1
+        ranks.append(rk)
+        if rk == len(d): short_letters.append(gold)  # correct == shortest
+    rc = pd.Series(ranks).value_counts().sort_index(); n = len(ranks)
+    emit("Where the **correct** answer falls when options are sorted by length:\n")
+    emit("| correct option is… | count | % |\n|---|---:|---:|")
+    for k in sorted(rc.index):
+        emit(f"| {LAB.get(k,k)} | {rc[k]} | {100*rc[k]/n:.1f}% |")
+    short_pct = 100*rc.get(4,0)/n
+    emit(f"\n- ⚠️ **Reverse length shortcut:** the correct answer is the **shortest** option "
+         f"**{short_pct:.1f}%** of the time (vs 25% by chance).")
+    emit(f"  - A blind 'pick the shortest option' baseline scores ~{short_pct:.0f}%.")
+    emit(f"  - (An earlier 'is it the *longest*?' check missed this — the bias runs toward short.)")
+    # letter breakdown of shortest-correct → is it just the C bias?
+    sl = pd.Series(short_letters).value_counts()
+    c_share = 100*sl.get("C",0)/max(len(short_letters),1)
+    emit(f"- Of shortest-correct answers, **{sl.get('C',0)}/{len(short_letters)} = {c_share:.1f}% are 'C'** "
+         f"≈ C's overall {100*(df.mcq_answer.str.strip().str.upper()=='C').mean():.1f}% rate.")
+    emit(f"  - ⇒ the **length** and **letter (C)** shortcuts are ~independent — two separate leaks.\n")
+
+    emit("## Summary — exploitable shortcuts (video-blind)")
+    emit("| shortcut | blind-baseline score |\n|---|---:|")
+    emit(f"| Always answer **C** | {100*(df.mcq_answer.str.strip().str.upper()=='C').mean():.1f}% |")
+    emit(f"| Always pick **shortest** option | {short_pct:.1f}% |")
+    emit("(random chance = 25%)\n")
 
     (OUT / "report.md").write_text("\n".join(lines))
     print(f"\n>> Wrote {OUT/'report.md'} + tables/")

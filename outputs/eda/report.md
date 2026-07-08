@@ -47,6 +47,25 @@
 - Temporal questions: **554 / 700 = 79.1%**
 - Top cues: after (285), first (183), earlier (117), before (83), last (39), next (31)
 
-## 5. Shortcut check — length bias
-- Correct option is the **longest**: 170/700 = **24.3%** (random ~25%)
-  - >25% ⇒ a 'pick longest' baseline beats chance ⇒ length is a real shortcut.
+## 5. Shortcut check — option length
+Where the **correct** answer falls when options are sorted by length:
+
+| correct option is… | count | % |
+|---|---:|---:|
+| longest | 119 | 17.0% |
+| 2nd longest | 141 | 20.1% |
+| 3rd longest | 158 | 22.6% |
+| shortest | 282 | 40.3% |
+
+- ⚠️ **Reverse length shortcut:** the correct answer is the **shortest** option **40.3%** of the time (vs 25% by chance).
+  - A blind 'pick the shortest option' baseline scores ~40%.
+  - (An earlier 'is it the *longest*?' check missed this — the bias runs toward short.)
+- Of shortest-correct answers, **177/282 = 62.8% are 'C'** ≈ C's overall 63.4% rate.
+  - ⇒ the **length** and **letter (C)** shortcuts are ~independent — two separate leaks.
+
+## Summary — exploitable shortcuts (video-blind)
+| shortcut | blind-baseline score |
+|---|---:|
+| Always answer **C** | 63.4% |
+| Always pick **shortest** option | 40.3% |
+(random chance = 25%)
