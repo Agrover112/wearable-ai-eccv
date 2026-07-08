@@ -81,8 +81,17 @@ compression is designed to ingest and compress many frames within the timeout.
 | Frame rate | 15 fps (all clips) |
 | Total footage | 119 h |
 
-**Figure 1b'.** Distribution of video durations (`dist_video_duration.pdf`):
-mass concentrated at ~10 minutes, motivating denser-than-baseline frame sampling.
+The distribution is not perfectly uniform: 616 of 700 clips (88%) fall in the
+9.5–10.5 min mode, but the residual is asymmetric — only 11 clips are shorter
+than 9.5 min whereas 73 are longer than 10.5 min (24 exceed 12 min). The
+recording length is thus a deliberate ~10-minute target with a modest right tail
+rather than a hard cap.
+
+**Figure 1b'.** Video-duration distribution. (a) Histogram on a log-scaled count
+axis, so the ~10-min mode and the sparse short/long tails are both legible;
+(b) counts per duration bucket, exposing the 11 shorter vs. 73 longer clips that
+the linear-scale view hides (`dist_video_duration_tail.pdf`). A linear single-axis
+version is also provided (`dist_video_duration.pdf`).
 
 ## Question characteristics and temporal grounding
 
