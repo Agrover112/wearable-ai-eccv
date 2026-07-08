@@ -3,6 +3,26 @@
 How to reopen this project in Colab and pick up **exactly** where you left off —
 after either kind of runtime restart.
 
+## ⚡ TL;DR — fresh runtime + fresh Claude session
+
+`new runtime → check Secrets → run 00_restart.ipynb → launch Claude → "continue, start Step 7"`
+
+1. **New runtime** — Runtime → *Disconnect and delete runtime* → reconnect. (`/content` and
+   Claude memory are now empty; Drive + Colab Secrets are not.)
+2. **Confirm Secrets survived** — 🔑 panel still has `HF_TOKEN` + `GH_TOKEN`, notebook access ON.
+   (They live in your Colab account, not the VM, so they persist.)
+3. **Bootstrap FIRST — before Claude** ⚠️ — run `notebooks/00_restart.ipynb` (or the paste cell
+   below). This clones the repo, runs `bootstrap.sh`, and **restores Claude memory from Drive**.
+4. **THEN launch Claude Code** — because memory was restored in step 3, Claude loads the correct
+   `MEMORY.md` at startup and knows the project + progress.
+5. **First message to Claude:** *"Read docs/analysis_plan.md — continue from where we left off.
+   Start Step 7."*
+
+**Why the order matters:** Claude reads its memory **at startup**. Launch it *before* bootstrap
+restores the files and it boots with empty memory. Restore → then launch. *(If you slip up: run
+bootstrap, then tell Claude "re-read /root/.claude/projects/-content/memory/ and
+docs/analysis_plan.md" — it catches up without a relaunch.)*
+
 ## What survives a restart (nothing important is lost)
 
 | Thing | Persists via |
