@@ -41,6 +41,14 @@ Can the answer be guessed from the **video** without reasoning? (video analog of
 - **First/last-frame bias:** does last-frame-only match the answer (egocentric end-position)?
 Reference: "single-frame / atemporal" video-QA bias literature. Encoder-only = still analysis.
 
+**Model-side reruns (later, once models exist):** the same two probes become model
+diagnostics, reported next to accuracy —
+- **Frame-shuffle drop** = acc(ordered frames) − acc(shuffled frames) → temporal reasoning,
+  not bag-of-frames recognition.
+- **Single-frame vs. 32-frame delta** → does the model exploit the long video at all?
+(The answer-prior-robust *eval metrics* — margin above floor, macro-letter, CircularEval,
+shortcut-free subset, question-blind ablation — live in `outputs/eda/report.md`.)
+
 ---
 **Status:** Steps 1–6 ✅ · Steps 7, 8 queued. Build Step 7 (SigLIP frame infra) → reuse for Step 8.
 Then modelling: Qwen3-VL baseline first (vs the 63.4% blind floor), then BIMBA.

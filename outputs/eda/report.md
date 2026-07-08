@@ -263,9 +263,13 @@ to neutralise one specific leak identified above:
 | Macro accuracy over answer letters (mean of per-letter accuracy) | removes the label prior: an "always-C" policy scores 25%, not 63.4% |
 | CircularEval (MMBench-style: options cycled A→B→C→D; a question counts as correct only if answered correctly under *all* orderings) | letter-position invariance — the strictest test against the C prior |
 | Shortcut-free subset accuracy (questions whose correct option is neither C nor the shortest) | performance with both discovered priors removed |
-| Frame-shuffle drop (accuracy with ordered frames − accuracy with temporally shuffled frames) | genuine *temporal* reasoning, not bag-of-frames recognition |
-| Single-frame vs. 32-frame delta | whether the model exploits the long video at all |
 | Question-blind ablation (video + options only) | how much the model itself regresses to option priors |
+
+Two further diagnostics — the *frame-shuffle drop* (ordered vs. temporally
+shuffled frames) and the *single-frame vs. 32-frame delta* — probe whether a
+model uses the video's temporal structure at all. We treat these as part of the
+video-side shortcut analysis (Step 8 of our analysis plan), where they are first
+estimated encoder-only with SigLIP and later re-run on each candidate model.
 
 A model that improves accuracy while also improving CircularEval, macro-letter
 accuracy, and the frame-shuffle drop is demonstrably reasoning over the video; a
