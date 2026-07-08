@@ -79,14 +79,18 @@ def main():
         if len(d)<2 or g not in d: continue
         order=sorted(d,key=lambda k:len(d[k]),reverse=True)  # longest first
         ranks.append(order.index(g)+1)
+    LABELS={1:"longest",2:"2nd longest",3:"3rd longest",4:"shortest"}
     rc=pd.Series(ranks).value_counts().sort_index()
-    rc.to_csv(OUT/"tables/dist_option_length_rank.csv",header=["count"])
-    print("\n=== 4. CORRECT-OPTION LENGTH RANK (1=longest) ===")
-    for k,n in rc.items(): print(f"  rank {k}: {n}  ({100*n/len(ranks):.1f}%)")
-    print(f"  (uniform over 4 options => 25% each; observed rank-1 = {100*rc.get(1,0)/len(ranks):.1f}%)")
-    ax=axes[1,1]; ax.bar(rc.index,rc.values,color="#8172B3")
-    ax.axhline(len(ranks)/4,color="gray",ls="--",label="uniform (25%)")
-    ax.set(title="Correct option's length rank (1=longest)",xlabel="rank",ylabel="# questions"); ax.legend()
+    rc_lab=rc.rename(index=LABELS); rc_lab.index.name="correct_option_length"
+    rc_lab.to_csv(OUT/"tables/dist_option_length_rank.csv",header=["count"])
+    print("\n=== 4. CORRECT ANSWER — is it the longest or shortest option? ===")
+    for k,n in rc.items(): print(f"  {LABELS[k]:<12}: {n}  ({100*n/len(ranks):.1f}%)")
+    print(f"  (uniform over 4 options => 25% each; SHORTEST = {100*rc.get(4,0)/len(ranks):.1f}%)")
+    ax=axes[1,1]; ax.bar([LABELS[i] for i in rc.index],rc.values,color="#8172B3")
+    ax.axhline(len(ranks)/4,color="gray",ls="--",label="no bias (25%)")
+    ax.set(title="Is the CORRECT answer the longest or shortest option?",
+           xlabel="correct option's length (vs the other 3)",ylabel="# questions"); ax.legend()
+    ax.tick_params(axis="x",labelrotation=15)
 
     # save
     for ax_name,ax in [("question_length",axes[0,0]),("first_words",axes[0,1]),
