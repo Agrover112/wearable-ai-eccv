@@ -20,9 +20,12 @@ analysis probes.
 Also: 79.1% of questions are temporal; length & letter shortcuts are ~independent.
 → code: `scripts/eda_egolongqa.py`, `scripts/eda_distributions.py` · outputs: `outputs/eda/`
 
-## 🟡 Semantic clustering — small text embedder (CPU)  ⏳ TODO
-- **Step 6:** embed 700 questions → UMAP → cluster → name themes (objects/places/actions…).
-  Shows what skills the task really tests.
+## 🟢 Semantic clustering — text embedders (CPU)  ✅ DONE
+- **Step 6:** embed 700 questions → UMAP → KMeans → c-TF-IDF theme names. Compared two encoders:
+  MiniLM (text-specialist) vs SigLIP-2 text tower. MiniLM separates better (silhouette 0.028 vs
+  0.005; ARI 0.16 → questions form a continuum, not clean topics). Also clustered `mcq_options`
+  text with MiniLM (silhouette 0.033). Every figure/table carries a data-driven top-terms label.
+  → code: `scripts/eda_clustering.py`, `scripts/eda_clustering_mcq.py` · embeddings in git.
 
 ## 🟠 Feature-space visualization — SigLIP + frames  ⏳ TODO
 - **Step 7:** EgoCross Fig-4 style. Sample ~8 frames/video → SigLIP → pool → 1 vec/video;
@@ -39,4 +42,5 @@ Can the answer be guessed from the **video** without reasoning? (video analog of
 Reference: "single-frame / atemporal" video-QA bias literature. Encoder-only = still analysis.
 
 ---
-**Status:** Steps 1–5 ✅ · Steps 6, 7, 8 queued. Build Step 7 (SigLIP infra) → reuse it for Step 8.
+**Status:** Steps 1–6 ✅ · Steps 7, 8 queued. Build Step 7 (SigLIP frame infra) → reuse for Step 8.
+Then modelling: Qwen3-VL baseline first (vs the 63.4% blind floor), then BIMBA.
