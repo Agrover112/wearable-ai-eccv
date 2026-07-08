@@ -46,6 +46,37 @@ its always-on wearable-capture premise.
 | Events | 22 | 3.1% |
 | Fashion Advice | 19 | 2.7% |
 
+## Video duration and the frame-sampling budget
+
+The recordings are long and, unusually, of near-constant length: reading the mp4
+container headers of all 700 clips (no frame decoding) gives a mean duration of
+**10.2 minutes** (median 10.0, s.d. 0.87; Table 1b, Fig. 1b'), tightly
+concentrated at ~600 s with a thin tail to the 1.2 min minimum and 15 min
+maximum. Every clip is encoded at 15 fps, so a typical video contains
+**≈9,000 frames** and the split totals 119 hours of first-person footage. Because
+duration is essentially fixed, it is uninformative about file size (Pearson
+$r{=}0.24$); size variation instead reflects visual complexity and bitrate.
+
+This has a direct consequence for inference. The starter-kit LongQA baseline
+samples only **4 frames uniformly over the whole video** — one frame every
+~2.5 minutes for these clips — which is far too sparse for a benchmark in which
+79% of questions require ordering events (§"Question characteristics"). The
+evaluation protocol caps sampling at 32 frames (`--max-frames`) under a 300 s
+per-query timeout. We therefore adopt **32 frames** (one every ≈19 s) as the
+default for our feature-space analysis and baseline models, and reserve denser
+sampling (64–128 frames) for the long-video model, whose selective temporal token
+compression is designed to ingest and compress many frames within the timeout.
+
+**Table 1b.** Video-duration statistics for the EgoLongQA validation split
+(minutes; $N{=}700$), read from mp4 headers. See `duration_summary.tex`.
+
+| N | mean | median | s.d. | min | p25 | p75 | p95 | max | fps |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 700 | 10.2 | 10.0 | 0.87 | 1.2 | 10.0 | 10.2 | 11.1 | 15.0 | 15 |
+
+**Figure 1b'.** Distribution of video durations (`dist_video_duration.pdf`):
+mass concentrated at ~10 minutes, motivating denser-than-baseline frame sampling.
+
 ## Question characteristics and temporal grounding
 
 Questions are moderately long and self-contained: they average 146 characters

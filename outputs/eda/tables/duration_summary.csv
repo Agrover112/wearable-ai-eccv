@@ -1,0 +1,2 @@
+N,mean (min),median (min),std (min),min (min),p25 (min),p75 (min),p95 (min),max (min),total (h),mode fps
+700,10.2,10.01,0.87,1.19,10.0,10.18,11.1,15.0,119.1,15.0
