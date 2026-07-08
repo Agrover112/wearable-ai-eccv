@@ -219,14 +219,34 @@ shortcuts rather than one confound.
 
 ## Implications for modelling and evaluation
 
-Two conclusions follow directly from this analysis and shape our approach. First,
-because ~79% of questions require ordering events over a long recording, the
-benchmark genuinely rewards long-context temporal modelling; a strong image-QA
-model applied to sparse frames is unlikely to be competitive, justifying our
-choice of a long-video architecture with selective temporal token compression.
-Second, and more urgently, the 63.4% "always-C" floor means that **raw
-multiple-choice accuracy is not, on its own, a trustworthy measure of visual
-reasoning** on this split: a model must clear this shortcut floor by a wide
-margin before its gains can be attributed to genuine video understanding. We
-therefore report accuracy alongside these video-blind baselines and treat the gap
-above them, rather than the absolute number, as the quantity of interest.
+Read together, the three axes of this analysis — task demand, input budget, and
+answer priors — describe a benchmark whose apparent difficulty and true
+difficulty are sharply misaligned, and this misalignment dictates our approach.
+
+**The task genuinely requires dense long-temporal reasoning, yet the reference
+input budget precludes it.** Nearly four in five questions demand localising and
+ordering events across a ~10-minute recording (≈9,000 frames at 15 fps), while
+the starter-kit baseline samples only four frames — one every ~2.5 minutes. For a
+question such as "what did I do *after* X?", such sampling will typically never
+observe X at all: the baseline is structurally incapable of the reasoning the
+benchmark measures. Because the recordings are of near-constant length (§"Video
+duration"), a *fixed* frame budget maps to a *fixed* temporal resolution across
+the entire split, so frame count is the single most consequential design choice
+and requires no per-video adaptation. This directly motivates (i) sampling well
+above the four-frame baseline — we adopt 32 frames (~1 per 19 s) as a floor and
+64–128 for the long-video model — and (ii) an architecture with selective
+temporal token compression, which can ingest many frames while keeping the token
+sequence within the 300 s per-query budget.
+
+**Raw accuracy is not a trustworthy measure of visual reasoning on this split.**
+The 63.4% "always-C" prior, together with the independent 40.3% shortest-option
+prior, means a model can score well while remaining effectively blind — and,
+combined with the point above, a frame-starved model can post a respectable
+number that reflects shortcut exploitation rather than video understanding. We
+therefore report accuracy alongside the video-blind baselines of Table 5 and
+treat the **margin above the 63.4% floor**, not the absolute score, as the
+quantity of interest. Taken as a whole, EgoLongQA is a benchmark on which shallow
+methods *look* competitive: strong answer priors and an under-sampled baseline
+mask the fact that its core skill — temporal grounding over long egocentric video
+— remains largely untested. Closing that gap, and measuring it honestly against
+the blind floors, is the objective of the remainder of this work.
