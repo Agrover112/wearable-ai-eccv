@@ -12,7 +12,9 @@ Publication-quality (ECCV / LNCS) via scripts/pubstyle.py: PDF+PNG figures,
 colorblind-safe palette, serif fonts; tables as CSV + LaTeX booktabs.
 
 Outputs (outputs/eda/):
-  figures/umap_clusters_compare.{pdf,png}
+  figures/umap_clusters_minilm.{pdf,png}     (all-MiniLM-L6-v2 alone)
+  figures/umap_clusters_siglip.{pdf,png}     (siglip2-so400m alone)
+  figures/umap_clusters_compare.{pdf,png}    (side-by-side comparison)
   tables/cluster_summary_{minilm,siglip}.{csv,tex}
   tables/encoder_comparison.{csv,tex}
   features/question_emb_{minilm,siglip}.npy   (gitignored)
@@ -29,6 +31,14 @@ from pubstyle import set_style, savefig, df_to_booktabs, CB, COL, DBL
 
 K = int(os.environ.get("N_CLUSTERS", "10")); SEED = 42
 SIGLIP = os.environ.get("SIGLIP_MODEL", "google/siglip2-so400m-patch14-384")
+
+# Exact model ids + one-line role, used verbatim in every figure title/caption.
+ENCODER_META = {
+    "minilm": {"id": "sentence-transformers/all-MiniLM-L6-v2",
+               "role": "text-only sentence encoder"},
+    "siglip": {"id": SIGLIP,
+               "role": "SigLIP-2 multimodal text tower"},
+}
 OUT = Path("outputs/eda"); (OUT/"figures").mkdir(parents=True, exist_ok=True); (OUT/"tables").mkdir(exist_ok=True)
 FEAT = Path("features"); FEAT.mkdir(exist_ok=True)
 GENERIC = {"what","after","before","first","did","i","my","the","was","were","when","which","while",
@@ -120,24 +130,46 @@ def main():
         f"cluster separation (higher better). MiniLM vs SigLIP-text agreement: "
         f"adjusted Rand index = {ari:.4f}.", label="tab:encoder_cmp")
 
-    # side-by-side UMAP (double-column, colorblind-safe discrete colormap)
+    # ---- UMAP projections (one per encoder, computed once & reused) --------
     cmap = ListedColormap(CB[:K])
-    fig, axes = plt.subplots(1, 2, figsize=(DBL, DBL*0.5))
-    for ax, tag in zip(axes, encoders):
-        xy = umap.UMAP(n_neighbors=15, min_dist=0.1, random_state=SEED).fit_transform(embs[tag])
-        ax.scatter(xy[:,0], xy[:,1], c=labs[tag], cmap=cmap, vmin=0, vmax=K-1, s=10, alpha=0.85,
-                   linewidths=0)
+    sil_of = {d["encoder"]: d["silhouette"] for d in cmp}
+    xys = {tag: umap.UMAP(n_neighbors=15, min_dist=0.1, random_state=SEED).fit_transform(embs[tag])
+           for tag in encoders}
+
+    def draw(ax, tag):
+        xy = xys[tag]
+        ax.scatter(xy[:,0], xy[:,1], c=labs[tag], cmap=cmap, vmin=0, vmax=K-1, s=10,
+                   alpha=0.85, linewidths=0)
         for c in range(K):
             cx, cy = xy[labs[tag]==c].mean(0)
             ax.text(cx, cy, str(c), fontsize=8, fontweight="bold", ha="center", va="center",
                     bbox=dict(boxstyle="circle,pad=0.15", fc="white", ec="0.3", lw=0.6, alpha=0.85))
-        sil = [d["silhouette"] for d in cmp if d["encoder"]==tag][0]
-        ax.set_title(f"{tag}  (silhouette={sil})"); ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2")
-        ax.grid(False)
-    fig.suptitle(f"EgoLongQA question clusters — MiniLM vs SigLIP-text (k={K}, ARI={ari:.2f})")
+        ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2"); ax.grid(False)
+
+    # (a) one standalone figure per encoder, titled with the EXACT model id ---
+    for tag in encoders:
+        m = ENCODER_META[tag]
+        fig, ax = plt.subplots(figsize=(COL, COL))
+        draw(ax, tag)
+        ax.set_title(f"{m['id']}\n{m['role']} · dim={embs[tag].shape[1]} · "
+                     f"silhouette={sil_of[tag]:.3f}", fontsize=6.5)
+        savefig(fig, OUT/f"figures/umap_clusters_{tag}")
+        print(f"  wrote figures/umap_clusters_{tag}.{{pdf,png}}  ({m['id']})")
+
+    # (b) single comparison figure across all encoders -----------------------
+    fig, axes = plt.subplots(1, len(encoders), figsize=(DBL, DBL*0.52))
+    for ax, tag in zip(axes, encoders):
+        m = ENCODER_META[tag]
+        draw(ax, tag)
+        ax.set_title(f"{m['id']}\n({m['role']}, silhouette={sil_of[tag]:.3f})", fontsize=6.5)
+    fig.suptitle(f"EgoLongQA question clusters (KMeans k={K}, UMAP projection) — "
+                 f"text-only vs multimodal encoder\n"
+                 f"cluster agreement: adjusted Rand index = {ari:.2f} "
+                 f"(1 = identical partition, 0 = random)", fontsize=8)
     fig.tight_layout()
     savefig(fig, OUT/"figures/umap_clusters_compare")
-    print(f"\n>> Wrote figures/umap_clusters_compare.{{pdf,png}} + tables/cluster_summary_*.{{csv,tex}} + encoder_comparison.{{csv,tex}}")
+    print(f"\n>> Wrote figures/umap_clusters_{{minilm,siglip,compare}}.{{pdf,png}} "
+          f"+ tables/cluster_summary_*.{{csv,tex}} + encoder_comparison.{{csv,tex}}")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,3 @@
+encoder,dim,silhouette
+minilm,384,0.0282
+siglip,1152,0.0051

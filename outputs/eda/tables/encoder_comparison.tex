@@ -1,0 +1,14 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Text-encoder comparison on EgoLongQA questions (k=10). Silhouette: cluster separation (higher better). MiniLM vs SigLIP-text agreement: adjusted Rand index = 0.1622.}
+\label{tab:encoder_cmp}
+\begin{tabular}{lrr}
+\toprule
+encoder & dim & silhouette \\
+\midrule
+minilm & 384 & 0.0282 \\
+siglip & 1152 & 0.0051 \\
+\bottomrule
+\end{tabular}
+\end{table}
