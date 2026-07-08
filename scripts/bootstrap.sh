@@ -60,4 +60,18 @@ else
   echo "!! GH_TOKEN not found (Colab Secrets -> GH_TOKEN). Needed to push to GitHub."
 fi
 
+# --- Claude memory backup/restore (Colab only) ----------------------------
+# Claude's persistent memory lives on the EPHEMERAL VM disk and is wiped on a
+# fresh runtime. Mirror it to Drive: restore if the VM is fresh, else back up.
+if [ "$IN_COLAB" = "1" ]; then
+  MEM="$HOME/.claude/projects/-content/memory"
+  MEM_BAK="/content/drive/MyDrive/wearable-ai-cache/claude-memory"
+  mkdir -p "$MEM_BAK"
+  if [ -z "$(ls -A "$MEM" 2>/dev/null)" ] && [ -n "$(ls -A "$MEM_BAK" 2>/dev/null)" ]; then
+    mkdir -p "$MEM"; cp "$MEM_BAK"/*.md "$MEM"/ 2>/dev/null && echo ">> Restored Claude memory from Drive."
+  elif [ -n "$(ls -A "$MEM" 2>/dev/null)" ]; then
+    cp "$MEM"/*.md "$MEM_BAK"/ 2>/dev/null && echo ">> Backed up Claude memory to Drive."
+  fi
+fi
+
 echo ">> Bootstrap complete. Next:  source .hf_env && python scripts/download_data.py"
