@@ -76,6 +76,13 @@ Never invent new/made-up terms, names, or jargon. Always use existing, standard 
 the real names for tools, concepts, APIs, and dataset/model terminology — so everything stays
 correct and verifiable. No coining your own labels.
 
+## Figures & tables (publication quality — ECCV)
+Everything visual goes into an **ECCV paper** (Springer LNCS). All figures/tables must be
+publication-quality, not exploratory. Use the shared helper `scripts/pubstyle.py`:
+- `set_style()` then `savefig(fig, path_noext)` → writes **PDF (vector) + PNG**.
+- Colorblind-safe palette (Okabe-Ito), serif fonts, readable at column width, no chartjunk.
+- Tables: also emit **LaTeX `booktabs`** via `df_to_booktabs(...)`, not just CSV.
+
 ## Conventions
 - Keep everything egolongqa-specific; do not add egoconv/egoproactive code paths.
 - Never hardcode or commit the HF token — read it from `HF_TOKEN` env or Colab Secrets.

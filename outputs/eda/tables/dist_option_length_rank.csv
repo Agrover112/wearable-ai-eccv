@@ -1,5 +1,5 @@
-correct_option_length,count
-longest,119
-2nd longest,141
-3rd longest,158
-shortest,282
+correct_option_length,count,percent
+longest,119,17.0
+2nd longest,141,20.142857142857142
+3rd longest,158,22.571428571428573
+shortest,282,40.285714285714285
