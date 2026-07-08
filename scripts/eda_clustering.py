@@ -24,6 +24,7 @@ from pathlib import Path
 import numpy as np, pandas as pd
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+from matplotlib.lines import Line2D
 from huggingface_hub import hf_hub_download
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -85,22 +86,24 @@ def cluster_and_name(df, emb, tag):
     for c in range(K):
         row = X[c].toarray().ravel(); order = row.argsort()[::-1]
         terms = [vocab[i] for i in order if vocab[i] not in GENERIC][:6]
+        label = ", ".join(terms[:2])          # short data-driven cluster name
         sub = df[labels==c]
-        rows.append({"cluster":c,"size":int((labels==c).sum()),"top_terms":", ".join(terms),
-                     "example":sub.question.iloc[0][:80]})
-        print(f"[{c}] n={int((labels==c).sum()):>3} | {', '.join(terms)}")
+        rows.append({"cluster":c,"label":label,"size":int((labels==c).sum()),
+                     "top_terms":", ".join(terms),"example":sub.question.iloc[0][:80]})
+        print(f"[{c}] n={int((labels==c).sum()):>3} | {label:<24} | {', '.join(terms)}")
     summ = pd.DataFrame(rows)
     summ.to_csv(OUT/f"tables/cluster_summary_{tag}.csv", index=False)
-    df_to_booktabs(summ[["cluster","size","top_terms"]], OUT/f"tables/cluster_summary_{tag}.tex",
-        float_fmt="%.0f", caption=f"EgoLongQA question clusters ({tag} encoder, k={K}): "
-        "size and c-TF-IDF distinctive terms.", label=f"tab:clusters_{tag}")
-    return labels
+    df_to_booktabs(summ[["cluster","label","size","top_terms"]], OUT/f"tables/cluster_summary_{tag}.tex",
+        float_fmt="%.0f", caption=f"EgoLongQA question clusters ({ENCODER_META[tag]['id']}, k={K}). "
+        "The label is the two most distinctive c-TF-IDF terms of each cluster.",
+        label=f"tab:clusters_{tag}")
+    return labels, {r["cluster"]: r["label"] for r in rows}
 
 def main():
     set_style()
     df = load_questions(); qs = df.question.tolist()
     encoders = {"minilm": embed_minilm, "siglip": embed_siglip}
-    embs, labs = {}, {}
+    embs, labs, names = {}, {}, {}
     for tag, fn in encoders.items():
         cache = FEAT/f"question_emb_{tag}.npy"
         if cache.exists():
@@ -110,7 +113,7 @@ def main():
             print(f"\n>>> Encoding with {tag} ...")
             e = np.asarray(fn(qs)); np.save(cache, e)
         embs[tag]=e
-        labs[tag] = cluster_and_name(df, e, tag)
+        labs[tag], names[tag] = cluster_and_name(df, e, tag)
 
     # comparison metrics
     from sklearn.metrics import silhouette_score, adjusted_rand_score
@@ -146,22 +149,31 @@ def main():
                     bbox=dict(boxstyle="circle,pad=0.15", fc="white", ec="0.3", lw=0.6, alpha=0.85))
         ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2"); ax.grid(False)
 
+    def legend(ax, tag, bbox, loc="center left", ncol=1):
+        h=[Line2D([0],[0],marker='o',color='w',markerfacecolor=CB[c],markersize=6,
+                  label=f"{c}: {names[tag][c]}") for c in range(K)]
+        ax.legend(handles=h, loc=loc, bbox_to_anchor=bbox, fontsize=6, ncol=ncol,
+                  handletextpad=0.2, labelspacing=0.35, columnspacing=0.8, borderpad=0.4,
+                  frameon=False, title="cluster (top terms)", title_fontsize=6)
+
     # (a) one standalone figure per encoder, titled with the EXACT model id ---
     for tag in encoders:
         m = ENCODER_META[tag]
-        fig, ax = plt.subplots(figsize=(COL, COL))
+        fig, ax = plt.subplots(figsize=(COL*1.7, COL))
         draw(ax, tag)
         ax.set_title(f"{m['id']}\n{m['role']} · dim={embs[tag].shape[1]} · "
                      f"silhouette={sil_of[tag]:.3f}", fontsize=6.5)
+        legend(ax, tag, bbox=(1.01, 0.5))
         savefig(fig, OUT/f"figures/umap_clusters_{tag}")
         print(f"  wrote figures/umap_clusters_{tag}.{{pdf,png}}  ({m['id']})")
 
     # (b) single comparison figure across all encoders -----------------------
-    fig, axes = plt.subplots(1, len(encoders), figsize=(DBL, DBL*0.52))
+    fig, axes = plt.subplots(1, len(encoders), figsize=(DBL, DBL*0.62))
     for ax, tag in zip(axes, encoders):
         m = ENCODER_META[tag]
         draw(ax, tag)
         ax.set_title(f"{m['id']}\n({m['role']}, silhouette={sil_of[tag]:.3f})", fontsize=6.5)
+        legend(ax, tag, bbox=(0.5, -0.32), loc="upper center", ncol=2)
     fig.suptitle(f"EgoLongQA question clusters (KMeans k={K}, UMAP projection) — "
                  f"text-only vs multimodal encoder\n"
                  f"cluster agreement: adjusted Rand index = {ari:.2f} "
