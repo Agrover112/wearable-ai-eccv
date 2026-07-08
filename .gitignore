@@ -2,6 +2,9 @@
 data/
 models/
 outputs/
+# ...but DO keep the small EDA text outputs (reports, tables, figures) in git:
+!outputs/eda/
+!outputs/eda/**
 *.mp4
 *.parquet
 *.arrow
