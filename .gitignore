@@ -1,10 +1,10 @@
 # ── Heavy / regenerable data — NEVER in git (re-pulled from HF, cached on Drive) ──
 data/
 models/
-outputs/
+# Ignore outputs/ CONTENTS (use /* so git still descends for the negation below)...
+outputs/*
 # ...but DO keep the small EDA text outputs (reports, tables, figures) in git:
 !outputs/eda/
-!outputs/eda/**
 *.mp4
 *.parquet
 *.arrow
