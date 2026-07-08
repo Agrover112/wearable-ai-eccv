@@ -49,16 +49,17 @@ def resolve() -> dict:
 
     resolved, source = {}, {}
     for k in KEYS:
+        # Priority: explicit env var > Colab Secret (authoritative & always fresh) > .env file.
+        # Colab Secret MUST win over .env, else updating a Secret never propagates (stale-.env bug).
+        cv = _from_colab(k)
         if os.environ.get(k):
             resolved[k], source[k] = os.environ[k], "env"
+        elif cv:
+            resolved[k], source[k] = cv, "colab-secret"
         elif file_vals.get(k):
             resolved[k], source[k] = file_vals[k], ".env"
         else:
-            v = _from_colab(k)
-            if v:
-                resolved[k], source[k] = v, "colab-secret"
-            else:
-                resolved[k], source[k] = "", "MISSING"
+            resolved[k], source[k] = "", "MISSING"
     return resolved, source
 
 
