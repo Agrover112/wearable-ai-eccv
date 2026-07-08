@@ -6,7 +6,7 @@ and renders Fig A (category UMAP) + Fig B (video/text modality UMAP) + the
 video->question retrieval table. Use this to iterate on the figures without
 re-downloading videos.
 
-    FRAMES=32 python scripts/plot_frame_features.py
+    python scripts/plot_frame_features.py --frames 32
 """
 import os, sys
 from pathlib import Path
@@ -17,10 +17,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import eda_frame_features as S           # reuse constants + plotting/retrieval fns
 from pubstyle import set_style
 
-FRAMES = S.FRAMES
+def parse_args():
+    import argparse
+    ap = argparse.ArgumentParser(description="Re-render Step 7 figures from cached "
+                                 "per-video SigLIP features (no streaming).")
+    ap.add_argument("--frames", type=int, default=S.FRAMES,
+                    help="which frame-count cache to plot (default: %(default)s)")
+    return ap.parse_args()
 
 
 def main():
+    a = parse_args()
+    S.FRAMES = a.frames
+    S.CACHE_DIR = S.FEAT / f"frames_siglip_{a.frames}f"
     files = sorted(S.CACHE_DIR.glob("*.npy"))
     if not files:
         sys.exit(f"!! no per-video features in {S.CACHE_DIR} — run eda_frame_features.py first")

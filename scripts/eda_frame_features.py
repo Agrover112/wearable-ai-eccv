@@ -15,6 +15,22 @@ Outputs:
   Per-frame + pooled features cached to features/frame_feats_siglip.npz  (Step 8 reuses)
 
 Publication-quality (ECCV/LNCS) via scripts/pubstyle.py: PDF+PNG, colorblind-safe, booktabs.
+
+Usage:
+  # FULL split — all 700 videos (~9-11 h wall time; fully resumable, so it can
+  # be spread over several sessions — rerunning skips every cached video):
+  python scripts/eda_frame_features.py
+
+  # stratified subset (e.g. 150), list produced by select_videos.py:
+  python scripts/select_videos.py 150 .cache/videos150.txt
+  python scripts/eda_frame_features.py --video-list .cache/videos150.txt
+
+  # flags (env vars FRAMES/N_VIDEOS/VIDEO_LIST/TIME_BUDGET_MIN work as fallback):
+  #   --frames 64             frames sampled per video (default 32)
+  #   --n-videos 100          only the first N rows of the split (quick tests)
+  #   --video-list PATH|a.mp4,b.mp4   subset: file with comma-separated names, or inline
+  #   --time-budget-min 110   stop extracting after this many minutes, still
+  #                           render figures from whatever is cached
 """
 import os, sys, time, gc
 from pathlib import Path
@@ -323,5 +339,31 @@ def main():
     log("=== Step 7 done ===")
 
 
+def parse_args():
+    import argparse
+    ap = argparse.ArgumentParser(description="Stream egolongqa videos, extract SigLIP "
+                                 "frame features, render UMAP figures. Resumable.")
+    ap.add_argument("--frames", type=int, default=FRAMES,
+                    help="frames sampled uniformly per video (default: %(default)s)")
+    ap.add_argument("--n-videos", type=int, default=N_VIDEOS,
+                    help="only the first N rows of the split; 0 = all (default: %(default)s)")
+    ap.add_argument("--video-list", default="",
+                    help="subset: path to a file with comma-separated mp4 names, "
+                         "or the names inline")
+    ap.add_argument("--time-budget-min", type=float, default=TIME_BUDGET_MIN,
+                    help="stop extracting after this many minutes and render figures "
+                         "from the cache; 0 = no limit (default: %(default)s)")
+    return ap.parse_args()
+
+
 if __name__ == "__main__":
+    _a = parse_args()
+    FRAMES = _a.frames
+    N_VIDEOS = _a.n_videos
+    TIME_BUDGET_MIN = _a.time_budget_min
+    if _a.video_list:
+        _p = Path(_a.video_list)
+        _raw = _p.read_text() if _p.exists() else _a.video_list
+        VIDEO_LIST = [n.strip() for n in _raw.replace("\n", ",").split(",") if n.strip()]
+    CACHE_DIR = FEAT / f"frames_siglip_{FRAMES}f"; CACHE_DIR.mkdir(exist_ok=True)
     main()
