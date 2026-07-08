@@ -250,3 +250,62 @@ methods *look* competitive: strong answer priors and an under-sampled baseline
 mask the fact that its core skill — temporal grounding over long egocentric video
 — remains largely untested. Closing that gap, and measuring it honestly against
 the blind floors, is the objective of the remainder of this work.
+
+## Proposed evaluation protocol: shortcut-robust metrics
+
+Raw multiple-choice accuracy conflates visual reasoning with prior exploitation,
+so we evaluate every model on a battery of complementary metrics, each designed
+to neutralise one specific leak identified above:
+
+| Metric | What it isolates |
+|---|---|
+| Margin above the blind floor (acc − 63.4%) | headline: gain attributable to *any* input |
+| Macro accuracy over answer letters (mean of per-letter accuracy) | removes the label prior: an "always-C" policy scores 25%, not 63.4% |
+| CircularEval (MMBench-style: options cycled A→B→C→D; a question counts as correct only if answered correctly under *all* orderings) | letter-position invariance — the strictest test against the C prior |
+| Shortcut-free subset accuracy (questions whose correct option is neither C nor the shortest) | performance with both discovered priors removed |
+| Frame-shuffle drop (accuracy with ordered frames − accuracy with temporally shuffled frames) | genuine *temporal* reasoning, not bag-of-frames recognition |
+| Single-frame vs. 32-frame delta | whether the model exploits the long video at all |
+| Question-blind ablation (video + options only) | how much the model itself regresses to option priors |
+
+A model that improves accuracy while also improving CircularEval, macro-letter
+accuracy, and the frame-shuffle drop is demonstrably reasoning over the video; a
+model that improves accuracy alone is likely exploiting the answer distribution.
+Because the hidden test split need not share the validation split's 63.4% C bias,
+a model that implicitly learns this prior may not transfer — shortcut-robust
+metrics are therefore not only fairer but also more predictive of leaderboard
+performance.
+
+## Modelling roadmap
+
+The analysis identifies the decisive axis of the benchmark as **temporal
+localisation under a fixed token budget**: each recording holds ≈9,000 frames, a
+32-frame uniform sample sees one frame per ~19 s, and the question-relevant event
+may occur anywhere in the recording. Our plan proceeds in rungs, each of which
+must beat the one below on the shortcut-robust metrics above:
+
+1. **Baseline ladder.** Video-blind floors (Table 5) → Qwen3-VL with the
+   starter-kit's 4 uniform frames (protocol parity) → Qwen3-VL with 32 uniform
+   frames. This isolates the value of frame density before any architectural
+   change.
+2. **Question-conditioned frame selection.** Uniform sampling spends most of its
+   budget on irrelevant footage. Using the SigLIP text↔frame similarity
+   infrastructure from our feature-space analysis, we retrieve the temporal
+   window(s) most relevant to each question and allocate frames densely there
+   while keeping a sparse global scaffold — replacing blind uniform sampling with
+   retrieve-then-reason.
+3. **Long-video capacity.** BIMBA's selective-scan token compression ingests
+   dense samplings (64–128 frames) while keeping the LLM token sequence — and the
+   300 s per-query timeout — within budget.
+4. **Inference-time de-biasing.** Predictions are averaged over option-order
+   permutations (CircularEval used as a test-time ensemble), neutralising the
+   letter prior instead of profiting from a validation-split regularity that may
+   not hold on the test split.
+5. **Coarse-to-fine multi-pass.** The 300 s timeout leaves ample headroom over
+   single-pass inference: a coarse low-resolution scan over many frames localises
+   the relevant segment, followed by fine re-attention at high resolution over
+   few frames.
+
+The unifying hypothesis, which the preceding analysis makes testable: on
+10-minute egocentric recordings, *retrieve-then-reason* beats uniform sampling,
+and its gains — unlike prior-exploiting gains — survive shortcut-robust
+evaluation.
