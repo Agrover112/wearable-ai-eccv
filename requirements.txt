@@ -1,0 +1,21 @@
+# Core
+huggingface_hub>=0.25
+datasets>=3.0
+pandas
+pyarrow
+
+# Qwen3-VL inference
+# NOTE: Qwen3-VL support may require transformers from source if a release
+# does not yet include it:  pip install "git+https://github.com/huggingface/transformers"
+transformers>=4.57
+accelerate>=1.0
+qwen-vl-utils
+torch
+torchvision
+
+# Video decoding (long egocentric clips)
+decord
+av
+
+# Utils
+tqdm

@@ -1,0 +1,28 @@
+# ── Heavy / regenerable data — NEVER in git (re-pulled from HF, cached on Drive) ──
+data/
+models/
+outputs/
+*.mp4
+*.parquet
+*.arrow
+
+# ── Secrets ──
+.env
+*.token
+hf_token*
+**/secrets*
+
+# ── HF / torch caches ──
+.cache/
+hf_cache/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# ── OS ──
+.DS_Store
