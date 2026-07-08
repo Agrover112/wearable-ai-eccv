@@ -68,11 +68,18 @@ sampling (64–128 frames) for the long-video model, whose selective temporal to
 compression is designed to ingest and compress many frames within the timeout.
 
 **Table 1b.** Video-duration statistics for the EgoLongQA validation split
-(minutes; $N{=}700$), read from mp4 headers. See `duration_summary.tex`.
+($N{=}700$), read from mp4 headers. See `duration_summary.tex`.
 
-| N | mean | median | s.d. | min | p25 | p75 | p95 | max | fps |
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 700 | 10.2 | 10.0 | 0.87 | 1.2 | 10.0 | 10.2 | 11.1 | 15.0 | 15 |
+| Statistic | Value |
+|---|---:|
+| Videos | 700 |
+| Mean duration | 10.2 min |
+| Median duration | 10.0 min |
+| Std. dev. | 0.87 min |
+| Min / Max | 1.2 / 15.0 min |
+| p25 / p75 / p95 | 10.0 / 10.2 / 11.1 min |
+| Frame rate | 15 fps (all clips) |
+| Total footage | 119 h |
 
 **Figure 1b'.** Distribution of video durations (`dist_video_duration.pdf`):
 mass concentrated at ~10 minutes, motivating denser-than-baseline frame sampling.
