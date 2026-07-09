@@ -279,6 +279,20 @@ a model that implicitly learns this prior may not transfer — shortcut-robust
 metrics are therefore not only fairer but also more predictive of leaderboard
 performance.
 
+**Suggested benchmark fix: random option permutation.** The letter prior is also
+trivially repairable at the data level: randomly permuting the four options of
+each question (re-assigning letters with a fixed seed) drives every letter's
+correct-rate to ~25% and eliminates the 63.4% "always-C" floor outright — the
+same de-biasing philosophy behind VQA v2's answer re-balancing of VQA v1's
+language priors, applied here as position re-assignment; CircularEval is its
+strictest evaluation-time counterpart. We recommend this permutation both (i) to
+the benchmark organisers as a one-line repair of the validation split, and
+(ii) as a standard preprocessing step in our own evaluations, reporting accuracy
+on both the original and the permuted layouts (the leaderboard uses the
+original). Note that permutation removes only the *position* prior; the
+option-content leaks (shortest-option 40.3%, odd-one-out 45.4%) survive it and
+still require the content-side metrics above.
+
 ## Modelling roadmap
 
 The analysis identifies the decisive axis of the benchmark as **temporal
