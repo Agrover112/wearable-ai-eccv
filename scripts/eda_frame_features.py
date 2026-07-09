@@ -230,19 +230,22 @@ def fig_category_umap(xy, cats):
     return savefig(fig, OUT/"figures/umap_video_features_by_category")
 
 
-def fig_modality_umap(xy_joint, n_vid, cats):
-    """Joint video+question UMAP. color+shape = category (shared by each pair),
-    fill = modality (video filled, question hollow)."""
+def fig_modality_umap(xy_joint, n_vid, cats, text_name="question",
+                      outname="umap_video_text_modality"):
+    """Joint video+text UMAP. color+shape = category (shared by each pair),
+    fill = modality (video filled, text hollow). `text_name` labels the text
+    modality (question / answer)."""
     uniq, style = cat_style(cats)
     v, t = xy_joint[:n_vid], xy_joint[n_vid:]
     ca = np.array(cats)
-    fig, ax = plt.subplots(figsize=(DBL*0.78, DBL*0.5))
+    fig, ax = plt.subplots(figsize=(DBL*0.82, DBL*0.5))
+    fig.subplots_adjust(right=0.68)          # reserve room for figure-level legends
     for c in uniq:
         col, mk = style[c]; m = ca == c
         ax.scatter(v[m, 0], v[m, 1], marker=mk, s=32, facecolors=col, edgecolors=col,
                    linewidths=0.6, zorder=3)                 # video = filled
         ax.scatter(t[m, 0], t[m, 1], marker=mk, s=36, facecolors="none", edgecolors=col,
-                   linewidths=0.9, zorder=3)                 # question = hollow
+                   linewidths=0.9, zorder=3)                 # text = hollow
     ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2"); ax.grid(False)
     short = {c: (c if len(c) <= 26 else c[:24] + "…") for c in uniq}
     cat_h = [Line2D([0], [0], marker=style[c][1], color="w", markerfacecolor=style[c][0],
@@ -250,16 +253,17 @@ def fig_modality_umap(xy_joint, n_vid, cats):
     mod_h = [Line2D([0], [0], marker="o", color="w", markerfacecolor="0.45",
                     markeredgecolor="0.45", markersize=6, label="video (filled)"),
              Line2D([0], [0], marker="o", color="w", markerfacecolor="none",
-                    markeredgecolor="0.45", markersize=6, label="question (hollow)")]
-    leg1 = ax.legend(handles=cat_h, loc="center left", bbox_to_anchor=(1.01, 0.65),
-                     fontsize=6, frameon=False, title="category", title_fontsize=6.5,
-                     labelspacing=0.3)
-    ax.add_artist(leg1)
-    ax.legend(handles=mod_h, loc="center left", bbox_to_anchor=(1.01, 0.12), fontsize=6,
-              frameon=False, title="modality", title_fontsize=6.5, labelspacing=0.3)
-    ax.set_title(f"Shared SigLIP space: video vs. question, colored by category\n{SIGLIP}",
-                 fontsize=7)
-    return savefig(fig, OUT/"figures/umap_video_text_modality")
+                    markeredgecolor="0.45", markersize=6, label=f"{text_name} (hollow)")]
+    # figure-level legends are always inside the saved bounding box (no clipping)
+    fig.legend(handles=cat_h, loc="center left", bbox_to_anchor=(0.70, 0.62),
+               fontsize=6, frameon=False, title="category", title_fontsize=6.5,
+               labelspacing=0.3)
+    fig.legend(handles=mod_h, loc="center left", bbox_to_anchor=(0.70, 0.14),
+               fontsize=6, frameon=False, title="modality", title_fontsize=6.5,
+               labelspacing=0.3)
+    ax.set_title(f"Shared SigLIP space: video vs. {text_name}, colored by category\n"
+                 f"{SIGLIP}", fontsize=7)
+    return savefig(fig, OUT/f"figures/{outname}")
 
 
 def retrieval_table(vid, qtext):
