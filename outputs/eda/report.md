@@ -209,13 +209,35 @@ C's 63.4% base rate — so the length bias carries no additional information abo
 the letter and vice versa. They are two distinct, separately exploitable
 shortcuts rather than one confound.
 
+**Option-content leaks: the annotation process is visible in the options.**
+Beyond position and length, the *content* of the options betrays how they were
+written. Multiple-choice distractors are typically produced by writing the
+correct answer first and then mutating it (swap a colour, an object, a place);
+the correct option therefore sits in the *semantic middle* of the four, while
+distractors drift outward. A blind "most-typical option" heuristic exploits
+this: embed the four option texts (`all-MiniLM-L6-v2`), and pick the option with
+the highest mean cosine similarity to the other three. On EgoLongQA this scores
+**45.4%** — nearly twice chance and the second-strongest blind policy we found,
+using neither the video nor the question. Two companion probes complete the
+picture. First, a *lexical-overlap* policy (pick the option sharing the most
+content words with the question) scores only **13.3%** — far *below* chance,
+i.e. anti-correlated: distractors recycle the question's wording more than the
+correct option does, so the leak exists but runs in reverse. Second, matching
+the free-form `answer` field against the four options identifies the correct
+option in **99.9%** of questions (mean cosine 0.997 vs. 0.559 for distractors) —
+direct evidence that the options were generated from the reference answer, which
+both explains the semantic-middle effect and licenses option-matching as an
+automatic grader for free-text model outputs.
+
 **Table 5.** Video-blind baselines exposed by the shortcut audit (chance = 25%).
 
 | Video-blind policy | Accuracy |
 |---|---:|
 | Always answer **C** | 63.4% |
+| **Most-typical option** (odd-one-out, MiniLM) | 45.4% |
 | Always pick the **shortest** option | 40.3% |
 | Random guess | 25.0% |
+| Max **lexical overlap** with the question | 13.3% |
 
 ## Implications for modelling and evaluation
 
@@ -250,6 +272,42 @@ methods *look* competitive: strong answer priors and an under-sampled baseline
 mask the fact that its core skill — temporal grounding over long egocentric video
 — remains largely untested. Closing that gap, and measuring it honestly against
 the blind floors, is the objective of the remainder of this work.
+
+## Feature-space analysis: category structure and text–video alignment
+
+To characterise the visual side without training anything, we stream a
+category-stratified subset of 107 videos, sample 32 frames uniformly per video,
+encode each frame with `google/siglip2-so400m-patch14-384`, and mean-pool to one
+vector per video; questions are encoded with the same model's text tower, so
+both modalities share one embedding space. Two observations follow.
+
+**Categories are visible in frame features alone.** A UMAP projection of the
+pooled video vectors, coloured by scene category, shows coherent groupings —
+*Shopping*, *Travel-Sightseeing (Indoors)*, and *Daily Activities* each form
+recognisable clusters (`umap_video_features_by_category.pdf`). Whole-video
+appearance already carries category-level signal before any temporal reasoning.
+
+**The shared space genuinely aligns videos with their questions.** We test
+alignment as a retrieval problem: for each video, rank *all* 107 questions by
+cosine similarity to the pooled video vector, and record the rank of that
+video's own question. If video and text embeddings were unrelated, the true
+question would land at rank ~54 on average, with a 0.93% chance of ranking
+first. Instead (Table 6), the true question ranks **first for 43.0%** of videos
+(46× chance), in the top five for 71.0%, with a **median rank of 2** out of 107.
+The joint projection (`umap_video_text_modality.pdf`) shows the two modalities
+as separated clusters — the well-known contrastive *modality gap* — which
+coexists with this strong pairwise alignment: absolute positions differ by
+modality, but relative geometry matches videos to their questions. Practically,
+this licenses the retrieval component of our modelling roadmap: an encoder that
+matches a whole video to its question at 46× chance can plausibly score
+individual frames against a question to localise the relevant segment.
+
+**Table 6.** Video→question retrieval in the shared SigLIP space (N=107,
+32 frames/video, mean-pooled). See `video_text_retrieval.tex`.
+
+| N | R@1 | R@5 | R@10 | median rank | chance R@1 |
+|---:|---:|---:|---:|---:|---:|
+| 107 | 43.0% | 71.0% | 82.2% | 2 | 0.93% |
 
 ## Proposed evaluation protocol: shortcut-robust metrics
 
