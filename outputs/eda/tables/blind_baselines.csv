@@ -1,0 +1,6 @@
+video-blind policy,accuracy (%),shortcut
+Always answer C,63.4,yes
+"Most-typical option (odd-one-out, MiniLM)",45.4,yes
+Always pick shortest option,40.3,yes
+Random guess,25.0,—
+Max lexical overlap with question,13.3,yes

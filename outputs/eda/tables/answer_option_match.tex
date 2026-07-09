@@ -1,0 +1,13 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Free-form \texttt{answer} field vs.\ MCQ options (MiniLM cosine). High agreement enables option-matching as an automatic grader for free-text model outputs.}
+\label{tab:answer_match}
+\begin{tabular}{rrrr}
+\toprule
+N & nearest option = correct (\%) & mean cos(answer, correct option) & mean cos(answer, distractor) \\
+\midrule
+700 & 99.900 & 0.997 & 0.559 \\
+\bottomrule
+\end{tabular}
+\end{table}

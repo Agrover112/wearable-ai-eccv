@@ -244,8 +244,9 @@ def fig_modality_umap(xy_joint, n_vid, cats):
         ax.scatter(t[m, 0], t[m, 1], marker=mk, s=36, facecolors="none", edgecolors=col,
                    linewidths=0.9, zorder=3)                 # question = hollow
     ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2"); ax.grid(False)
+    short = {c: (c if len(c) <= 26 else c[:24] + "…") for c in uniq}
     cat_h = [Line2D([0], [0], marker=style[c][1], color="w", markerfacecolor=style[c][0],
-                    markeredgecolor=style[c][0], markersize=6, label=c) for c in uniq]
+                    markeredgecolor=style[c][0], markersize=6, label=short[c]) for c in uniq]
     mod_h = [Line2D([0], [0], marker="o", color="w", markerfacecolor="0.45",
                     markeredgecolor="0.45", markersize=6, label="video (filled)"),
              Line2D([0], [0], marker="o", color="w", markerfacecolor="none",

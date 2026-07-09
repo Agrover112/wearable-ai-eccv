@@ -1,0 +1,13 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Video$\to$question retrieval in the shared SigLIP space (google/siglip2-so400m-patch14-384, 32 frames/video, N=114). Rank of the true question when ranking all questions by cosine similarity to each video; higher R@k / lower median rank = stronger text$\leftrightarrow$video alignment.}
+\label{tab:vt_retrieval}
+\begin{tabular}{rrrrrr}
+\toprule
+N & R@1 (\%) & R@5 (\%) & R@10 (\%) & median rank & chance R@1 (\%) \\
+\midrule
+114 & 41.2 & 68.4 & 81.6 & 2 & 0.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
