@@ -5,6 +5,9 @@ models/
 outputs/*
 # ...but DO keep the small EDA text outputs (reports, tables, figures) in git:
 !outputs/eda/
+runs/
+slurm_logs/
+baselines/longqa/output/
 *.mp4
 *.parquet
 *.arrow

@@ -1,0 +1,187 @@
+{
+  "source": "wearable_ai_2026_egolongqa_val_700.jsonl",
+  "n": 20,
+  "seed": 20260709,
+  "samples": [
+    {
+      "index": 24,
+      "key": "0b38cc26c3cf4364.mp4||I moved an object from the floor to the kitchen island during the video. What was the object and where was it first located?",
+      "video_path": "0b38cc26c3cf4364.mp4",
+      "question": "I moved an object from the floor to the kitchen island during the video. What was the object and where was it first located?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 62,
+      "key": "1a5db01abab90677.mp4||What did I point at with my hand, and when did I next have the water bottle in my hand after that?",
+      "video_path": "1a5db01abab90677.mp4",
+      "question": "What did I point at with my hand, and when did I next have the water bottle in my hand after that?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 68,
+      "key": "1ae2ae78bd7cf791.mp4||What were the executive producers listed on the first CD case I cleaned, and who is the artist of the last CD case I cleaned?",
+      "video_path": "1ae2ae78bd7cf791.mp4",
+      "question": "What were the executive producers listed on the first CD case I cleaned, and who is the artist of the last CD case I cleaned?",
+      "category": "Daily Activities",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 109,
+      "key": "286c91162b2b9918.mp4||I noticed two different hot pot restaurants during my walk. What were their names, and which one was closer to where I parked my car?",
+      "video_path": "286c91162b2b9918.mp4",
+      "question": "I noticed two different hot pot restaurants during my walk. What were their names, and which one was closer to where I parked my car?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 110,
+      "key": "286ebb5140e19aa3.mp4||What was the last non-food item I interacted with before I started interacting with food items, and what was the first food item I interacted with?",
+      "video_path": "286ebb5140e19aa3.mp4",
+      "question": "What was the last non-food item I interacted with before I started interacting with food items, and what was the first food item I interacted with?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 124,
+      "key": "2d40456bebd844e6.mp4||After passing the gate marked 'Area under surveillance', did I later return to the stone-pillared entrance where I first entered the park?",
+      "video_path": "2d40456bebd844e6.mp4",
+      "question": "After passing the gate marked 'Area under surveillance', did I later return to the stone-pillared entrance where I first entered the park?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 230,
+      "key": "4d5cedb4f06e60ad.mp4||Which retailer did I see on a storefront while walking outside that I later saw again inside the mall?",
+      "video_path": "4d5cedb4f06e60ad.mp4",
+      "question": "Which retailer did I see on a storefront while walking outside that I later saw again inside the mall?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 239,
+      "key": "4fb34c7377dead94.mp4||What did the TV screen display when I first saw it in the seating area, and what did it show later, and what does this reveal about the organization?",
+      "video_path": "4fb34c7377dead94.mp4",
+      "question": "What did the TV screen display when I first saw it in the seating area, and what did it show later, and what does this reveal about the organization?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 246,
+      "key": "5388720913f4570e.mp4||Earlier I saw a sign directing me to the Frozen Forest Trail; later, after walking through a lighted arched tunnel in the wooded area, what did the sign at the trail's end explain about the dead trees I had passed?",
+      "video_path": "5388720913f4570e.mp4",
+      "question": "Earlier I saw a sign directing me to the Frozen Forest Trail; later, after walking through a lighted arched tunnel in the wooded area, what did the sign at the trail's end explain about the dead trees I had passed?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 260,
+      "key": "56b9ee6e6098c584.mp4||I first noticed a person with a light green backpack under scaffolding; what store had I just passed before that, and what sign was visible near them the last time I saw them?",
+      "video_path": "56b9ee6e6098c584.mp4",
+      "question": "I first noticed a person with a light green backpack under scaffolding; what store had I just passed before that, and what sign was visible near them the last time I saw them?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 291,
+      "key": "61876f06c149d4c8.mp4||Why did I add dish soap to the pot when washing the second vegetable but not the first?",
+      "video_path": "61876f06c149d4c8.mp4",
+      "question": "Why did I add dish soap to the pot when washing the second vegetable but not the first?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 321,
+      "key": "6befb649e6eb4570.mp4||I saw a sign on the decorated Christmas tree instructing me to pay for ornaments in the Nature Store. Where did I later find those ornaments available for purchase?",
+      "video_path": "6befb649e6eb4570.mp4",
+      "question": "I saw a sign on the decorated Christmas tree instructing me to pay for ornaments in the Nature Store. Where did I later find those ornaments available for purchase?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 367,
+      "key": "7d218c229be9704a.mp4||When I saw the 'COST ENX' graffiti for the second time, what was the color of the van parked on the street below it?",
+      "video_path": "7d218c229be9704a.mp4",
+      "question": "When I saw the 'COST ENX' graffiti for the second time, what was the color of the van parked on the street below it?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 422,
+      "key": "9068818ab1d1e684.mp4||After I passed the San Francisco Bay Trail sign, I later saw a person walking an animal on the path. What was the animal, and what building did I encounter shortly after that?",
+      "video_path": "9068818ab1d1e684.mp4",
+      "question": "After I passed the San Francisco Bay Trail sign, I later saw a person walking an animal on the path. What was the animal, and what building did I encounter shortly after that?",
+      "category": "Outdoor Activities and Sports",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 453,
+      "key": "9da48913823712b0.mp4||After I picked up the gold three kings decoration, what was the cheapest price for a nativity set I later saw on a shelf?",
+      "video_path": "9da48913823712b0.mp4",
+      "question": "After I picked up the gold three kings decoration, what was the cheapest price for a nativity set I later saw on a shelf?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 465,
+      "key": "a12fcce1fd9303be.mp4||After I put on the blue gloves, what was the first part of the wall I patched, and what was the last part I patched in the video?",
+      "video_path": "a12fcce1fd9303be.mp4",
+      "question": "After I put on the blue gloves, what was the first part of the wall I patched, and what was the last part I patched in the video?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 528,
+      "key": "bbf6e152b6ee763a.mp4||After I purchased the Freeze Time card, how did the market change, and what dice rolls by the opponent enabled that change?",
+      "video_path": "bbf6e152b6ee763a.mp4",
+      "question": "After I purchased the Freeze Time card, how did the market change, and what dice rolls by the opponent enabled that change?",
+      "category": "Pets, social gatherings with friends and family",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 537,
+      "key": "bf2a33ef5e329708.mp4||After parking in front of the house with the number 2740, what setting did I change on the touchscreen that was directly related to the driving mode I used to navigate there, which I had configured before the trip began?",
+      "video_path": "bf2a33ef5e329708.mp4",
+      "question": "After parking in front of the house with the number 2740, what setting did I change on the touchscreen that was directly related to the driving mode I used to navigate there, which I had configured before the trip began?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 552,
+      "key": "c8cb286a8a6583c7.mp4||After the second person joined me, what timer setting did I change to, and what did I subsequently adjust in the garden that was affected by this change?",
+      "video_path": "c8cb286a8a6583c7.mp4",
+      "question": "After the second person joined me, what timer setting did I change to, and what did I subsequently adjust in the garden that was affected by this change?",
+      "category": "Gardening",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 682,
+      "key": "f86d9f011c206fcd.mp4||After passing the sign that stated the trail is 3 miles long and for foot traffic only, I walked through a culvert and then encountered water on the trail. How many distinct water crossings did I make after the culvert, and what was the trail length mentioned on the sign?",
+      "video_path": "f86d9f011c206fcd.mp4",
+      "question": "After passing the sign that stated the trail is 3 miles long and for foot traffic only, I walked through a culvert and then encountered water on the trail. How many distinct water crossings did I make after the culvert, and what was the trail length mentioned on the sign?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    }
+  ]
+}

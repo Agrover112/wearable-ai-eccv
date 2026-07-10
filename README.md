@@ -8,6 +8,8 @@ Face and never stored (the split is ~203 GB).
 - Analysis plan: [`docs/analysis_plan.md`](docs/analysis_plan.md)
 - Findings (paper-draft prose): [`outputs/eda/report.md`](outputs/eda/report.md)
 - Project conventions: [`CLAUDE.md`](CLAUDE.md)
+- LongQA baseline implementation: [`baselines/longqa/README_PROJECT.md`](baselines/longqa/README_PROJECT.md)
+- Baseline results and diagnostics: [`docs/longqa/RUN_LOG.md`](docs/longqa/RUN_LOG.md)
 
 ## Setup
 
