@@ -31,6 +31,9 @@ from longqa_utils import (
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_GROUNDER_MODEL = "google/siglip-base-patch16-224"
+GROUNDING_CACHE_SCHEMA = 1
+
 
 @dataclass(frozen=True)
 class CandidateFrame:
@@ -163,6 +166,8 @@ class TextImageGrounder:
         model_id: str,
         device: str = "cuda",
         batch_size: int = 32,
+        dtype: str = "float32",
+        revision: str | None = None,
     ) -> None:
         import torch
         from transformers import AutoModel, AutoProcessor
@@ -171,59 +176,215 @@ class TextImageGrounder:
             device = "cpu"
         self.device = torch.device(device)
         self.batch_size = batch_size
-        self.processor = AutoProcessor.from_pretrained(model_id)
-        self.model = AutoModel.from_pretrained(model_id).to(self.device)
+        self.model_id = model_id
+        self.model_revision = revision
+        self.dtype = dtype
+        self.processor = AutoProcessor.from_pretrained(model_id, revision=revision)
+        model_kwargs = {"revision": revision}
+        if dtype != "auto":
+            model_kwargs["dtype"] = getattr(torch, dtype)
+        self.model = AutoModel.from_pretrained(model_id, **model_kwargs).to(self.device)
         self.model.eval()
 
-    def score(self, text: str, frames: list[CandidateFrame]) -> list[float]:
+    def encode_images(self, frames: list[CandidateFrame]) -> "np.ndarray":
+        import numpy as np
         import torch
         import torch.nn.functional as F
 
         if not frames:
-            return []
+            return np.empty((0, 0), dtype=np.float32)
+        if not hasattr(self.model, "get_image_features"):
+            raise RuntimeError("Grounding model does not expose get_image_features")
 
-        scores: list[float] = []
+        features: list[np.ndarray] = []
         with torch.no_grad():
             for start in range(0, len(frames), self.batch_size):
                 batch = frames[start : start + self.batch_size]
                 images = [frame.image for frame in batch]
                 inputs = self.processor(
-                    text=[text],
                     images=images,
                     return_tensors="pt",
-                    padding=True,
-                    truncation=True,
                 )
                 inputs = {
                     k: v.to(self.device) if hasattr(v, "to") else v
                     for k, v in inputs.items()
                 }
-                outputs = self.model(**inputs)
-                logits = getattr(outputs, "logits_per_image", None)
-                if logits is not None:
-                    batch_scores = logits[:, 0]
-                elif hasattr(self.model, "get_image_features") and hasattr(
-                    self.model, "get_text_features"
-                ):
-                    image_features = self.model.get_image_features(
-                        pixel_values=inputs["pixel_values"]
-                    )
-                    text_kwargs = {
-                        k: v
-                        for k, v in inputs.items()
-                        if k in ("input_ids", "attention_mask", "token_type_ids")
-                    }
-                    text_features = self.model.get_text_features(**text_kwargs)
-                    image_features = F.normalize(image_features, dim=-1)
-                    text_features = F.normalize(text_features, dim=-1)
-                    batch_scores = image_features @ text_features[0]
-                else:
-                    raise RuntimeError(
-                        "Grounding model does not expose logits_per_image or "
-                        "get_image_features/get_text_features."
-                    )
-                scores.extend(float(x) for x in batch_scores.detach().cpu().tolist())
-        return scores
+                image_features = _pooled_features(
+                    self.model.get_image_features(**inputs),
+                    "image",
+                )
+                image_features = F.normalize(image_features, dim=-1)
+                features.append(image_features.float().cpu().numpy())
+        return np.concatenate(features, axis=0)
+
+    def encode_texts(self, texts: list[str]) -> "np.ndarray":
+        import numpy as np
+        import torch
+        import torch.nn.functional as F
+
+        if not texts:
+            return np.empty((0, 0), dtype=np.float32)
+        if not hasattr(self.model, "get_text_features"):
+            raise RuntimeError("Grounding model does not expose get_text_features")
+        inputs = self.processor(
+            text=texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        )
+        inputs = {
+            k: v.to(self.device) if hasattr(v, "to") else v
+            for k, v in inputs.items()
+        }
+        with torch.no_grad():
+            text_features = _pooled_features(
+                self.model.get_text_features(**inputs),
+                "text",
+            )
+            text_features = F.normalize(text_features, dim=-1)
+        return text_features.float().cpu().numpy()
+
+    def score_embeddings(self, text: str, image_features: "np.ndarray") -> list[float]:
+        text_features = self.encode_texts([text])
+        if image_features.shape[0] == 0:
+            return []
+        return [float(value) for value in (image_features @ text_features[0]).tolist()]
+
+    def score(self, text: str, frames: list[CandidateFrame]) -> list[float]:
+        return self.score_embeddings(text, self.encode_images(frames))
+
+
+def _pooled_features(output: object, modality: str) -> object:
+    """Handle tensor and structured outputs across Transformers versions."""
+    if hasattr(output, "norm"):
+        return output
+    pooled = getattr(output, "pooler_output", None)
+    if pooled is not None:
+        return pooled
+    if isinstance(output, (tuple, list)) and len(output) > 1:
+        return output[1]
+    raise TypeError(
+        f"Grounder {modality} encoder returned unsupported output "
+        f"type {type(output).__name__}; expected a tensor or pooled model output"
+    )
+
+
+def _grounder_cache_path(
+    cache_dir: str,
+    model_id: str,
+    candidate_count: int,
+    video_path: str,
+    revision: str | None = None,
+) -> str:
+    model_key = query_hash(f"{model_id}@{revision or 'default'}")
+    video_key = os.path.splitext(os.path.basename(video_path))[0]
+    return os.path.join(cache_dir, model_key, f"c{candidate_count}", f"{video_key}.npz")
+
+
+def load_grounder_feature_cache(
+    cache_path: str,
+    model_id: str,
+    candidate_count: int,
+    revision: str | None = None,
+    video_path: str | None = None,
+) -> tuple[list[CandidateFrame], "np.ndarray"] | None:
+    import numpy as np
+
+    if not os.path.exists(cache_path):
+        return None
+    try:
+        with np.load(cache_path, allow_pickle=False) as data:
+            if str(data["model_id"].item()) != model_id:
+                return None
+            if str(data["model_revision"].item()) != (revision or ""):
+                return None
+            if int(data["requested_candidates"].item()) != candidate_count:
+                return None
+            if video_path:
+                stat = os.stat(video_path)
+                if int(data["video_size"].item()) != stat.st_size:
+                    return None
+                if int(data["video_mtime_ns"].item()) != stat.st_mtime_ns:
+                    return None
+            indices = data["frame_indices"].astype(int)
+            timestamps = data["timestamps"].astype(float)
+            features = data["features"].astype(np.float32)
+    except (KeyError, OSError, ValueError):
+        return None
+    if not (len(indices) == len(timestamps) == features.shape[0]):
+        return None
+    candidates = [
+        CandidateFrame(index=int(index), timestamp=float(timestamp), image=None)
+        for index, timestamp in zip(indices, timestamps)
+    ]
+    return candidates, features
+
+
+def save_grounder_feature_cache(
+    cache_path: str,
+    model_id: str,
+    candidate_count: int,
+    candidates: list[CandidateFrame],
+    features: "np.ndarray",
+    revision: str | None = None,
+    video_path: str | None = None,
+) -> None:
+    import numpy as np
+
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    tmp_path = f"{cache_path}.tmp.npz"
+    stat = os.stat(video_path) if video_path else None
+    np.savez_compressed(
+        tmp_path,
+        model_id=np.asarray(model_id),
+        model_revision=np.asarray(revision or ""),
+        requested_candidates=np.asarray(candidate_count, dtype=np.int32),
+        video_size=np.asarray(stat.st_size if stat else -1, dtype=np.int64),
+        video_mtime_ns=np.asarray(stat.st_mtime_ns if stat else -1, dtype=np.int64),
+        frame_indices=np.asarray([frame.index for frame in candidates], dtype=np.int64),
+        timestamps=np.asarray([frame.timestamp for frame in candidates], dtype=np.float64),
+        features=np.asarray(features, dtype=np.float32),
+    )
+    os.replace(tmp_path, cache_path)
+
+
+def load_or_encode_grounder_features(
+    video_path: str,
+    candidate_count: int,
+    grounder: TextImageGrounder,
+    cache_dir: str | None,
+) -> tuple[list[CandidateFrame], "np.ndarray", bool]:
+    cache_path = None
+    if cache_dir:
+        cache_path = _grounder_cache_path(
+            cache_dir,
+            grounder.model_id,
+            candidate_count,
+            video_path,
+            revision=grounder.model_revision,
+        )
+        cached = load_grounder_feature_cache(
+            cache_path,
+            grounder.model_id,
+            candidate_count,
+            revision=grounder.model_revision,
+            video_path=video_path,
+        )
+        if cached is not None:
+            return cached[0], cached[1], True
+    candidates = extract_candidate_frames(video_path, candidate_count)
+    features = grounder.encode_images(candidates)
+    if cache_path:
+        save_grounder_feature_cache(
+            cache_path,
+            grounder.model_id,
+            candidate_count,
+            candidates,
+            features,
+            revision=grounder.model_revision,
+            video_path=video_path,
+        )
+    return candidates, features, False
 
 
 def build_grounding_queries(
@@ -380,11 +541,16 @@ def score_queries(
     grounder: TextImageGrounder,
     queries: list[GroundingQuery],
     candidates: list[CandidateFrame],
+    image_features: "np.ndarray" | None = None,
 ) -> tuple[list[float], list[str], list[dict[str, object]]]:
     all_scores: list[list[float]] = []
     query_meta: list[dict[str, object]] = []
     for query in queries:
-        scores = grounder.score(query.text, candidates)
+        scores = (
+            grounder.score_embeddings(query.text, image_features)
+            if image_features is not None
+            else grounder.score(query.text, candidates)
+        )
         all_scores.append(scores)
         query_meta.append(
             {
@@ -551,6 +717,31 @@ def _run_eval(input_path: str, output_path: str, eval_output: str | None) -> Non
     print(f"Summary written to {summary_path}")
 
 
+def grounding_config_fingerprint(args: argparse.Namespace) -> str:
+    payload = {
+        "schema": GROUNDING_CACHE_SCHEMA,
+        "grounder_model": args.grounder_model,
+        "grounder_revision": args.grounder_revision,
+        "grounder_dtype": args.grounder_dtype,
+        "candidate_frames": args.candidate_frames,
+        "top_k": args.top_k,
+        "top_k_per_option": args.top_k_per_option,
+        "anchor_k": args.anchor_k,
+        "window_radius": args.window_radius,
+        "final_max_frames": args.final_max_frames,
+        "retrieval_query_mode": args.retrieval_query_mode,
+        "temporal_nms_seconds": args.temporal_nms_seconds,
+        "temporal_nms_candidates": args.temporal_nms_candidates,
+        "coarse_to_fine": args.coarse_to_fine,
+        "coarse_candidate_frames": args.coarse_candidate_frames,
+        "num_windows": args.num_windows,
+        "window_radius_candidates": args.window_radius_candidates,
+        "frames_per_window": args.frames_per_window,
+        "global_anchor_k": args.global_anchor_k,
+    }
+    return query_hash(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate LongQA predictions with CLIP/SigLIP frame grounding."
@@ -588,11 +779,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--global-anchor-k", type=int, default=32)
     parser.add_argument(
         "--grounder-model",
-        default="google/siglip-base-patch16-224",
+        default=DEFAULT_GROUNDER_MODEL,
         help="CLIP/SigLIP-style model used only for frame selection.",
     )
     parser.add_argument("--grounder-device", default="cuda")
     parser.add_argument("--grounder-batch-size", type=int, default=32)
+    parser.add_argument(
+        "--grounder-revision",
+        default=None,
+        help="Optional Hugging Face commit/tag used for model and cache identity.",
+    )
+    parser.add_argument(
+        "--grounder-dtype",
+        choices=["auto", "float32", "float16", "bfloat16"],
+        default="float32",
+        help="Grounder weight dtype. Default preserves the existing baseline.",
+    )
+    parser.add_argument(
+        "--grounder-cache-dir",
+        default=None,
+        help="Optional directory for reusable normalized frame embeddings.",
+    )
     parser.add_argument("--grounding-output", default=None)
     parser.add_argument(
         "--no-resume-grounding",
@@ -642,6 +849,10 @@ def main() -> None:
         if args.grounding_output
         else os.path.splitext(output_path)[0] + "_grounding.jsonl"
     )
+    grounder_cache_dir = (
+        _resolve_path(args.grounder_cache_dir) if args.grounder_cache_dir else None
+    )
+    config_fingerprint = grounding_config_fingerprint(args)
 
     rows = load_jsonl(input_path)
     rows = apply_subset(rows, args.subset_file)
@@ -660,7 +871,10 @@ def main() -> None:
         f"temporal_nms_seconds={args.temporal_nms_seconds}, "
         f"coarse_to_fine={args.coarse_to_fine}, "
         f"prompt_variant={args.prompt_variant}, "
-        f"grounder={args.grounder_model}, backend={args.backend}, "
+        f"grounder={args.grounder_model}@{args.grounder_revision or 'default'}, "
+        f"grounder_dtype={args.grounder_dtype}, "
+        f"grounder_cache={grounder_cache_dir or 'disabled'}, "
+        f"grounding_fingerprint={config_fingerprint}, backend={args.backend}, "
         f"resume_grounding={not args.no_resume_grounding}, "
         f"resume_predictions={not args.no_resume_predictions}"
     )
@@ -688,6 +902,27 @@ def main() -> None:
         cached_mode = meta.get("retrieval_query_mode")
         if cached_mode not in (None, args.retrieval_query_mode):
             break
+        expected_queries = build_grounding_queries(rows[row_idx], args.retrieval_query_mode)
+        expected_query_hashes = [query_hash(query.text) for query in expected_queries]
+        cached_query_hashes = [
+            str(item.get("hash", ""))
+            for item in meta.get("queries", [])
+            if isinstance(item, dict)
+        ]
+        if cached_query_hashes and cached_query_hashes != expected_query_hashes:
+            break
+        cached_fingerprint = meta.get("grounding_config_fingerprint")
+        if cached_fingerprint is None:
+            if (
+                args.grounder_model != DEFAULT_GROUNDER_MODEL
+                or args.grounder_revision
+                or grounder_cache_dir
+            ):
+                break
+        elif str(cached_fingerprint) != config_fingerprint:
+            break
+        if cached_fingerprint is not None and not cached_query_hashes:
+            break
         if int(meta.get("selected_frames", -1)) > args.final_max_frames:
             break
         valid_cached_records.append(meta)
@@ -702,6 +937,8 @@ def main() -> None:
             args.grounder_model,
             device=args.grounder_device,
             batch_size=args.grounder_batch_size,
+            dtype=args.grounder_dtype,
+            revision=args.grounder_revision,
         )
         if len(selection_records) != len(cached_records):
             with open(grounding_output, "w") as meta_f:
@@ -719,7 +956,14 @@ def main() -> None:
                     if args.coarse_to_fine and args.coarse_candidate_frames
                     else args.candidate_frames
                 )
-                candidates = extract_candidate_frames(video_path, candidate_count)
+                candidates, image_features, feature_cache_hit = (
+                    load_or_encode_grounder_features(
+                        video_path,
+                        candidate_count,
+                        grounder,
+                        grounder_cache_dir,
+                    )
+                )
                 queries = build_grounding_queries(row, args.retrieval_query_mode)
                 query_meta: list[dict[str, object]]
                 selection_meta: dict[str, object]
@@ -727,7 +971,10 @@ def main() -> None:
                     query_scores: dict[str, list[float]] = {}
                     query_meta = []
                     for query in queries:
-                        query_scores[query.label] = grounder.score(query.text, candidates)
+                        query_scores[query.label] = grounder.score_embeddings(
+                            query.text,
+                            image_features,
+                        )
                         query_meta.append(
                             {"label": query.label, "hash": query_hash(query.text)}
                         )
@@ -747,6 +994,7 @@ def main() -> None:
                         grounder,
                         queries,
                         candidates,
+                        image_features=image_features,
                     )
                     if args.coarse_to_fine:
                         selected, selection_meta = select_coarse_to_fine_frames(
@@ -782,6 +1030,11 @@ def main() -> None:
                     "temporal_nms_seconds": args.temporal_nms_seconds,
                     "temporal_nms_candidates": args.temporal_nms_candidates,
                     "coarse_to_fine": args.coarse_to_fine,
+                    "grounder_model": args.grounder_model,
+                    "grounder_revision": args.grounder_revision,
+                    "grounder_dtype": args.grounder_dtype,
+                    "grounding_config_fingerprint": config_fingerprint,
+                    "feature_cache_hit": feature_cache_hit,
                     "queries": query_meta,
                     "selection_meta": selection_meta,
                     "selected": [

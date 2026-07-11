@@ -48,6 +48,32 @@ TEMPORAL_CUES = {
     "eventually",
 }
 
+QUESTION_TYPE_PATTERNS = {
+    "ocr_named_detail": (
+        r"\b(sign|written|word|name|named|label|title|text|plaque|price|cost|"
+        r"brand|store|station|artist|album|book|number|tag)\b",
+    ),
+    "count_quantity": (r"\bhow many\b", r"\bnumber of\b", r"\bcount\b", r"\bhow much\b"),
+    "color_appearance": (
+        r"\b(colou?r|pattern|shape|decorat|appearance|look|wear|shirt|surface|"
+        r"material|texture)\b",
+    ),
+    "spatial_location": (
+        r"\bwhere\b",
+        r"\b(left|right|near|next to|behind|front|inside|outside|location|place|area)\b",
+    ),
+    "fine_object_identity": (
+        r"\b(which|what) (item|object|tool|ingredient|product|device|vehicle|"
+        r"animal|food|container|building|artwork|species|type)\b",
+    ),
+    "cross_time_ordering": (
+        r"\b(after|before|earlier|later|first|last|then|again|order|between|"
+        r"during|previously|eventually|end of)\b",
+    ),
+}
+
+QUESTION_TYPE_PRIORITY = tuple(QUESTION_TYPE_PATTERNS)
+
 BASELINE_PROMPT_TEMPLATE = (
     "Watch the video and answer the following multiple-choice question.\n\n"
     "Question: {question}\n\n"
@@ -167,6 +193,22 @@ def parse_mcq_options(mcq_options: object) -> dict[str, str]:
 def has_temporal_cue(question: object) -> bool:
     tokens = re.findall(r"[A-Za-z]+", str(question).lower())
     return any(token in TEMPORAL_CUES for token in tokens)
+
+
+def classify_question_types(question: object) -> list[str]:
+    """Return deterministic, overlapping question-type tags."""
+    text = str(question)
+    return [
+        name
+        for name, patterns in QUESTION_TYPE_PATTERNS.items()
+        if any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
+    ]
+
+
+def primary_question_type(question: object) -> str:
+    """Return the first matching tag for mutually exclusive reporting."""
+    tags = set(classify_question_types(question))
+    return next((name for name in QUESTION_TYPE_PRIORITY if name in tags), "other")
 
 
 def sample_key(row: dict[str, Any]) -> str:
