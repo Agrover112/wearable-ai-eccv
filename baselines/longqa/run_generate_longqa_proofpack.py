@@ -44,7 +44,12 @@ from run_generate_longqa_grounded import (
 
 logger = logging.getLogger(__name__)
 
-STRATEGIES = ("eventlet_hybrid", "option_contrastive", "temporal_pivot")
+STRATEGIES = (
+    "eventlet_hybrid",
+    "option_contrastive",
+    "temporal_pivot",
+    "operator_router",
+)
 PROOFPACK_SCHEMA = 1
 
 
@@ -154,6 +159,42 @@ def _boundary_scores(image_features: np.ndarray) -> list[float]:
     for idx in range(1, len(image_features)):
         scores.append(float(1.0 - np.dot(image_features[idx], image_features[idx - 1])))
     return scores
+
+
+def baseline_uniform_indices(total_frames: int, frame_count: int) -> list[int]:
+    """Match model.extract_frames() for one full-video interval."""
+    if total_frames <= 0 or frame_count <= 0:
+        return []
+    end_frame = total_frames - 1
+    count = min(frame_count, total_frames)
+    step = end_frame / count
+    return sorted({int(idx * step) for idx in range(count)})
+
+
+def select_baseline_uniform_frames(
+    video_path: str, frame_count: int
+) -> tuple[list[SelectedFrame], dict[str, Any]]:
+    import cv2
+
+    cap = cv2.VideoCapture(video_path)
+    try:
+        if not cap.isOpened():
+            return [], {"uniform_frames": 0}
+        fps = float(cap.get(cv2.CAP_PROP_FPS))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    finally:
+        cap.release()
+    if fps <= 0 or total_frames <= 0:
+        return [], {"uniform_frames": 0}
+    selected = [
+        SelectedFrame(
+            CandidateFrame(index=index, timestamp=index / fps, image=None),
+            None,
+            "uniform_global",
+        )
+        for index in baseline_uniform_indices(total_frames, frame_count)
+    ]
+    return selected, {"uniform_frames": len(selected)}
 
 
 def _add_frame(
@@ -573,6 +614,7 @@ def proofpack_fingerprint(args: argparse.Namespace) -> str:
         "final_max_frames": args.final_max_frames,
         "temporal_nms_seconds": args.temporal_nms_seconds,
         "fill_mode": args.fill_mode,
+        "global_uniform_frames": args.global_uniform_frames,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:12]
@@ -615,6 +657,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--anchor-k", type=int, default=32)
     parser.add_argument("--boundary-k", type=int, default=8)
     parser.add_argument("--bridge-k", type=int, default=8)
+    parser.add_argument("--global-uniform-frames", type=int, default=64)
     parser.add_argument("--final-max-frames", type=int, default=64)
     parser.add_argument("--temporal-nms-seconds", type=float, default=10.0)
     parser.add_argument(
@@ -752,21 +795,34 @@ def main() -> None:
                         {"label": "pivot", "hash": query_hash(pivot_query)},
                         {"label": "target", "hash": query_hash(base_query)},
                     ]
-                    selected, selection_meta = select_temporal_pivot_pack(
-                        candidates,
-                        pivot_scores,
-                        base_scores,
-                        image_features,
-                        program,
-                        args.pivot_centers,
-                        args.target_centers,
-                        args.eventlet_radius,
-                        args.anchor_k,
-                        args.bridge_k,
-                        args.final_max_frames,
-                        args.temporal_nms_seconds,
-                        args.fill_mode,
-                    )
+                    if args.strategy == "operator_router" and program.operator == "GLOBAL":
+                        selected, selection_meta = select_baseline_uniform_frames(
+                            video_path, args.global_uniform_frames
+                        )
+                        selection_meta["temporal_program"] = {
+                            "operator": program.operator,
+                            "pivot": program.pivot,
+                            "direction": program.direction,
+                            "target": program.target,
+                        }
+                        selection_meta["route"] = "uniform_global"
+                    else:
+                        selected, selection_meta = select_temporal_pivot_pack(
+                            candidates,
+                            pivot_scores,
+                            base_scores,
+                            image_features,
+                            program,
+                            args.pivot_centers,
+                            args.target_centers,
+                            args.eventlet_radius,
+                            args.anchor_k,
+                            args.bridge_k,
+                            args.final_max_frames,
+                            args.temporal_nms_seconds,
+                            args.fill_mode,
+                        )
+                        selection_meta["route"] = "temporal_pivot"
 
                 record = {
                     "index": row_idx,

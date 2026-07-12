@@ -1,0 +1,38 @@
+from run_generate_longqa_verifier import (
+    build_verifier_frame_indices,
+    build_verifier_prompt,
+)
+
+
+def test_verifier_pack_is_unique_chronological_and_capped():
+    selected = [
+        {
+            "frame_index": idx * 10,
+            "timestamp": float(idx),
+            "score": float(idx),
+            "source": "pivot" if idx < 4 else "anchor",
+        }
+        for idx in range(64)
+    ]
+    frames, meta = build_verifier_frame_indices(
+        selected,
+        total_frames=1000,
+        max_frames=64,
+        proofpack_quota=32,
+    )
+    assert len(frames) == 64
+    assert len(frames) == len(set(frames))
+    assert frames == sorted(frames)
+    assert {0, 10, 20, 30}.issubset(frames)
+    assert meta["final_frames"] == 64
+
+
+def test_verifier_prompt_does_not_assume_either_candidate_is_correct():
+    row = {
+        "question": "What happened after payment?",
+        "mcq_options": "A. Sat B. Left C. Ordered D. Ate",
+    }
+    prompt = build_verifier_prompt(row, "B", "D")
+    assert "proposed options B and D" in prompt
+    assert "Do not assume either proposed option is correct" in prompt
+    assert "Answer with ONLY the single letter" in prompt

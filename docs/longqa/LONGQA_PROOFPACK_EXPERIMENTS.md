@@ -163,3 +163,70 @@ improves upon uniform64/672. It requests 24 hours because approximately 560
 full-validation videos do not yet have cached SigLIP2 c128 image features. The
 grounding and prediction outputs are resumable if the cluster time limit is
 shorter.
+
+## Routing And Verification Stage
+
+The full revised-pivot run completed the SigLIP2 c128 cache and reached
+`529/700`; uniform64/672 reached `514/700`. Run the next stage in this order.
+
+### 1. Full original pivot/672
+
+```bash
+sbatch slurm_longqa_qwen3_temporal_pivot_px451584_full.sh
+```
+
+This is the direct promotion of the best dev run (`111/140`). All 700 image
+feature caches now exist, so it should skip cold SigLIP2 image encoding.
+
+### 2. Exact operator router
+
+```bash
+sbatch slurm_longqa_qwen3_operator_router_px451584_dev.sh
+```
+
+The router uses the baseline's exact uniform64 index formula for `GLOBAL`
+questions and the original temporal-pivot policy for explicit operators. If the
+dev result is competitive, promote it with:
+
+```bash
+sbatch slurm_longqa_qwen3_operator_router_px451584_full.sh
+```
+
+### 3. Disagreement audit
+
+```bash
+python scripts/analyze_longqa_disagreements.py \
+  --annotations data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl \
+  --first runs/egolongqa/<pivot-run>/predictions.jsonl \
+  --second runs/egolongqa/<uniform-run>/predictions.jsonl \
+  --first-label pivot \
+  --second-label uniform \
+  --output-json runs/egolongqa/pivot_uniform_disagreements.json \
+  --output-jsonl runs/egolongqa/pivot_uniform_disagreements.jsonl
+```
+
+The JSONL contains sample keys, operator/category, both answers, gold answer,
+and paired correctness for frame audits.
+
+### 4. Gated verifier
+
+The dev verifier can run immediately from the completed dev candidates:
+
+```bash
+sbatch slurm_longqa_qwen3_disagreement_verifier_dev.sh
+```
+
+Agreement rows copy the primary prediction without a model call. Disagreement
+rows receive a 64-frame chronological union containing prioritized pivot/target
+evidence and exact uniform coverage.
+
+After the full original-pivot archive exists, submit:
+
+```bash
+CANDIDATE_DATE=YYYY-MM-DD \
+sbatch slurm_longqa_qwen3_disagreement_verifier_full.sh
+```
+
+Override `PRIMARY_RUN` or `SECONDARY_RUN` when using non-default archive names.
+The launcher fails before model startup if predictions or proof-pack metadata are
+missing.

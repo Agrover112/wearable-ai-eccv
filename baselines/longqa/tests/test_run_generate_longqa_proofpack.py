@@ -3,6 +3,7 @@ import numpy as np
 from run_generate_longqa_grounded import CandidateFrame
 from run_generate_longqa_proofpack import (
     TemporalProgram,
+    baseline_uniform_indices,
     build_option_hypotheses,
     build_structured_evidence_prompt,
     compile_temporal_program,
@@ -46,6 +47,11 @@ def test_first_questions_preserve_multiple_events():
     program = compile_temporal_program("Which item did I encounter first and see later?")
     assert program.operator == "FIRST"
     assert program.direction == "multi_event"
+
+
+def test_baseline_uniform_indices_match_single_interval_sampling():
+    assert baseline_uniform_indices(101, 4) == [0, 25, 50, 75]
+    assert baseline_uniform_indices(3, 8) == [0, 1]
 
 
 def test_eventlet_hybrid_is_chronological_unique_and_capped():
