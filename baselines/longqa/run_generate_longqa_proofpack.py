@@ -633,6 +633,8 @@ def inference_fingerprint(args: argparse.Namespace, proofpack_hash: str) -> str:
 
 
 def parse_args() -> argparse.Namespace:
+    from model import MODEL_TYPES
+
     parser = argparse.ArgumentParser(description="LongQA temporal proof-pack experiments.")
     parser.add_argument(
         "--input", default="../egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl"
@@ -674,7 +676,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grounder-revision", default=None)
     parser.add_argument("--grounder-cache-dir", default=None)
 
-    parser.add_argument("--model-type", default="qwen", choices=["qwen", "llama4"])
+    parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)

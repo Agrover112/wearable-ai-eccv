@@ -1057,6 +1057,8 @@ def _generate_proactive_preds(
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    from model import MODEL_TYPES
+
     parser = argparse.ArgumentParser(
         description="Unified evaluation for ECCV 2026 Wearable AI Workshop.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1230,7 +1232,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--model-type",
         type=str,
         default="llama4",
-        choices=["llama4", "qwen"],
+        choices=MODEL_TYPES,
         help="Model type for generation (default: llama4).",
     )
     parser.add_argument(

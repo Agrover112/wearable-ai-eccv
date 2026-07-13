@@ -45,6 +45,8 @@ def load_jsonl_if_exists(path: str) -> list[dict[str, object]]:
 
 
 def main() -> None:
+    from model import MODEL_TYPES
+
     parser = argparse.ArgumentParser(description="Generate LongQA MCQ predictions.")
     parser.add_argument(
         "--input",
@@ -74,7 +76,7 @@ def main() -> None:
         "--model-type",
         type=str,
         default="llama4",
-        choices=["llama4", "qwen"],
+        choices=MODEL_TYPES,
         help="Model type to use.",
     )
     parser.add_argument(
@@ -161,9 +163,14 @@ def main() -> None:
         default=16,
         help="Max concurrent HTTP requests (vllm only).",
     )
-    from slurm_runner import add_slurm_args
+    parser.set_defaults(slurm_nodes=0)
+    try:
+        from slurm_runner import add_slurm_args
 
-    add_slurm_args(parser)
+        add_slurm_args(parser)
+    except ImportError:
+        # The local and interactive paths do not require the optional submit helper.
+        pass
     args = parser.parse_args()
 
     input_path = _resolve_path(args.input)

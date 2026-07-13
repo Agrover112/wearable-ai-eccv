@@ -23,6 +23,43 @@ set -a; source .env; set +a
 Everything below reads the annotations directly from the dataset's parquet export —
 no bulk video download is ever required.
 
+## InternVideo3 on EgoLongQA
+
+InternVideo3 plugs into the same frame sampling, direct-MCQ prompt, prediction schema, resume
+logic, and evaluation code as Qwen. It uses Hugging Face/PyTorch because vLLM 0.19.1 does not
+support the custom InternVideo3 architecture. Its checkpoint needs Transformers 4.57.3, so it
+runs in a separate project-local environment and does not change the Qwen/vLLM installation.
+
+Create and activate that environment from the repository root:
+
+```bash
+bash scripts/setup_internvideo3_env.sh
+source scripts/activate_internvideo3_env.sh
+```
+
+The setup uses Python 3.10, PyTorch 2.10.0 with CUDA 12.8, Transformers 4.57.3, and the pinned
+InternVideo3 checkpoint revision `c4602918b65225650d152db2850fe34e01d21fcd`. The Conda
+environment lives in `.conda/`; package and model caches live in `.cache/`.
+
+On the project cluster, reproduce the dev140 experiment with:
+
+```bash
+ssh slurm
+cd /CT/RGCAHead3/nobackup/data/wearable-ai/wearable-ai-eccv
+sbatch scripts/slurm_internvideo3_dev140.sh
+```
+
+This evaluates `yanziang/InternVideo3-8B-Instruct` on the deterministic dev140 split using one
+H100, 64 uniformly sampled frames, a per-frame pixel cap of 451,584, BF16 weights, PyTorch
+SDPA, batch size 1, and the baseline direct-MCQ prompt. Videos are read from
+`/scratch/inf0/user/kkumar/val`. The run writes resumable predictions and the final evaluation
+under `runs/egolongqa/internvideo3_8b_hf_uniform64_px451584_dev140_2026-07-13/`.
+
+For a quick functional check, add `--max-samples 2` to the Python command in the Slurm script
+and write to a separate output directory. See
+[`baselines/longqa/README_PROJECT.md`](baselines/longqa/README_PROJECT.md) for the equivalent
+direct command.
+
 ## Reproducing the embeddings (`features/`)
 
 | file / dir | content | produced by |

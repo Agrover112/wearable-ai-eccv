@@ -53,6 +53,8 @@ def _write_evaluation(input_path: str, output_path: str, eval_output: str) -> No
 
 
 def parse_args() -> argparse.Namespace:
+    from model import MODEL_TYPES
+
     parser = argparse.ArgumentParser(description="Run video-blind LongQA generation.")
     parser.add_argument(
         "--input",
@@ -63,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--subset-file", default=None)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--model-type", default="qwen", choices=["qwen", "llama4"])
+    parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--llm-model", default=None)
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=None)

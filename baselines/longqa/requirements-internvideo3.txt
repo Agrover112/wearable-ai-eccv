@@ -1,0 +1,18 @@
+# Inference-only environment for yanziang/InternVideo3-8B-Instruct.
+# Kept separate because the checkpoint requires Transformers 4.57.x while
+# the Qwen/vLLM environment pins Transformers 5.8.1.
+
+transformers==4.57.3
+accelerate==1.13.0
+huggingface_hub>=0.25
+qwen-vl-utils==0.0.14
+
+opencv-python-headless==4.13.0.92
+Pillow==12.2.0
+av
+decord
+
+numpy==2.2.6
+pandas
+tqdm
+pytest>=7.0.0

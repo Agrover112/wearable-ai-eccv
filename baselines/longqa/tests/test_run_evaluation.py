@@ -1738,6 +1738,31 @@ class TestVLLMModel:
 # ---------------------------------------------------------------------------
 
 
+class TestInternVideo3Model:
+    def test_frames_are_one_video_in_first_user_turn(self):
+        model = mdl.InternVideo3Model.__new__(mdl.InternVideo3Model)
+        model.min_pixels = 262144
+        model.max_pixels = 451584
+        frames = [object(), object()]
+        messages = [
+            {"role": "user", "content": "Choose an answer."},
+            {"role": "assistant", "content": "B"},
+            {"role": "user", "content": "Are you sure?"},
+        ]
+
+        converted = model._to_multimodal_messages(frames, messages)
+
+        video = converted[0]["content"][0]
+        assert video["type"] == "video"
+        assert video["video"] == frames
+        assert converted[0]["content"][1] == {
+            "type": "text",
+            "text": "Choose an answer.",
+        }
+        assert converted[1] == messages[1]
+        assert converted[2] == messages[2]
+
+
 class TestCreateModelBackend:
     def test_create_model_vllm_returns_vllm_model(self):
         model = mdl.create_model("llama4", backend="vllm")
@@ -1764,6 +1789,17 @@ class TestCreateModelBackend:
             model = mdl.create_model("qwen", backend="hf")
             assert isinstance(model, mdl.Qwen2VLModel)
 
+    def test_create_model_hf_dispatches_internvideo3(self):
+        with unittest.mock.patch.object(
+            mdl.InternVideo3Model, "__init__", return_value=None
+        ):
+            model = mdl.create_model("internvideo3", backend="hf")
+            assert isinstance(model, mdl.InternVideo3Model)
+
+    def test_create_model_rejects_internvideo3_vllm(self):
+        with pytest.raises(ValueError, match="vLLM does not support"):
+            mdl.create_model("internvideo3", backend="vllm")
+
     def test_create_model_default_backend_is_hf(self):
         """Without backend param, create_model should return HF model instance."""
         with unittest.mock.patch.object(
@@ -1789,7 +1825,7 @@ class TestCreateModelBackend:
 class TestDefaultTPSizes:
     @pytest.mark.parametrize(
         "model_type, expected_tp",
-        [("llama4", 8), ("qwen", 1)],
+        [("llama4", 8), ("qwen", 1), ("internvideo3", 1)],
     )
     def test_tp_size(self, model_type, expected_tp):
         assert mdl.DEFAULT_TP_SIZES[model_type] == expected_tp

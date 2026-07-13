@@ -84,6 +84,8 @@ def _run_eval(input_path: str, output_path: str, eval_output: str | None) -> Non
 
 
 def parse_args() -> argparse.Namespace:
+    from model import MODEL_TYPES
+
     parser = argparse.ArgumentParser(
         description="Generate LongQA predictions with timeline-summary scaffolding."
     )
@@ -104,7 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeline-max-new-tokens", type=int, default=192)
     parser.add_argument("--answer-max-new-tokens", type=int, default=16)
 
-    parser.add_argument("--model-type", default="qwen", choices=["llama4", "qwen"])
+    parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--llm-model", default=None)
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=None)

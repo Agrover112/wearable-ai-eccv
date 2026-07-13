@@ -26,3 +26,35 @@ Proof-pack strategies and promotion criteria are documented in
 [`../../docs/longqa/LONGQA_PROOFPACK_EXPERIMENTS.md`](../../docs/longqa/LONGQA_PROOFPACK_EXPERIMENTS.md).
 Cluster-specific Slurm launchers are intentionally maintained outside this
 repository; the Python entry points here remain scheduler-independent.
+
+## InternVideo3 inference
+
+InternVideo3 uses the same frame sampling, prompts, prediction format, resume logic, and
+evaluation code as Qwen. Its checkpoint requires Transformers 4.57.x, so it has a separate
+project-local environment instead of changing the Qwen/vLLM environment:
+
+```bash
+bash scripts/setup_internvideo3_env.sh
+source scripts/activate_internvideo3_env.sh
+```
+
+Run a two-sample smoke test of the strongest uniform dev140 configuration from the repository
+root with:
+
+```bash
+VISION_MAX_PIXELS=451584 python baselines/longqa/run_generate_longqa.py \
+  --input ../../../egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl \
+  --video-folder /scratch/inf0/user/kkumar/val \
+  --subset-file ../../configs/egolongqa_dev140_seed20260709.json \
+  --max-samples 2 \
+  --model-type internvideo3 \
+  --backend hf \
+  --max-frames 64 \
+  --frames-per-interval 64 \
+  --batch-size 1 \
+  --output ../../runs/egolongqa/internvideo3_uniform64_px451584_smoke/predictions.jsonl \
+  --eval-output ../../runs/egolongqa/internvideo3_uniform64_px451584_smoke/results.json
+```
+
+Remove `--max-samples 2` and choose a new output directory for the later 140-sample run.
+InternVideo3 is not supported by the installed vLLM release, so its backend is `hf`.

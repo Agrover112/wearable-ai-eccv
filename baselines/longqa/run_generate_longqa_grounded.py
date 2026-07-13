@@ -142,6 +142,7 @@ def extract_frames_by_indices(video_path: str, frame_indices: list[int]) -> list
         if not cap.isOpened():
             logger.warning("Could not open video: %s", video_path)
             return []
+        fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         frames: list[object] = []
         for frame_idx in frame_indices:
@@ -152,7 +153,10 @@ def extract_frames_by_indices(video_path: str, frame_indices: list[int]) -> list
             if not ret:
                 continue
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(Image.fromarray(frame_rgb))
+            image = Image.fromarray(frame_rgb)
+            image.info["source_frame_index"] = frame_idx
+            image.info["source_fps"] = fps
+            frames.append(image)
         return frames
     finally:
         cap.release()
@@ -743,6 +747,8 @@ def grounding_config_fingerprint(args: argparse.Namespace) -> str:
 
 
 def parse_args() -> argparse.Namespace:
+    from model import MODEL_TYPES
+
     parser = argparse.ArgumentParser(
         description="Generate LongQA predictions with CLIP/SigLIP frame grounding."
     )
@@ -812,7 +818,7 @@ def parse_args() -> argparse.Namespace:
         help="Ignore any existing prediction file and regenerate from the start.",
     )
 
-    parser.add_argument("--model-type", default="qwen", choices=["llama4", "qwen"])
+    parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--llm-model", default=None)
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=None)

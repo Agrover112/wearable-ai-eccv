@@ -208,7 +208,10 @@ def extract_frames(
             ret, frame = cap.read()
             if ret:
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frames.append(Image.fromarray(frame_rgb))
+                image = Image.fromarray(frame_rgb)
+                image.info["source_frame_index"] = idx
+                image.info["source_fps"] = fps
+                frames.append(image)
 
         return frames
     finally:
@@ -585,6 +588,113 @@ class Qwen2VLModel(VideoQAModel):
                 content.append({"type": "text", "text": text})
                 mm_messages.append({"role": "user", "content": content})
                 images_inserted = True
+            else:
+                mm_messages.append({"role": role, "content": text})
+
+        return mm_messages
+
+
+class InternVideo3Model(VideoQAModel):
+    """InternVideo3 inference through its Hugging Face checkpoint code."""
+
+    REVISION = "c4602918b65225650d152db2850fe34e01d21fcd"
+
+    def __init__(
+        self,
+        model_id: str = "yanziang/InternVideo3-8B-Instruct",
+    ) -> None:
+        import torch
+        from transformers import AutoModelForCausalLM, AutoProcessor
+
+        logger.info("Loading model: %s ...", model_id)
+        revision = os.environ.get("INTERNVIDEO3_REVISION", self.REVISION)
+        self.min_pixels = _env_int("VISION_MIN_PIXELS", 262144)
+        self.max_pixels = _env_int("VISION_MAX_PIXELS", 524288)
+        self.processor = AutoProcessor.from_pretrained(
+            model_id,
+            revision=revision,
+            trust_remote_code=True,
+        )
+        self.processor.tokenizer.padding_side = "left"
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+            device_map="auto",
+            revision=revision,
+            trust_remote_code=True,
+        )
+        logger.info("Model loaded.")
+
+    def generate(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        max_new_tokens: int = 256,
+    ) -> str:
+        import torch
+        from transformers.video_utils import VideoMetadata
+
+        mm_messages = self._to_multimodal_messages(frames, messages)
+        processor_kwargs: dict[str, object] = {"do_sample_frames": False}
+        if frames:
+            processor_kwargs["video_metadata"] = VideoMetadata(
+                total_num_frames=len(frames),
+                fps=float(frames[0].info["source_fps"]),
+                frames_indices=[int(frame.info["source_frame_index"]) for frame in frames],
+            )
+            # InternVideo3's processor uses a total-video pixel budget.
+            self.processor.video_processor.size = {
+                "shortest_edge": self.min_pixels * len(frames),
+                "longest_edge": self.max_pixels * len(frames),
+            }
+        inputs = self.processor.apply_chat_template(
+            mm_messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+            **processor_kwargs,
+        )
+        record_prompt_token_counts(
+            _attention_lengths(inputs),
+            _infer_context_window_from_model(self.model, self.processor),
+        )
+        inputs = inputs.to(self.model.device)
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                use_cache=True,
+            )
+
+        new_tokens = output_ids[0][inputs["input_ids"].shape[1] :]
+        return self.processor.decode(new_tokens, skip_special_tokens=True).strip()
+
+    def _to_multimodal_messages(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+    ) -> list[dict[str, object]]:
+        """Insert the sampled frames as one ordered video in the first user turn."""
+        mm_messages: list[dict[str, object]] = []
+        video_inserted = False
+
+        for msg in messages:
+            role = msg["role"]
+            text = msg["content"]
+            if role == "user" and not video_inserted and frames:
+                content = [
+                    {
+                        "type": "video",
+                        "video": frames,
+                    },
+                    {"type": "text", "text": text},
+                ]
+                mm_messages.append({"role": "user", "content": content})
+                video_inserted = True
             else:
                 mm_messages.append({"role": role, "content": text})
 
@@ -1015,26 +1125,34 @@ class VLLMModel(VideoQAModel):
 MODEL_REGISTRY: dict[str, type[VideoQAModel]] = {
     "llama4": Llama4ScoutModel,
     "qwen": Qwen2VLModel,
+    "internvideo3": InternVideo3Model,
 }
 
 DEFAULT_MODEL_IDS: dict[str, str] = {
     "llama4": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
     "qwen": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "internvideo3": "yanziang/InternVideo3-8B-Instruct",
 }
+
+MODEL_TYPES = tuple(DEFAULT_MODEL_IDS)
+VLLM_MODEL_TYPES = ("llama4", "qwen")
 
 DEFAULT_BATCH_SIZES: dict[str, int] = {
     "llama4": 4,
     "qwen": 8,
+    "internvideo3": 1,
 }
 
 DEFAULT_GPU_COUNTS: dict[str, int] = {
     "llama4": 8,
     "qwen": 1,
+    "internvideo3": 1,
 }
 
 DEFAULT_TP_SIZES: dict[str, int] = {
     "llama4": 8,
     "qwen": 1,
+    "internvideo3": 1,
 }
 
 
@@ -1131,7 +1249,7 @@ def create_model(
     """Factory to create a model by type name.
 
     Args:
-        model_type: One of "llama4", "qwen".
+        model_type: One of "llama4", "qwen", "internvideo3".
         model_id: HuggingFace model ID override. If None, uses the default
             for the given model_type.
         backend: "hf" for HuggingFace, "vllm" for vLLM server backend.
@@ -1147,6 +1265,11 @@ def create_model(
             raise ValueError(
                 f"Unknown model type '{model_type}'. "
                 f"Available: {list(DEFAULT_MODEL_IDS.keys())}"
+            )
+        if model_type not in VLLM_MODEL_TYPES:
+            raise ValueError(
+                f"vLLM does not support model type '{model_type}'. "
+                f"Supported vLLM model types: {list(VLLM_MODEL_TYPES)}"
             )
         effective_id = model_id or DEFAULT_MODEL_IDS[model_type]
         effective_tp = (
