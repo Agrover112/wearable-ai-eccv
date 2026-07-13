@@ -64,7 +64,17 @@ of the source video and defeat the purpose of localization.
   relation-filtered multi-query spans, and localized frames plus global anchors.
 - Add semantic validation/retry for converted query programs.
 - Manually timestamp a small audit set before making localization-quality
-  claims.
+claims.
+
+### QCA pilot
+
+The training-free QCA-style pilot used 128 uniform candidates, SigLIP2-SO400M
+question-plus-options relevance, 12 temporal segments, and 32 final frames at a
+200,704-pixel budget. Qwen predicted `C/A/A` against gold `C/C/C`, also 1/3.
+QCA therefore did not improve accuracy on these three samples, although this is
+far too small a sample to compare methods. The reusable selection logic is in
+`qca_keyframes.py`; the one-video Colab test scripts were intentionally not
+committed.
 
 ## Alternatives
 
