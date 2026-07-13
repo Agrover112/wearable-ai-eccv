@@ -4,11 +4,14 @@ from run_generate_longqa_grounded import CandidateFrame
 from run_generate_longqa_proofpack import (
     TemporalProgram,
     baseline_uniform_indices,
+    build_multi_event_queries,
     build_option_hypotheses,
     build_structured_evidence_prompt,
     compile_temporal_program,
     select_eventlet_hybrid,
     select_option_contrastive_eventlets,
+    select_multi_event_pack,
+    select_qca_pack,
     select_temporal_pivot_pack,
 )
 
@@ -52,6 +55,19 @@ def test_first_questions_preserve_multiple_events():
 def test_baseline_uniform_indices_match_single_interval_sampling():
     assert baseline_uniform_indices(101, 4) == [0, 25, 50, 75]
     assert baseline_uniform_indices(3, 8) == [0, 1]
+
+
+def test_multi_event_queries_split_temporally_distinct_clauses():
+    queries = build_multi_event_queries(
+        {
+            "question": (
+                "I picked up the red cup, then walked to the sink. "
+                "Later I placed it beside the plate. What happened?"
+            )
+        }
+    )
+    assert len(queries) == 3
+    assert [query.label for query in queries] == ["event_1", "event_2", "event_3"]
 
 
 def test_eventlet_hybrid_is_chronological_unique_and_capped():
@@ -98,6 +114,51 @@ def test_option_contrastive_eventlets_balance_options_and_cap_frames():
     assert all(len(centers) == 2 for centers in meta["option_centers"].values())
     assert len(selected) <= 24
     assert len({frame.candidate.index for frame in selected}) == len(selected)
+
+
+def test_qca_pack_allocates_exact_chronological_budget():
+    candidates = _candidates()
+    selected, meta = select_qca_pack(
+        candidates,
+        [float(index) for index in range(len(candidates))],
+        _features(),
+        budget=12,
+        num_segments=4,
+        alpha=0.5,
+        beta=0.5,
+        temperature=0.5,
+        relevance_threshold=0.7,
+    )
+    assert len(selected) == 12
+    assert sum(meta["qca_quotas"]) == 12
+    assert [frame.candidate.timestamp for frame in selected] == sorted(
+        frame.candidate.timestamp for frame in selected
+    )
+
+
+def test_multi_event_pack_is_unique_chronological_and_capped():
+    candidates = _candidates()
+    count = len(candidates)
+    event_scores = {
+        "event_1": [-(index - 4) ** 2 for index in range(count)],
+        "event_2": [-(index - 18) ** 2 for index in range(count)],
+    }
+    selected, meta = select_multi_event_pack(
+        candidates,
+        event_scores,
+        [0.0] * count,
+        centers_per_event=1,
+        eventlet_radius=1,
+        anchor_k=6,
+        bridge_k=4,
+        final_max_frames=16,
+        temporal_nms_seconds=5.0,
+    )
+    indices = [frame.candidate.index for frame in selected]
+    assert len(indices) == 16
+    assert len(indices) == len(set(indices))
+    assert indices == sorted(indices)
+    assert set(meta["event_centers"]) == {"event_1", "event_2"}
 
 
 def test_temporal_pivot_after_constrains_target_centers_forward():

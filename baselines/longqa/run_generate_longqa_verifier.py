@@ -11,7 +11,7 @@ from typing import Any
 
 from longqa_utils import apply_subset, build_longqa_prompt, build_prediction_row, sample_key
 from run_generate_longqa_grounded import _run_eval, extract_frames_by_indices, load_jsonl
-from run_generate_longqa_proofpack import baseline_uniform_indices
+from run_generate_longqa_proofpack import baseline_uniform_indices, compile_temporal_program
 
 
 def _resolve_path(path: str) -> str:
@@ -92,14 +92,26 @@ def build_verifier_frame_indices(
     }
 
 
-def build_verifier_prompt(row: dict[str, Any], first: str, second: str) -> str:
-    instruction = (
-        "Two independent visual evidence passes disagreed and proposed options "
-        f"{first} and {second}. Re-evaluate the complete question using the supplied "
-        "chronological evidence. Compare all four options, verify temporal order, "
-        "and reject visually unsupported alternatives. Do not assume either proposed "
-        "option is correct. Return only the final option letter."
-    )
+def build_verifier_prompt(
+    row: dict[str, Any], first: str, second: str, variant: str = "baseline"
+) -> str:
+    if variant == "support_contradiction":
+        instruction = (
+            "Two independent visual evidence passes disagreed and proposed options "
+            f"{first} and {second}. Internally assess every option using three checks: "
+            "visible supporting evidence, visible contradictory evidence, and whether "
+            "the required temporal order is satisfied. Prefer an option only when its "
+            "support survives the contradiction and order checks. Do not assume either "
+            "proposed option is correct. Return only the final option letter."
+        )
+    else:
+        instruction = (
+            "Two independent visual evidence passes disagreed and proposed options "
+            f"{first} and {second}. Re-evaluate the complete question using the supplied "
+            "chronological evidence. Compare all four options, verify temporal order, "
+            "and reject visually unsupported alternatives. Do not assume either proposed "
+            "option is correct. Return only the final option letter."
+        )
     return instruction + "\n\n" + build_longqa_prompt(
         row["question"], row["mcq_options"], prompt_variant="baseline"
     )
@@ -113,6 +125,8 @@ def _fingerprint(args: argparse.Namespace) -> str:
         "model": args.llm_model,
         "max_frames": args.max_frames,
         "proofpack_quota": args.proofpack_quota,
+        "verify_operators": sorted(args.verify_operators or []),
+        "verifier_prompt": args.verifier_prompt,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode()).hexdigest()[:12]
@@ -132,6 +146,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-output", default=None)
     parser.add_argument("--max-frames", type=int, default=64)
     parser.add_argument("--proofpack-quota", type=int, default=32)
+    parser.add_argument(
+        "--verify-operators",
+        nargs="+",
+        choices=["AFTER", "BEFORE", "FIRST", "LAST", "STATE_CHANGE", "GLOBAL"],
+        default=None,
+        help="Only call the verifier for these operators; copy the primary otherwise.",
+    )
+    parser.add_argument(
+        "--verifier-prompt",
+        choices=["baseline", "support_contradiction"],
+        default="baseline",
+    )
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)
@@ -209,15 +235,20 @@ def main() -> None:
     reset_prompt_token_stats()
     begun = time.time()
     verified = 0
+    gated = 0
     with model, open(output_path, mode) as handle:
         for idx, row in enumerate(rows[start:], start=start):
             key = sample_key(row)
             first = _answer(primary[key])
             second = _answer(secondary[key])
-            if first == second:
+            operator = compile_temporal_program(row["question"]).operator
+            operator_allowed = not args.verify_operators or operator in args.verify_operators
+            if first == second or not operator_allowed:
                 pred = build_prediction_row(row, first, prompt_variant="verifier_agreement")
                 pred["verifier_applied"] = False
                 pred["verifier_frames"] = 0
+                pred["verifier_gated"] = first != second and not operator_allowed
+                gated += int(pred["verifier_gated"])
             else:
                 video_path = os.path.join(video_folder, str(row["video_path"]))
                 _fps, total_frames = _video_metadata(video_path)
@@ -230,14 +261,23 @@ def main() -> None:
                 frames = extract_frames_by_indices(video_path, frame_indices)
                 response = model.generate(
                     frames,
-                    [{"role": "user", "content": build_verifier_prompt(row, first, second)}],
+                    [
+                        {
+                            "role": "user",
+                            "content": build_verifier_prompt(
+                                row, first, second, args.verifier_prompt
+                            ),
+                        }
+                    ],
                     max_new_tokens=16,
                 )
                 pred = build_prediction_row(row, response, prompt_variant="disagreement_verifier")
                 pred["verifier_applied"] = True
                 pred["verifier_frames"] = len(frames)
                 pred["verifier_frame_meta"] = frame_meta
+                pred["verifier_gated"] = False
                 verified += 1
+            pred["verifier_operator"] = operator
             pred["candidate_answers"] = [first, second]
             pred["verifier_fingerprint"] = fingerprint
             handle.write(json.dumps(pred) + "\n")
@@ -245,6 +285,7 @@ def main() -> None:
             print(f"  Verifier progress: {idx + 1}/{len(rows)}")
 
     print(f"Verifier calls this invocation: {verified}")
+    print(f"Gated disagreements copied from primary: {gated}")
     print(f"Runtime seconds: {time.time() - begun:.0f}")
     _print_context_summary(summarize_prompt_token_stats())
     if not args.no_eval:

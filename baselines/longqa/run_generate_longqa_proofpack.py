@@ -6,7 +6,9 @@ untouched. It reuses cached SigLIP/SigLIP2 candidate embeddings and supports:
 
 * eventlet_hybrid: global anchors plus local triplets around relevant events,
 * option_contrastive: balanced, discriminative eventlets for every option,
-* temporal_pivot: pivot, directional target, bridge, and global evidence.
+* temporal_pivot: pivot, directional target, bridge, and global evidence,
+* qca: dynamic segment budgets balancing relevance and content deviation,
+* multi_event: separate event-clause retrieval with chronological bridges.
 """
 
 from __future__ import annotations
@@ -49,6 +51,10 @@ STRATEGIES = (
     "option_contrastive",
     "temporal_pivot",
     "operator_router",
+    "qca",
+    "qca_router",
+    "multi_event",
+    "multi_event_router",
 )
 PROOFPACK_SCHEMA = 1
 
@@ -120,6 +126,41 @@ def build_option_hypotheses(row: dict[str, Any]) -> list[GroundingQuery]:
         )
         for letter, option in sorted(options.items())
     ]
+
+
+def build_multi_event_queries(row: dict[str, Any], max_events: int = 3) -> list[GroundingQuery]:
+    """Extract distinct event clauses without asking an LLM to rewrite the question."""
+    text = " ".join(str(row["question"]).split())
+    fragments = re.split(
+        r"(?i)(?:[.;,?]|\b(?:and then|then|later|previously|afterwards)\b)", text
+    )
+    queries: list[GroundingQuery] = []
+    seen: set[str] = set()
+    for fragment in fragments:
+        fragment = fragment.strip(" ,.?-")
+        fragment = re.sub(r"(?i)^(?:what|which|where|when|how)\s+", "", fragment)
+        normalized = fragment.lower()
+        if len(fragment.split()) < 3 or normalized in seen:
+            continue
+        seen.add(normalized)
+        queries.append(
+            GroundingQuery(
+                f"event_{len(queries) + 1}",
+                "Find the moment in the video corresponding to this event clause.\n"
+                f"Event: {fragment}",
+            )
+        )
+        if len(queries) >= max_events:
+            break
+    if len(queries) < 2:
+        return [
+            GroundingQuery(
+                "event_1",
+                "Find the principal event described by this question.\n"
+                f"Question: {text}",
+            )
+        ]
+    return queries
 
 
 def _rank_with_temporal_nms(
@@ -441,6 +482,166 @@ def select_option_contrastive_eventlets(
     }
 
 
+def select_qca_pack(
+    candidates: list[CandidateFrame],
+    relevance_scores: list[float],
+    image_features: np.ndarray,
+    budget: int,
+    num_segments: int,
+    alpha: float,
+    beta: float,
+    temperature: float,
+    relevance_threshold: float,
+) -> tuple[list[SelectedFrame], dict[str, Any]]:
+    """Adapt the teammate QCA pilot to cached proof-pack candidates."""
+    features = np.asarray(image_features, dtype=np.float32)
+    relevance = np.asarray(relevance_scores, dtype=np.float32)
+    if features.ndim != 2 or relevance.shape != (len(features),):
+        raise ValueError("expected features [frames, dim] and relevance [frames]")
+    if not 0 < budget <= len(features):
+        raise ValueError("QCA budget must be between 1 and the candidate count")
+    if alpha < 0 or beta < 0 or alpha + beta <= 0:
+        raise ValueError("QCA alpha and beta must have a positive sum")
+
+    segments = [
+        segment
+        for segment in np.array_split(np.arange(len(features)), num_segments)
+        if len(segment)
+    ]
+    global_mean = features.mean(axis=0)
+    matching = np.asarray([relevance[segment].mean() for segment in segments])
+    deviation = np.asarray(
+        [
+            np.square(features[segment].mean(axis=0) - global_mean).sum()
+            + features[segment].var(axis=0).sum()
+            for segment in segments
+        ]
+    )
+
+    def softmax(values: np.ndarray) -> np.ndarray:
+        shifted = values - values.max()
+        weights = np.exp(shifted)
+        return weights / max(float(weights.sum()), 1e-12)
+
+    scale = alpha + beta
+    contribution = (alpha / scale) * softmax(matching) + (beta / scale) * softmax(
+        deviation
+    )
+    weights = np.power(np.maximum(contribution, 1e-12), temperature)
+    weights /= weights.sum()
+    raw_quotas = weights * budget
+    quotas = np.floor(raw_quotas).astype(int)
+    remainder = budget - int(quotas.sum())
+    for index in np.argsort(-(raw_quotas - quotas))[:remainder]:
+        quotas[index] += 1
+
+    selected_positions: list[int] = []
+    segment_anchors: list[int | None] = []
+    for segment, quota in zip(segments, quotas):
+        if quota <= 0:
+            segment_anchors.append(None)
+            continue
+        anchor = int(segment[np.argmax(relevance[segment])])
+        segment_anchors.append(anchor)
+        chosen = [anchor]
+        threshold = relevance_threshold
+        pool = segment[relevance[segment] >= threshold * relevance[anchor]]
+        while len(pool) < quota and threshold > 0:
+            threshold = max(0.0, threshold - 0.1)
+            pool = segment[relevance[segment] >= threshold * relevance[anchor]]
+        if len(pool) < quota:
+            pool = segment
+        while len(chosen) < quota:
+            remaining = [int(index) for index in pool if int(index) not in chosen]
+            if not remaining:
+                break
+            diversity = np.asarray(
+                [
+                    min(1.0 - float(np.dot(features[index], features[other])) for other in chosen)
+                    for index in remaining
+                ]
+            )
+            chosen.append(remaining[int(diversity.argmax())])
+        selected_positions.extend(chosen)
+
+    if len(selected_positions) < budget:
+        for index in np.argsort(-relevance):
+            position = int(index)
+            if position not in selected_positions:
+                selected_positions.append(position)
+            if len(selected_positions) == budget:
+                break
+
+    anchor_set = {index for index in segment_anchors if index is not None}
+    selected = [
+        SelectedFrame(
+            candidate=candidates[position],
+            score=float(relevance[position]),
+            source="qca_segment_anchor" if position in anchor_set else "qca_diverse",
+        )
+        for position in sorted(selected_positions[:budget])
+    ]
+    return selected, {
+        "qca_quotas": quotas.tolist(),
+        "qca_segment_matching": matching.tolist(),
+        "qca_segment_deviation": deviation.tolist(),
+        "qca_segment_anchors": [
+            candidates[index].index if index is not None else None for index in segment_anchors
+        ],
+    }
+
+
+def select_multi_event_pack(
+    candidates: list[CandidateFrame],
+    event_scores: dict[str, list[float]],
+    anchor_scores: list[float],
+    centers_per_event: int,
+    eventlet_radius: int,
+    anchor_k: int,
+    bridge_k: int,
+    final_max_frames: int,
+    temporal_nms_seconds: float,
+) -> tuple[list[SelectedFrame], dict[str, Any]]:
+    selected: dict[int, SelectedFrame] = {}
+    priorities: dict[int, int] = {}
+    event_centers: dict[str, list[int]] = {}
+    primary_centers: list[int] = []
+    for label, scores in event_scores.items():
+        centers = _rank_with_temporal_nms(
+            scores, candidates, centers_per_event, temporal_nms_seconds
+        )
+        event_centers[label] = [candidates[index].index for index in centers]
+        if centers:
+            primary_centers.append(centers[0])
+        for center in centers:
+            _add_eventlet(
+                selected,
+                priorities,
+                candidates,
+                center,
+                scores[center],
+                eventlet_radius,
+                label,
+                0,
+            )
+    bridge_positions: list[int] = []
+    ordered_centers = sorted(set(primary_centers))
+    pair_count = max(len(ordered_centers) - 1, 1)
+    per_pair = max(1, bridge_k // pair_count) if bridge_k else 0
+    for start, end in zip(ordered_centers, ordered_centers[1:]):
+        bridge_positions.extend(_bridge_positions(start, end, per_pair))
+    for index in bridge_positions[:bridge_k]:
+        _add_frame(selected, candidates, index, anchor_scores[index], "bridge", 2, priorities)
+    for index in _uniform_positions(len(candidates), anchor_k):
+        _add_frame(selected, candidates, index, anchor_scores[index], "anchor", 3, priorities)
+    _fill_uniform_coverage(selected, priorities, candidates, final_max_frames)
+    return _finalize_selection(selected, priorities, final_max_frames), {
+        "event_centers": event_centers,
+        "bridge_frames": min(len(bridge_positions), bridge_k),
+        "fill_mode": "uniform_coverage",
+    }
+
+
 def _bridge_positions(start: int, end: int, count: int) -> list[int]:
     if count <= 0 or start == end:
         return []
@@ -615,6 +816,13 @@ def proofpack_fingerprint(args: argparse.Namespace) -> str:
         "temporal_nms_seconds": args.temporal_nms_seconds,
         "fill_mode": args.fill_mode,
         "global_uniform_frames": args.global_uniform_frames,
+        "multi_event_centers": args.multi_event_centers,
+        "max_event_queries": args.max_event_queries,
+        "qca_segments": args.qca_segments,
+        "qca_alpha": args.qca_alpha,
+        "qca_beta": args.qca_beta,
+        "qca_temperature": args.qca_temperature,
+        "qca_relevance_threshold": args.qca_relevance_threshold,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:12]
@@ -660,6 +868,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--boundary-k", type=int, default=8)
     parser.add_argument("--bridge-k", type=int, default=8)
     parser.add_argument("--global-uniform-frames", type=int, default=64)
+    parser.add_argument("--multi-event-centers", type=int, default=2)
+    parser.add_argument("--max-event-queries", type=int, default=3)
+    parser.add_argument("--qca-segments", type=int, default=16)
+    parser.add_argument("--qca-alpha", type=float, default=0.5)
+    parser.add_argument("--qca-beta", type=float, default=0.5)
+    parser.add_argument("--qca-temperature", type=float, default=0.5)
+    parser.add_argument("--qca-relevance-threshold", type=float, default=0.7)
     parser.add_argument("--final-max-frames", type=int, default=64)
     parser.add_argument("--temporal-nms-seconds", type=float, default=10.0)
     parser.add_argument(
@@ -786,6 +1001,84 @@ def main() -> None:
                         args.final_max_frames,
                         args.temporal_nms_seconds,
                     )
+                elif args.strategy == "qca":
+                    selected, selection_meta = select_qca_pack(
+                        candidates,
+                        base_scores,
+                        image_features,
+                        args.final_max_frames,
+                        args.qca_segments,
+                        args.qca_alpha,
+                        args.qca_beta,
+                        args.qca_temperature,
+                        args.qca_relevance_threshold,
+                    )
+                    selection_meta["route"] = "qca"
+                elif args.strategy in {"multi_event", "multi_event_router"}:
+                    program = compile_temporal_program(row["question"])
+                    use_multi_event = args.strategy == "multi_event" or program.operator in {
+                        "FIRST",
+                        "STATE_CHANGE",
+                    }
+                    if use_multi_event:
+                        event_queries = build_multi_event_queries(
+                            row, args.max_event_queries
+                        )
+                        event_scores = {}
+                        queries = []
+                        for query in event_queries:
+                            event_scores[query.label] = grounder.score_embeddings(
+                                query.text, image_features
+                            )
+                            queries.append(
+                                {"label": query.label, "hash": query_hash(query.text)}
+                            )
+                        selected, selection_meta = select_multi_event_pack(
+                            candidates,
+                            event_scores,
+                            base_scores,
+                            args.multi_event_centers,
+                            args.eventlet_radius,
+                            args.anchor_k,
+                            args.bridge_k,
+                            args.final_max_frames,
+                            args.temporal_nms_seconds,
+                        )
+                        selection_meta["route"] = "multi_event"
+                    else:
+                        pivot_query = (
+                            "Find the temporal pivot event in the video.\n"
+                            f"Pivot event: {program.pivot or row['question']}"
+                        )
+                        pivot_scores = grounder.score_embeddings(
+                            pivot_query, image_features
+                        )
+                        queries = [
+                            {"label": "pivot", "hash": query_hash(pivot_query)},
+                            {"label": "target", "hash": query_hash(base_query)},
+                        ]
+                        selected, selection_meta = select_temporal_pivot_pack(
+                            candidates,
+                            pivot_scores,
+                            base_scores,
+                            image_features,
+                            program,
+                            args.pivot_centers,
+                            args.target_centers,
+                            args.eventlet_radius,
+                            args.anchor_k,
+                            args.bridge_k,
+                            args.final_max_frames,
+                            args.temporal_nms_seconds,
+                            args.fill_mode,
+                        )
+                        selection_meta["route"] = "temporal_pivot"
+                    selection_meta["temporal_program"] = {
+                        "operator": program.operator,
+                        "pivot": program.pivot,
+                        "direction": program.direction,
+                        "target": program.target,
+                    }
                 else:
                     program = compile_temporal_program(row["question"])
                     pivot_query = (
@@ -808,6 +1101,25 @@ def main() -> None:
                             "target": program.target,
                         }
                         selection_meta["route"] = "uniform_global"
+                    elif args.strategy == "qca_router" and program.operator == "GLOBAL":
+                        selected, selection_meta = select_qca_pack(
+                            candidates,
+                            base_scores,
+                            image_features,
+                            args.final_max_frames,
+                            args.qca_segments,
+                            args.qca_alpha,
+                            args.qca_beta,
+                            args.qca_temperature,
+                            args.qca_relevance_threshold,
+                        )
+                        selection_meta["temporal_program"] = {
+                            "operator": program.operator,
+                            "pivot": program.pivot,
+                            "direction": program.direction,
+                            "target": program.target,
+                        }
+                        selection_meta["route"] = "qca_global"
                     else:
                         selected, selection_meta = select_temporal_pivot_pack(
                             candidates,

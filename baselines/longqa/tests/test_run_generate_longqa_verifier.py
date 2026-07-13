@@ -36,3 +36,14 @@ def test_verifier_prompt_does_not_assume_either_candidate_is_correct():
     assert "proposed options B and D" in prompt
     assert "Do not assume either proposed option is correct" in prompt
     assert "Answer with ONLY the single letter" in prompt
+
+
+def test_support_contradiction_prompt_requests_all_three_checks():
+    row = {
+        "question": "What happened after payment?",
+        "mcq_options": "A. Sat B. Left C. Ordered D. Ate",
+    }
+    prompt = build_verifier_prompt(row, "B", "D", "support_contradiction")
+    assert "supporting evidence" in prompt
+    assert "contradictory evidence" in prompt
+    assert "temporal order" in prompt

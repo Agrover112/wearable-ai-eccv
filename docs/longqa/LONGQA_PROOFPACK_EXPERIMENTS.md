@@ -230,3 +230,43 @@ sbatch slurm_longqa_qwen3_disagreement_verifier_full.sh
 Override `PRIMARY_RUN` or `SECONDARY_RUN` when using non-default archive names.
 The launcher fails before model startup if predictions or proof-pack metadata are
 missing.
+
+## QCA And Multi-Event Stage
+
+The completed full operator router reaches `529/700`, while disagreement
+verification reaches `539/700`. The next experiments focus on improving the
+`GLOBAL` evidence branch and questions containing multiple events. All four
+launchers run dev140 first and reuse the populated SigLIP2 c128 feature cache.
+
+```bash
+# Standalone QCA ablation: dynamic segment allocation for every question.
+sbatch slurm_longqa_qwen3_qca_px451584_dev.sh
+
+# Preferred QCA test: QCA only for GLOBAL, original pivot otherwise.
+sbatch slurm_longqa_qwen3_qca_global_router_px451584_dev.sh
+
+# Separate event-clause retrieval for FIRST/STATE_CHANGE, pivot otherwise.
+sbatch slurm_longqa_qwen3_multi_event_router_px451584_dev.sh
+
+# Verify only GLOBAL/AFTER/BEFORE/LAST disagreements with explicit checks.
+sbatch slurm_longqa_qwen3_support_contradiction_verifier_dev.sh
+```
+
+QCA uses 16 temporal segments and a 64-frame budget. Segment contribution is a
+balanced mixture of mean question/options relevance and visual content
+deviation. Each segment starts from its most relevant anchor, then adds diverse
+frames above an adaptive relevance threshold. This adapts the teammate's QCA
+pilot to the existing cached-feature pipeline and records quotas, segment
+scores, and anchors in `proofpack.jsonl`.
+
+The multi-event router uses deterministic clause extraction rather than an
+answer-generating LLM. It retrieves up to three event clauses independently,
+keeps two centers per clause, bridges their primary centers, and fills remaining
+slots by temporal coverage. It is deliberately limited to `FIRST` and
+`STATE_CHANGE`, where the original single-pivot representation is weakest.
+
+The support/contradiction verifier excludes `FIRST` and `STATE_CHANGE` from
+second-pass calls because the completed full verifier regressed by one net
+answer on each operator. This is a dev-first hypothesis, not a license to select
+a final policy from full-validation labels. Promote only if paired dev audits
+show that its fixes are evidence-based and its regression rate falls.
