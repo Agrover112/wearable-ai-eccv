@@ -13,14 +13,16 @@ python -c "import google.colab" 2>/dev/null && IN_COLAB=1 || true
 # --- Persistent cache location -------------------------------------------
 # On Colab we point HF_HOME at Google Drive so datasets + model weights
 # survive runtime restarts. Locally we keep a repo-local cache.
+# NOTE: Drive must ALREADY be mounted from the notebook. drive.mount() cannot
+# run from this subprocess (no kernel), so we only CHECK for it here.
 if [ "$IN_COLAB" = "1" ]; then
-  echo ">> Colab detected. Mounting Google Drive..."
-  python - <<'PY'
-from google.colab import drive
-drive.mount('/content/drive')
-import os
-os.makedirs('/content/drive/MyDrive/wearable-ai-cache', exist_ok=True)
-PY
+  if [ ! -d /content/drive/MyDrive ]; then
+    echo "!! Drive not mounted. Run this in a cell first, then re-run bootstrap:"
+    echo "     from google.colab import drive; drive.mount('/content/drive')"
+    exit 1
+  fi
+  echo ">> Colab detected. Using already-mounted Drive."
+  mkdir -p /content/drive/MyDrive/wearable-ai-cache
   export HF_HOME=/content/drive/MyDrive/wearable-ai-cache/hf
 else
   export HF_HOME="$REPO_ROOT/.cache/hf"
