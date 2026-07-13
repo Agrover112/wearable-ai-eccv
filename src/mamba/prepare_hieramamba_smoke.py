@@ -29,14 +29,25 @@ def main() -> None:
     text_dir.mkdir(parents=True, exist_ok=True)
 
     video_id = args.video_id
-    query_id = f"{video_id}_q0"
     video_source = features / "video" / f"{video_id}.npy"
-    text_source = features / "text" / f"{video_id}.npy"
     metadata = json.loads((features / "metadata" / f"{video_id}.json").read_text())
-    for source, destination in (
-        (video_source, video_dir / f"{video_id}.npy"),
-        (text_source, text_dir / f"{query_id}.npy"),
-    ):
+    queries = metadata.get("grounding_queries") or [
+        {"id": "q0", "text": metadata["question"]}
+    ]
+    links = [(video_source, video_dir / f"{video_id}.npy")]
+    annotations = []
+    for query in queries:
+        query_id = f"{video_id}_{query['id']}"
+        text_source = features / "text" / f"{video_id}__{query['id']}.npy"
+        links.append((text_source, text_dir / f"{query_id}.npy"))
+        annotations.append(
+            {
+                "segment": [0.001, min(float(metadata["duration_seconds"]), 1.0)],
+                "sentence": query["text"],
+                "sentence_id": query_id,
+            }
+        )
+    for source, destination in links:
         if destination.exists() or destination.is_symlink():
             destination.unlink()
         destination.symlink_to(source)
@@ -52,15 +63,9 @@ def main() -> None:
                 "fps": fps,
                 "duration": duration,
                 "num_clips": n_features,
-                "annotations": [
-                    {
-                        # Dummy target is required by the inherited evaluator;
-                        # it is never used to choose the predicted spans.
-                        "segment": [0.001, min(duration, 1.0)],
-                        "sentence": metadata["question"],
-                        "sentence_id": query_id,
-                    }
-                ],
+                # Dummy targets are required by the inherited evaluator; they
+                # are never used to choose the predicted spans.
+                "annotations": annotations,
             }
         }
     }
@@ -81,7 +86,7 @@ def main() -> None:
             # Preserve seconds when the smoke test uses a coarse timeline.
             "clip_stride": stride_seconds * fps,
             "downsample_rate": 1,
-            "max_num_text": 1,
+            "max_num_text": len(queries),
         }
     )
     opt["train"]["num_workers"] = 0

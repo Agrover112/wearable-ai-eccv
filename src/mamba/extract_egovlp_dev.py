@@ -184,28 +184,52 @@ def main() -> None:
 
     for position, sample in enumerate(samples, start=1):
         stem = Path(sample["video_path"]).stem
+        program = sample.get("hieramamba_program")
+        grounding_queries = program["queries"] if program else [
+            {"id": "q0", "text": sample["question"]}
+        ]
         video_file = Path(args.video_dir) / sample["video_path"]
         video_file_out = video_out / f"{stem}.npy"
-        text_file_out = text_out / f"{stem}.npy"
+        text_files_out = {
+            query["id"]: text_out / f"{stem}__{query['id']}.npy"
+            for query in grounding_queries
+        }
         metadata_file_out = meta_out / f"{stem}.json"
-        if video_file_out.exists() and text_file_out.exists() and metadata_file_out.exists():
+        if (
+            video_file_out.exists()
+            and all(path.exists() for path in text_files_out.values())
+            and metadata_file_out.exists()
+        ):
             print(f"[{position}/{len(samples)}] {stem}: cached", flush=True)
             continue
         if not video_file.exists():
             raise FileNotFoundError(video_file)
 
-        print(f"[{position}/{len(samples)}] {stem}: extracting", flush=True)
-        features, centers, fps, duration = extract_video(
-            model, video_file, args.batch_size, args.max_clips, args.target_clips
-        )
-        text_features = extract_text(model, sample["question"])
-        np.save(video_file_out, features.astype(np.float32))
-        np.save(text_file_out, text_features.astype(np.float32))
+        if video_file_out.exists() and metadata_file_out.exists():
+            print(f"[{position}/{len(samples)}] {stem}: reusing video features", flush=True)
+            previous = json.loads(metadata_file_out.read_text())
+            features = np.load(video_file_out)
+            centers = np.asarray(previous["feature_center_seconds"])
+            fps = float(previous["fps"])
+            duration = float(previous["duration_seconds"])
+        else:
+            print(f"[{position}/{len(samples)}] {stem}: extracting", flush=True)
+            features, centers, fps, duration = extract_video(
+                model, video_file, args.batch_size, args.max_clips, args.target_clips
+            )
+            np.save(video_file_out, features.astype(np.float32))
+        text_shapes = {}
+        for query in grounding_queries:
+            text_features = extract_text(model, query["text"])
+            np.save(text_files_out[query["id"]], text_features.astype(np.float32))
+            text_shapes[query["id"]] = list(text_features.shape)
         metadata_file_out.write_text(
             json.dumps(
                 {
                     "video_path": sample["video_path"],
                     "question": sample["question"],
+                    "hieramamba_program": program,
+                    "grounding_queries": grounding_queries,
                     "fps": fps,
                     "duration_seconds": duration,
                     "window_seconds": WINDOW_SECONDS,
@@ -213,12 +237,12 @@ def main() -> None:
                     "smoke_test_uniform_timeline": args.target_clips is not None,
                     "feature_center_seconds": centers.tolist(),
                     "video_feature_shape": list(features.shape),
-                    "text_feature_shape": list(text_features.shape),
+                    "text_feature_shapes": text_shapes,
                 },
                 indent=2,
             )
         )
-        print(f"    saved video={features.shape}, text={text_features.shape}", flush=True)
+        print(f"    saved video={features.shape}, queries={text_shapes}", flush=True)
 
 
 if __name__ == "__main__":
