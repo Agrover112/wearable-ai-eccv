@@ -8,7 +8,10 @@ from run_generate_longqa_proofpack import (
     build_option_hypotheses,
     build_structured_evidence_prompt,
     compile_temporal_program,
+    select_adaq_pack,
     select_eventlet_hybrid,
+    select_focus_pack,
+    select_mixed_resolution_pack,
     select_option_contrastive_eventlets,
     select_multi_event_pack,
     select_qca_pack,
@@ -247,6 +250,64 @@ def test_option_hypotheses_are_separate_queries():
         "option_D",
     ]
     assert "Hypothesis A: Sat down" in queries[0].text
+
+
+def test_adaq_pack_is_reproducible_and_exact_budget():
+    candidates = _candidates()
+    scores = [-(index - 9) ** 2 / 100 for index in range(len(candidates))]
+    first, first_meta = select_adaq_pack(
+        candidates, scores, 12, 0.5, 0.95, np.random.default_rng(42)
+    )
+    second, _ = select_adaq_pack(
+        candidates, scores, 12, 0.5, 0.95, np.random.default_rng(42)
+    )
+    assert len(first) == 12
+    assert [item.candidate.index for item in first] == [
+        item.candidate.index for item in second
+    ]
+    assert first_meta["adaq_tau"] >= 0.01
+
+
+def test_focus_pack_allocates_exact_unique_budget():
+    candidates = _candidates()
+    scores = [-(index - 15) ** 2 / 100 for index in range(len(candidates))]
+    selected, meta = select_focus_pack(
+        candidates,
+        scores,
+        budget=12,
+        num_arms=6,
+        zoom_ratio=0.5,
+        extra_samples_per_arm=2,
+        top_ratio=0.2,
+        temperature=0.06,
+        rng=np.random.default_rng(42),
+    )
+    indices = [item.candidate.index for item in selected]
+    assert len(indices) == 12
+    assert len(indices) == len(set(indices))
+    assert len(meta["focus_selected_arms"]) == 4
+
+
+def test_mixed_resolution_assigns_requested_tiers():
+    candidates = _candidates()
+    selected, meta = select_mixed_resolution_pack(
+        candidates,
+        [float(index) for index in range(len(candidates))],
+        high_frames=2,
+        medium_frames=3,
+        low_frames=7,
+        high_pixels=451584,
+        medium_pixels=200704,
+        low_pixels=50176,
+        temperature=0.1,
+        rng=np.random.default_rng(42),
+    )
+    sources = [item.source for item in selected]
+    assert len(selected) == 12
+    assert sources.count("qframe_high") == 2
+    assert sources.count("qframe_medium") == 3
+    assert sources.count("qframe_low") == 7
+    assert len(meta["frame_max_pixels"]) == 12
 
 
 def test_structured_prompt_preserves_direct_mcq_and_evidence_roles():

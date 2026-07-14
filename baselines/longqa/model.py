@@ -16,6 +16,7 @@ Setup:
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
 from abc import ABC, abstractmethod
@@ -1085,6 +1086,83 @@ class VLLMModel(VideoQAModel):
                 f"generation). Model: {self.model_id}, port: {self._port}"
             )
         return content
+
+    def score_choice_letters(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        letters: tuple[str, ...] = ("A", "B", "C", "D"),
+    ) -> dict[str, float]:
+        """Return next-token log probabilities for constrained MCQ letters."""
+        import base64
+        import io
+        import json
+        import urllib.request
+
+        image_content: list[dict[str, object]] = []
+        for frame in frames:
+            buf = io.BytesIO()
+            frame.save(buf, format="JPEG")
+            encoded = base64.b64encode(buf.getvalue()).decode()
+            image_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+                }
+            )
+        openai_messages: list[dict[str, object]] = []
+        images_inserted = False
+        for message in messages:
+            if message["role"] == "user" and not images_inserted and frames:
+                openai_messages.append(
+                    {
+                        "role": "user",
+                        "content": image_content
+                        + [{"type": "text", "text": message["content"]}],
+                    }
+                )
+                images_inserted = True
+            else:
+                openai_messages.append(message)
+        payload = json.dumps(
+            {
+                "model": self.model_id,
+                "messages": openai_messages,
+                "max_tokens": 1,
+                "temperature": 0.0,
+                "logprobs": True,
+                "top_logprobs": 20,
+            }
+        ).encode()
+        request = urllib.request.Request(
+            f"http://localhost:{self._port}/v1/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
+            result = json.loads(response.read())
+        if "error" in result:
+            raise RuntimeError(f"vLLM returned error: {result['error']}")
+        usage = result.get("usage", {})
+        if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
+            record_prompt_token_counts([int(usage["prompt_tokens"])], self._context_window)
+        try:
+            candidates = result["choices"][0]["logprobs"]["content"][0]["top_logprobs"]
+        except (KeyError, IndexError, TypeError) as error:
+            raise RuntimeError(f"vLLM response did not contain token logprobs: {result}") from error
+        scores = {letter: float("-inf") for letter in letters}
+        for candidate in candidates:
+            token = str(candidate.get("token", "")).strip().upper()
+            if token in scores:
+                scores[token] = max(scores[token], float(candidate["logprob"]))
+        missing = [letter for letter, score in scores.items() if not math.isfinite(score)]
+        if missing:
+            raise RuntimeError(
+                "Requested option letters were absent from vLLM top_logprobs: "
+                f"{missing}; returned tokens={[item.get('token') for item in candidates]}"
+            )
+        return scores
 
     def generate_batch(
         self,

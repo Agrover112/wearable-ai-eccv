@@ -9,7 +9,13 @@ import json
 import os
 from typing import Any
 
-from longqa_utils import apply_subset, build_longqa_prompt, build_prediction_row, sample_key
+from longqa_utils import (
+    apply_subset,
+    build_longqa_prompt,
+    build_prediction_row,
+    parse_mcq_options,
+    sample_key,
+)
 from run_generate_longqa_grounded import _run_eval, extract_frames_by_indices, load_jsonl
 from run_generate_longqa_proofpack import baseline_uniform_indices, compile_temporal_program
 
@@ -117,6 +123,34 @@ def build_verifier_prompt(
     )
 
 
+def build_pairwise_verifier_prompt(
+    row: dict[str, Any], first: str, second: str
+) -> str:
+    options = parse_mcq_options(row["mcq_options"])
+    if first not in options or second not in options:
+        raise ValueError("pairwise verifier candidates must be valid MCQ letters")
+    return (
+        "Use the chronological video evidence to decide which of exactly two "
+        "candidate answers is better supported. Check visible support, contradiction, "
+        "and required temporal order. You must select one of the two candidates; do "
+        "not propose another answer.\n\n"
+        f"Question: {row['question']}\n\n"
+        f"Candidate 1: {options[first]}\n"
+        f"Candidate 2: {options[second]}\n\n"
+        "Return ONLY 1 or 2."
+    )
+
+
+def parse_pairwise_choice(response: object) -> int | None:
+    text = str(response).strip()
+    if text in {"1", "2"}:
+        return int(text)
+    import re
+
+    matches = re.findall(r"\b([12])\b", text)
+    return int(matches[-1]) if matches else None
+
+
 def _fingerprint(args: argparse.Namespace) -> str:
     payload = {
         "primary": os.path.abspath(args.primary_predictions),
@@ -155,7 +189,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--verifier-prompt",
-        choices=["baseline", "support_contradiction"],
+        choices=["baseline", "support_contradiction", "pairwise_order_swap"],
         default="baseline",
     )
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
@@ -259,19 +293,57 @@ def main() -> None:
                     proofpack_quota=args.proofpack_quota,
                 )
                 frames = extract_frames_by_indices(video_path, frame_indices)
-                response = model.generate(
-                    frames,
-                    [
-                        {
-                            "role": "user",
-                            "content": build_verifier_prompt(
-                                row, first, second, args.verifier_prompt
-                            ),
-                        }
-                    ],
-                    max_new_tokens=16,
-                )
-                pred = build_prediction_row(row, response, prompt_variant="disagreement_verifier")
+                if args.verifier_prompt == "pairwise_order_swap":
+                    forward_raw = model.generate(
+                        frames,
+                        [{"role": "user", "content": build_pairwise_verifier_prompt(row, first, second)}],
+                        max_new_tokens=4,
+                    )
+                    reverse_raw = model.generate(
+                        frames,
+                        [{"role": "user", "content": build_pairwise_verifier_prompt(row, second, first)}],
+                        max_new_tokens=4,
+                    )
+                    forward_choice = parse_pairwise_choice(forward_raw)
+                    reverse_choice = parse_pairwise_choice(reverse_raw)
+                    forward_answer = (
+                        [first, second][forward_choice - 1] if forward_choice else None
+                    )
+                    reverse_answer = (
+                        [second, first][reverse_choice - 1] if reverse_choice else None
+                    )
+                    consensus = (
+                        forward_answer
+                        if forward_answer is not None and forward_answer == reverse_answer
+                        else first
+                    )
+                    pred = build_prediction_row(
+                        row, consensus, prompt_variant="pairwise_order_swap_verifier"
+                    )
+                    pred["pairwise_forward_raw"] = str(forward_raw)
+                    pred["pairwise_reverse_raw"] = str(reverse_raw)
+                    pred["pairwise_forward_answer"] = forward_answer
+                    pred["pairwise_reverse_answer"] = reverse_answer
+                    pred["pairwise_consensus"] = (
+                        forward_answer is not None and forward_answer == reverse_answer
+                    )
+                    pred["pairwise_fallback_primary"] = not pred["pairwise_consensus"]
+                else:
+                    response = model.generate(
+                        frames,
+                        [
+                            {
+                                "role": "user",
+                                "content": build_verifier_prompt(
+                                    row, first, second, args.verifier_prompt
+                                ),
+                            }
+                        ],
+                        max_new_tokens=16,
+                    )
+                    pred = build_prediction_row(
+                        row, response, prompt_variant="disagreement_verifier"
+                    )
                 pred["verifier_applied"] = True
                 pred["verifier_frames"] = len(frames)
                 pred["verifier_frame_meta"] = frame_meta

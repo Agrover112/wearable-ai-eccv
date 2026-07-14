@@ -1,6 +1,8 @@
 from run_generate_longqa_verifier import (
+    build_pairwise_verifier_prompt,
     build_verifier_frame_indices,
     build_verifier_prompt,
+    parse_pairwise_choice,
 )
 
 
@@ -47,3 +49,17 @@ def test_support_contradiction_prompt_requests_all_three_checks():
     assert "supporting evidence" in prompt
     assert "contradictory evidence" in prompt
     assert "temporal order" in prompt
+
+
+def test_pairwise_prompt_exposes_only_candidate_semantics():
+    row = {
+        "question": "What happened after payment?",
+        "mcq_options": "A. Sat B. Left C. Ordered D. Ate",
+    }
+    prompt = build_pairwise_verifier_prompt(row, "B", "D")
+    assert "Candidate 1: Left" in prompt
+    assert "Candidate 2: Ate" in prompt
+    assert "must select one of the two" in prompt
+    assert "A. Sat" not in prompt
+    assert parse_pairwise_choice("2") == 2
+    assert parse_pairwise_choice("Candidate 1") == 1

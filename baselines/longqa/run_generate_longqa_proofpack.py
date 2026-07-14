@@ -17,6 +17,7 @@ import argparse
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 from dataclasses import dataclass
@@ -47,7 +48,10 @@ from run_generate_longqa_grounded import (
 logger = logging.getLogger(__name__)
 
 STRATEGIES = (
+    "adaq",
     "eventlet_hybrid",
+    "focus",
+    "mixed_resolution",
     "option_contrastive",
     "temporal_pivot",
     "operator_router",
@@ -56,7 +60,7 @@ STRATEGIES = (
     "multi_event",
     "multi_event_router",
 )
-PROOFPACK_SCHEMA = 1
+PROOFPACK_SCHEMA = 2
 
 
 @dataclass(frozen=True)
@@ -420,6 +424,241 @@ def _zscore(values: list[float]) -> np.ndarray:
     if std < 1e-6:
         return np.zeros_like(array)
     return (array - float(array.mean())) / std
+
+
+def _minmax(values: list[float] | np.ndarray) -> np.ndarray:
+    array = np.asarray(values, dtype=np.float64)
+    if array.size == 0:
+        return array
+    span = float(array.max() - array.min())
+    if span < 1e-12:
+        return np.zeros_like(array)
+    return (array - float(array.min())) / span
+
+
+def select_adaq_pack(
+    candidates: list[CandidateFrame],
+    relevance_scores: list[float],
+    budget: int,
+    var_scale: float,
+    p_threshold: float,
+    rng: np.random.Generator,
+) -> tuple[list[SelectedFrame], dict[str, Any]]:
+    """AdaQ's official variance-scaled top-p probabilistic sampler."""
+    scores = np.asarray(relevance_scores, dtype=np.float64)
+    if not 0 < budget <= len(scores):
+        raise ValueError("AdaQ budget must be between 1 and the candidate count")
+    if var_scale < 0 or not 0 < p_threshold <= 1:
+        raise ValueError("AdaQ expects var_scale >= 0 and 0 < p_threshold <= 1")
+
+    variance = float(np.var(_minmax(scores)))
+    tau = max(variance * var_scale, 0.01)
+    shifted = scores / tau if var_scale else scores
+    shifted -= shifted.max()
+    probabilities = np.exp(shifted)
+    probabilities /= probabilities.sum()
+
+    ranked = np.argsort(-probabilities)
+    cumulative = np.cumsum(probabilities[ranked])
+    keep_count = int(np.searchsorted(cumulative, p_threshold, side="left")) + 1
+    filtered = ranked[:keep_count]
+    removed = np.setdiff1d(np.arange(len(scores)), filtered)
+    if len(filtered) < budget:
+        need = min(budget - len(filtered), len(removed))
+        supplement_prob = probabilities[removed]
+        supplement_prob /= supplement_prob.sum()
+        supplement = rng.choice(removed, size=need, replace=False, p=supplement_prob)
+        chosen = np.concatenate([filtered, supplement])
+    elif len(filtered) > budget:
+        filtered_prob = probabilities[filtered]
+        filtered_prob /= filtered_prob.sum()
+        chosen = rng.choice(filtered, size=budget, replace=False, p=filtered_prob)
+    else:
+        chosen = filtered
+
+    selected = [
+        SelectedFrame(candidates[int(index)], float(scores[index]), "adaq")
+        for index in sorted(int(index) for index in chosen)
+    ]
+    return selected, {
+        "adaq_variance": variance,
+        "adaq_tau": tau,
+        "adaq_top_p_candidates": len(filtered),
+        "adaq_var_scale": var_scale,
+        "adaq_p_threshold": p_threshold,
+    }
+
+
+def select_focus_pack(
+    candidates: list[CandidateFrame],
+    relevance_scores: list[float],
+    budget: int,
+    num_arms: int,
+    zoom_ratio: float,
+    extra_samples_per_arm: int,
+    top_ratio: float,
+    temperature: float,
+    rng: np.random.Generator,
+) -> tuple[list[SelectedFrame], dict[str, Any]]:
+    """Apply FOCUS's Bernstein-UCB allocation to cached candidate scores."""
+    scores = np.asarray(relevance_scores, dtype=np.float64)
+    if not 0 < budget <= len(scores):
+        raise ValueError("FOCUS budget must be between 1 and the candidate count")
+    arms = [part for part in np.array_split(np.arange(len(scores)), num_arms) if len(part)]
+    sampled_by_arm: list[np.ndarray] = []
+    arm_stats: list[dict[str, float | int]] = []
+    for arm_id, arm in enumerate(arms):
+        center = int(arm[len(arm) // 2])
+        available = arm[arm != center]
+        extra_count = min(extra_samples_per_arm, len(available))
+        extras = (
+            rng.choice(available, size=extra_count, replace=False)
+            if extra_count
+            else np.asarray([], dtype=int)
+        )
+        sampled = np.concatenate([[center], extras]).astype(int)
+        sampled_by_arm.append(sampled)
+        values = scores[sampled]
+        arm_stats.append(
+            {
+                "arm": arm_id,
+                "start": int(arm[0]),
+                "end": int(arm[-1]),
+                "samples": len(sampled),
+                "mean": float(values.mean()),
+                "variance": float(values.var()) if len(values) > 1 else 0.0,
+            }
+        )
+
+    total_samples = sum(int(item["samples"]) for item in arm_stats)
+    for item in arm_stats:
+        count = int(item["samples"])
+        variance = max(float(item["variance"]), 1e-6)
+        item["focus_score"] = float(item["mean"]) + math.sqrt(
+            2 * math.log(max(total_samples, 2)) * variance / count
+        ) + 3 * math.log(max(total_samples, 2)) / count
+
+    selected_arm_count = max(4, int(math.ceil(len(arms) * zoom_ratio)))
+    selected_arm_count = min(selected_arm_count, len(arms))
+    selected_arm_ids = [
+        int(item["arm"])
+        for item in sorted(arm_stats, key=lambda item: float(item["focus_score"]), reverse=True)[
+            :selected_arm_count
+        ]
+    ]
+    computed = sorted(
+        set(
+            int(index)
+            for arm_id in selected_arm_ids
+            for index in np.concatenate([sampled_by_arm[arm_id], arms[arm_id]])
+        )
+    )
+    top_count = min(budget, max(1, int(round(top_ratio * min(budget, len(computed))))))
+    chosen = sorted(computed, key=lambda index: scores[index], reverse=True)[:top_count]
+    chosen_set = set(chosen)
+
+    remaining = budget - len(chosen)
+    base, remainder = divmod(remaining, selected_arm_count)
+    for rank, arm_id in enumerate(selected_arm_ids):
+        need = base + int(rank < remainder)
+        available = [int(index) for index in arms[arm_id] if int(index) not in chosen_set]
+        if not available or need <= 0:
+            continue
+        values = _minmax(scores[available])
+        logits = values / max(temperature, 1e-6)
+        probabilities = np.exp(logits - logits.max())
+        probabilities /= probabilities.sum()
+        take = min(need, len(available))
+        additions = rng.choice(available, size=take, replace=False, p=probabilities)
+        chosen.extend(int(index) for index in additions)
+        chosen_set.update(int(index) for index in additions)
+
+    if len(chosen) < budget:
+        for index in np.argsort(-scores):
+            if int(index) not in chosen_set:
+                chosen.append(int(index))
+                chosen_set.add(int(index))
+            if len(chosen) == budget:
+                break
+    selected = [
+        SelectedFrame(candidates[index], float(scores[index]), "focus")
+        for index in sorted(chosen[:budget])
+    ]
+    return selected, {
+        "focus_arms": arm_stats,
+        "focus_selected_arms": selected_arm_ids,
+        "focus_zoom_ratio": zoom_ratio,
+        "focus_top_ratio": top_ratio,
+    }
+
+
+def select_mixed_resolution_pack(
+    candidates: list[CandidateFrame],
+    relevance_scores: list[float],
+    high_frames: int,
+    medium_frames: int,
+    low_frames: int,
+    high_pixels: int,
+    medium_pixels: int,
+    low_pixels: int,
+    temperature: float,
+    rng: np.random.Generator,
+) -> tuple[list[SelectedFrame], dict[str, Any]]:
+    """Q-Frame-style Gumbel sampling with relevance-ranked pixel budgets."""
+    scores = np.asarray(relevance_scores, dtype=np.float64)
+    budget = high_frames + medium_frames + low_frames
+    if not 0 < budget <= len(scores):
+        raise ValueError("mixed-resolution budget exceeds candidate count")
+    logits = scores / max(temperature, 1e-6)
+    probabilities = np.exp(logits - logits.max())
+    probabilities /= probabilities.sum()
+    gumbel = rng.gumbel(size=len(scores))
+    chosen = np.argsort(-(np.log(np.maximum(probabilities, 1e-300)) + gumbel))[:budget]
+    relevance_ranked = sorted((int(index) for index in chosen), key=lambda index: scores[index], reverse=True)
+    assignments: dict[int, tuple[str, int]] = {}
+    cut_high = high_frames
+    cut_medium = high_frames + medium_frames
+    for rank, index in enumerate(relevance_ranked):
+        if rank < cut_high:
+            assignments[index] = ("qframe_high", high_pixels)
+        elif rank < cut_medium:
+            assignments[index] = ("qframe_medium", medium_pixels)
+        else:
+            assignments[index] = ("qframe_low", low_pixels)
+    selected = [
+        SelectedFrame(candidates[index], float(scores[index]), assignments[index][0])
+        for index in sorted(assignments)
+    ]
+    return selected, {
+        "mixed_resolution_counts": {
+            "high": high_frames,
+            "medium": medium_frames,
+            "low": low_frames,
+        },
+        "mixed_resolution_pixels": {
+            "high": high_pixels,
+            "medium": medium_pixels,
+            "low": low_pixels,
+        },
+        "frame_max_pixels": {
+            str(candidates[index].index): pixels
+            for index, (_source, pixels) in assignments.items()
+        },
+        "qframe_temperature": temperature,
+    }
+
+
+def resize_frame_to_max_pixels(frame: object, max_pixels: int) -> object:
+    """Downscale a PIL frame to a per-frame area budget without upscaling."""
+    width, height = frame.size
+    area = width * height
+    if area <= max_pixels:
+        return frame
+    scale = math.sqrt(max_pixels / area)
+    target = (max(1, round(width * scale)), max(1, round(height * scale)))
+    from PIL import Image
+
+    return frame.resize(target, Image.Resampling.LANCZOS)
 
 
 def select_option_contrastive_eventlets(
@@ -823,6 +1062,21 @@ def proofpack_fingerprint(args: argparse.Namespace) -> str:
         "qca_beta": args.qca_beta,
         "qca_temperature": args.qca_temperature,
         "qca_relevance_threshold": args.qca_relevance_threshold,
+        "selection_seed": args.selection_seed,
+        "adaq_var_scale": args.adaq_var_scale,
+        "adaq_p_threshold": args.adaq_p_threshold,
+        "focus_arms": args.focus_arms,
+        "focus_zoom_ratio": args.focus_zoom_ratio,
+        "focus_extra_samples": args.focus_extra_samples,
+        "focus_top_ratio": args.focus_top_ratio,
+        "focus_temperature": args.focus_temperature,
+        "mixed_high_frames": args.mixed_high_frames,
+        "mixed_medium_frames": args.mixed_medium_frames,
+        "mixed_low_frames": args.mixed_low_frames,
+        "mixed_high_pixels": args.mixed_high_pixels,
+        "mixed_medium_pixels": args.mixed_medium_pixels,
+        "mixed_low_pixels": args.mixed_low_pixels,
+        "qframe_temperature": args.qframe_temperature,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:12]
@@ -875,6 +1129,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--qca-beta", type=float, default=0.5)
     parser.add_argument("--qca-temperature", type=float, default=0.5)
     parser.add_argument("--qca-relevance-threshold", type=float, default=0.7)
+    parser.add_argument("--selection-seed", type=int, default=42)
+    parser.add_argument("--adaq-var-scale", type=float, default=0.5)
+    parser.add_argument("--adaq-p-threshold", type=float, default=0.95)
+    parser.add_argument("--focus-arms", type=int, default=16)
+    parser.add_argument("--focus-zoom-ratio", type=float, default=0.25)
+    parser.add_argument("--focus-extra-samples", type=int, default=2)
+    parser.add_argument("--focus-top-ratio", type=float, default=0.2)
+    parser.add_argument("--focus-temperature", type=float, default=0.06)
+    parser.add_argument("--mixed-high-frames", type=int, default=4)
+    parser.add_argument("--mixed-medium-frames", type=int, default=8)
+    parser.add_argument("--mixed-low-frames", type=int, default=32)
+    parser.add_argument("--mixed-high-pixels", type=int, default=451584)
+    parser.add_argument("--mixed-medium-pixels", type=int, default=200704)
+    parser.add_argument("--mixed-low-pixels", type=int, default=50176)
+    parser.add_argument("--qframe-temperature", type=float, default=0.1)
     parser.add_argument("--final-max-frames", type=int, default=64)
     parser.add_argument("--temporal-nms-seconds", type=float, default=10.0)
     parser.add_argument(
@@ -968,8 +1237,43 @@ def main() -> None:
                 base_scores = grounder.score_embeddings(base_query, image_features)
                 queries = [{"label": "question_options", "hash": query_hash(base_query)}]
                 program: TemporalProgram | None = None
+                rng = np.random.default_rng(args.selection_seed + row_idx)
 
-                if args.strategy == "eventlet_hybrid":
+                if args.strategy == "adaq":
+                    selected, selection_meta = select_adaq_pack(
+                        candidates,
+                        base_scores,
+                        args.final_max_frames,
+                        args.adaq_var_scale,
+                        args.adaq_p_threshold,
+                        rng,
+                    )
+                elif args.strategy == "focus":
+                    selected, selection_meta = select_focus_pack(
+                        candidates,
+                        base_scores,
+                        args.final_max_frames,
+                        args.focus_arms,
+                        args.focus_zoom_ratio,
+                        args.focus_extra_samples,
+                        args.focus_top_ratio,
+                        args.focus_temperature,
+                        rng,
+                    )
+                elif args.strategy == "mixed_resolution":
+                    selected, selection_meta = select_mixed_resolution_pack(
+                        candidates,
+                        base_scores,
+                        args.mixed_high_frames,
+                        args.mixed_medium_frames,
+                        args.mixed_low_frames,
+                        args.mixed_high_pixels,
+                        args.mixed_medium_pixels,
+                        args.mixed_low_pixels,
+                        args.qframe_temperature,
+                        rng,
+                    )
+                elif args.strategy == "eventlet_hybrid":
                     selected, selection_meta = select_eventlet_hybrid(
                         candidates,
                         base_scores,
@@ -1202,6 +1506,17 @@ def main() -> None:
             selected_meta = record["selected"]
             frame_indices = [int(item["frame_index"]) for item in selected_meta]
             frames = extract_frames_by_indices(video_path, frame_indices)
+            frame_pixel_budgets = record.get("selection_meta", {}).get(
+                "frame_max_pixels", {}
+            )
+            if frame_pixel_budgets:
+                frames = [
+                    resize_frame_to_max_pixels(
+                        frame,
+                        int(frame_pixel_budgets.get(str(frame_index), args.mixed_high_pixels)),
+                    )
+                    for frame, frame_index in zip(frames, frame_indices)
+                ]
             temporal_program = record.get("selection_meta", {}).get("temporal_program")
             prompt = (
                 build_structured_evidence_prompt(row, selected_meta, temporal_program)
