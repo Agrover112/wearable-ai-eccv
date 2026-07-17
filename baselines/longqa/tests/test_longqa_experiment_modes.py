@@ -1,7 +1,7 @@
 import numpy as np
 
 from run_generate_longqa_openqa import build_openqa_prompt, select_nearest_option
-from longqa_utils import classify_question_types, primary_question_type
+from longqa_utils import build_longqa_prompt, classify_question_types, primary_question_type
 
 
 def test_openqa_prompt_does_not_include_options():
@@ -9,6 +9,19 @@ def test_openqa_prompt_does_not_include_options():
     assert "What did I pick up?" in prompt
     assert "Options:" not in prompt
     assert "A." not in prompt
+
+
+def test_timestamp_grounded_prompt_requests_evidence_and_parseable_answer():
+    prompt = build_longqa_prompt(
+        "What happened last?",
+        "A. One B. Two C. Three D. Four",
+        prompt_variant="timestamp_grounded",
+    )
+
+    assert "timestamp labels" in prompt
+    assert "inspect the full timeline" in prompt
+    assert "Final answer: X" in prompt
+    assert "ONLY the single letter" not in prompt
 
 
 def test_select_nearest_option_returns_scores_and_margin():

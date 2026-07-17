@@ -1,0 +1,20 @@
+{
+  "samples": 140,
+  "correct": 92,
+  "accuracy": 0.6571,
+  "attention_implementation": "flash_attention_2",
+  "gpu": "NVIDIA H100 NVL",
+  "model_load_seconds": 33.7796,
+  "processor_seconds": {
+    "mean": 43.0991,
+    "p50": 39.6536,
+    "p95": 71.208,
+    "max": 85.1498
+  },
+  "inference_seconds": {
+    "mean": 5.6361,
+    "p50": 4.9013,
+    "p95": 9.9318,
+    "max": 11.4331
+  }
+}

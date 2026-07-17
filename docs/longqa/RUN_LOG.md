@@ -311,3 +311,50 @@ Dev140 inference:
 - **Answer distribution:** predicted `A/B/C/D = 21/35/58/26`; gold `A/B/C/D = 1/39/91/9`. InternVideo3 substantially under-selects C on this dev slice.
 - **Inference:** The matched hot swap is 20 correct answers below Qwen3-VL uniform64/672. Its relatively strong non-C and macro-letter scores suggest useful visual reasoning, but direct option-letter calibration is poorly matched to the unusually C-heavy dev140 distribution.
 - **Artifacts:** `runs/egolongqa/internvideo3_8b_hf_uniform64_px451584_dev140_2026-07-13/` contains committed predictions, evaluation results, and shortcut-aware diagnostics.
+
+### `internvideo3_timestamp_profile_2026-07-14`
+
+- **Purpose:** Measure challenge-timed inference at 512, 1,024, and 2,048 native video frames before selecting a larger InternVideo3 evaluation configuration.
+- **Sample:** `31cdcd6a7135a92b.mp4`, a 600-second first/last temporal question about decorative-light colors. The 64-frame InternVideo3 run predicted D; the gold answer is C.
+- **Implementation:** Raw MP4 input through the checkpoint's native video processor; TorchCodec 0.10 CPU decoding; 65,536-131,072 pixels per frame; automatic timestamp labels for every two-frame temporal patch; timestamp-grounded prompt with a concise evidence trace and terminal `Final answer: X`; BF16; SDPA; deterministic generation; one H100 NVL. The challenge excludes processor/frame-extraction time from its 300-second inference limit.
+- **SLURM jobs:** `49083271` for the direct-answer control and `49083291` for the corrected timestamp-grounded prompt.
+
+| Frames | Effective fps | Prompt tokens | Processor | Inference | Peak allocated / reserved | Grounded answer |
+| ---: | ---: | ---: | ---: | ---: | ---: | :--- |
+| 512 | 0.85 | 32,692 | 13.49s | 9.09s | 24.46 / 28.60 GiB | **C** |
+| 1,024 | 1.71 | 65,157 | 18.78s | 25.56s | 31.39 / 39.68 GiB | D |
+| 2,048 | 3.41 | 130,087 | 28.86s | 114.10s | 45.27 / 61.84 GiB | D |
+
+- **Timestamp check:** All configurations cover the full video. The 512-frame prompt spans 0.6-599.4 seconds with 256 timestamp labels; the 2,048-frame prompt spans 0.1-599.9 seconds with 1,024 labels.
+- **Finding:** All frame counts fit comfortably inside the 300-second model-inference limit, including a 153-token explanation at 2,048 frames. Accuracy is not monotonic on this diagnostic: 512 frames recovers the correct option and identifies an early occurrence near 100 seconds, while the denser settings incorrectly treat the late 439-second house as the first occurrence. This is a long-context evidence-selection failure, not missing temporal coverage.
+- **Recommendation:** Use 512 frames as the first promotion candidate, but compare 512 and 1,024 on a small stratified temporal subset before dev140. Do not promote 2,048 solely because it fits the latency and memory budgets.
+- **Artifacts:** `runs/egolongqa/internvideo3_timestamp_profile_2026-07-14/profile.json`; direct-answer control in `profile_direct_answer.json`.
+
+### `internvideo3_timestamp512_pilot30_fa2_2026-07-14`
+
+- **Purpose:** Test whether the successful 512-frame timestamp-grounded diagnostic generalizes before promoting the configuration to dev140, and validate FlashAttention-2 on the production H100 path.
+- **Subset:** `configs/internvideo3_temporal_pilot30_seed20260714.json`; 24 temporal questions with four prior 64-frame errors and four prior successes in each of first/last, before/after, and other-temporal groups, plus three prior errors and three prior successes marked non-temporal. This deliberately balanced gate is not an unbiased dev140 accuracy estimate.
+- **Implementation:** `yanziang/InternVideo3-8B-Instruct` at revision `c4602918b65225650d152db2850fe34e01d21fcd`; raw MP4 input through TorchCodec and the checkpoint's native processor; 512 uniform frames; 65,536-131,072 pixels per frame; 32,615 mean prompt tokens; native timestamp labels; timestamp-grounded prompt; deterministic generation with 192 output tokens; BF16; Hugging Face/PyTorch backend. FlashAttention `2.8.3.post1` was compiled for SM90 against PyTorch `2.10.0+cu128` and CUDA `12.8`.
+- **Command:** `python baselines/longqa/run_internvideo3_timestamp_pilot.py --input ../egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl --video-folder /scratch/inf0/user/kkumar/val --subset-file configs/internvideo3_temporal_pilot30_seed20260714.json --output runs/egolongqa/internvideo3_timestamp512_pilot30_fa2_2026-07-14/predictions.jsonl --attn-implementation flash_attention_2 --frames 512 --min-pixels 65536 --max-pixels 131072 --max-new-tokens 192`
+- **SLURM jobs:** `49110433` for the SDPA/A100 comparison and `49112806` for FA2/H100. Wall times were `34m44s` and `23m02s`, respectively.
+- **Result:** The paired 64-frame baseline has `15/30`; timestamped 512-frame InternVideo3 has `19/30` (`63.33%`), with six wrong-to-correct changes and two correct-to-wrong changes. FA2 and SDPA agree on all 30 final option letters.
+- **Subtype changes:** first/last `4/8 -> 4/8`; before/after `4/8 -> 4/8`; other temporal `4/8 -> 7/8`; controls `3/6 -> 4/6`. The gain is concentrated in general cross-time comparisons, not first/last or before/after questions.
+- **FA2/H100 latency:** processor mean/p50/p95/max `39.51/31.98/65.11/70.98s`; inference mean/p50/p95/max `5.90/4.93/10.52/12.25s`; combined processor+transfer+inference mean/p50/p95/max `45.55/37.08/71.95/76.04s`. All samples are comfortably within 300 seconds even when preprocessing is included.
+- **Evidence audit:** 20/30 responses contain only an option letter, only three cite timestamps, and one correct first/last response cites its alleged first event later than its alleged last event. The one-shot prompt therefore improves paired accuracy but does not yet provide reliable temporal evidence traces.
+- **Parser correction:** The original summary counted `18/30` because the fallback parser interpreted the lowercase article in `D. It defecated near a bush...` as option A. `normalize_answer` now restricts prose fallback matches to uppercase option letters while retaining lowercase single-letter and explicit answer declarations; the corrected result is `19/30`.
+- **Recommendation:** Keep FA2 as the H100 backend and retain 512 frames as a useful branch, but do not replace the 64-frame path globally. The next experiment should use chunked/coarse-to-fine evidence selection for first/last and before/after questions, where this pilot shows no aggregate gain.
+- **Artifacts:** `runs/egolongqa/internvideo3_timestamp512_pilot30_fa2_2026-07-14/` and the SDPA comparison in `runs/egolongqa/internvideo3_timestamp512_pilot30_sdpa_2026-07-14/`.
+
+### `internvideo3_timestamp512_fa2_dev140_2026-07-14`
+
+- **Purpose:** Evaluate the promoted native-video, timestamp-grounded 512-frame InternVideo3 configuration on the complete reduced dev140 split, including all 133 temporal and 7 non-temporal questions.
+- **Implementation:** Same checkpoint and processor path as the pilot; 512 uniform native-video frames; 65,536-131,072 pixels per frame; 32,703 mean prompt tokens; timestamp-grounded prompt; deterministic generation with 192 output tokens; BF16; Hugging Face/PyTorch backend; FlashAttention-2 on one H100 NVL.
+- **Command:** `sbatch scripts/slurm_internvideo3_timestamp512_dev140.sh`
+- **SLURM job:** `49114620` on `gpu24-h100-06`; completed with exit code 0 in `1h55m01s` under a three-hour allocation.
+- **Result:** Accuracy `0.6571`, with `92/140` correct. The prior 64-frame InternVideo3 result was `90/140` (`0.6429`), while the Qwen3-VL dev140 reference was `110/140` (`0.7857`). Relative to 64-frame InternVideo3, the run had 19 wrong-to-correct changes and 17 correct-to-wrong changes.
+- **Question types:** Temporal accuracy changed from `87/133` to `88/133`; non-temporal from `3/7` to `4/7`. Exclusive subtype counts changed as follows: cross-time ordering `23/41 -> 29/41`, OCR/named detail `30/39 -> 26/39`, color/appearance `4/11 -> 5/11`, fine object identity `6/9 -> 5/9`, and spatial/location remained `27/38`.
+- **Answer distribution:** Gold `A/B/C/D = 1/39/91/9`; 64-frame predictions `21/35/58/26`; 512-frame predictions `21/40/64/14`, plus one unparsed response. Correct C answers increased from 55 to 60 while correct B answers decreased from 28 to 25, so the small aggregate gain is partly a calibration shift toward the C-heavy split.
+- **Latency:** Model inference mean/p50/p95/max `5.64/4.90/9.93/11.43s`; complete processor+transfer+inference mean/p50/p95/max `48.88/45.90/77.70/90.38s`. Every query remained below the 300-second challenge budget even when preprocessing was included.
+- **Generation behavior:** 108/140 responses were a single option letter and 12 cited timestamps. One response exhausted all 192 tokens while narrating the video without emitting a final option; it is counted as incorrect.
+- **Inference:** The dense timestamp path helps cross-time ordering but loses OCR/named-detail accuracy, consistent with exchanging spatial resolution for temporal coverage. It should not globally replace the 64-frame path. A question-conditioned router or coarse-to-fine pass should retain high-resolution evidence for text and object details while using the denser timeline for ordering questions.
+- **Artifacts:** `runs/egolongqa/internvideo3_timestamp512_fa2_dev140_2026-07-14/` contains the complete predictions and summary.

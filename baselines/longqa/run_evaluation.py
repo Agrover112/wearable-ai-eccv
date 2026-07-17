@@ -930,6 +930,7 @@ def _generate_longqa_preds(
     backend: str = "hf",
     tp: int | None = None,
     concurrency: int = 16,
+    max_new_tokens: int = 16,
 ) -> None:
     if not video_folder:
         raise ValueError("video_folder is required for LongQA generation")
@@ -957,6 +958,7 @@ def _generate_longqa_preds(
         prompt_variant=prompt_variant,
         subset_file=subset_file,
         no_resume_predictions=no_resume_predictions,
+        max_new_tokens=max_new_tokens,
     )
 
     if num_workers <= 1:
@@ -1307,6 +1309,12 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=PROMPT_VARIANTS,
         default="baseline",
         help="LongQA only: prompt variant to use for generation.",
+    )
+    parser.add_argument(
+        "--longqa-max-new-tokens",
+        type=int,
+        default=16,
+        help="LongQA only: maximum answer tokens per query (default: 16).",
     )
     parser.add_argument(
         "--no-resume-predictions",
@@ -1767,6 +1775,8 @@ def _build_slurm_extra_args(
             extra.extend(["--subset-file", args.subset_file])
         if args.prompt_variant != "baseline":
             extra.extend(["--prompt-variant", args.prompt_variant])
+        if args.longqa_max_new_tokens != 16:
+            extra.extend(["--max-new-tokens", str(args.longqa_max_new_tokens)])
         if args.no_resume_predictions:
             extra.append("--no-resume-predictions")
     if args.num_gpus is not None:
@@ -1965,6 +1975,7 @@ def _run_task(
             backend=args.backend,
             tp=args.tp,
             concurrency=args.concurrency,
+            max_new_tokens=args.longqa_max_new_tokens,
         )
     elif do_generate and task == "convqa":
         _generate_convqa_preds(

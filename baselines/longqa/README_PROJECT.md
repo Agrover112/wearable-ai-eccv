@@ -58,3 +58,57 @@ VISION_MAX_PIXELS=451584 python baselines/longqa/run_generate_longqa.py \
 
 Remove `--max-samples 2` and choose a new output directory for the later 140-sample run.
 InternVideo3 is not supported by the installed vLLM release, so its backend is `hf`.
+The Hugging Face backend uses the FlashAttention-2 extension installed by the setup script by
+default. Override it only when an experiment specifically requires another implementation:
+
+```bash
+INTERNVIDEO3_ATTN_IMPLEMENTATION=sdpa \
+  python baselines/longqa/run_generate_longqa.py ...
+```
+
+The setup script compiles FlashAttention for H100 (`SM90`) by default. Set
+`FLASH_ATTN_CUDA_ARCHS=80` while running the setup script if the environment instead needs to
+run on A100 GPUs.
+
+To reproduce the native-video timestamp and challenge-latency profile on one H100, request an
+interactive allocation and run:
+
+```bash
+scripts/profile_internvideo3_single.sh
+```
+
+The profiler samples 512, 1,024, and 2,048 frames from one representative 600-second video,
+separately records processor and model-inference time, verifies the generated timestamp span,
+and writes `runs/egolongqa/internvideo3_timestamp_profile_2026-07-14/profile.json`.
+
+The deterministic 30-question promotion gate uses native video decoding, 512 frames, timestamped
+evidence prompting, and resumable JSONL output:
+
+```bash
+source scripts/activate_internvideo3_env.sh
+python baselines/longqa/run_internvideo3_timestamp_pilot.py \
+  --input ../egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl \
+  --video-folder /scratch/inf0/user/kkumar/val \
+  --subset-file configs/internvideo3_temporal_pilot30_seed20260714.json \
+  --output runs/egolongqa/internvideo3_timestamp512_pilot30_fa2/predictions.jsonl \
+  --attn-implementation flash_attention_2 \
+  --frames 512 \
+  --min-pixels 65536 \
+  --max-pixels 131072 \
+  --max-new-tokens 192
+```
+
+The subset balances prior 64-frame successes and failures across first/last, before/after, and
+other temporal comparisons, plus six controls. It is a paired promotion test rather than an
+estimate of dev140 accuracy.
+
+To evaluate the complete reduced dev140 split with the promoted FA2 configuration, submit:
+
+```bash
+ssh slurm
+cd /CT/RGCAHead3/nobackup/data/wearable-ai/wearable-ai-eccv
+sbatch scripts/slurm_internvideo3_timestamp512_dev140.sh
+```
+
+This runs all 140 questions, writes one resumable prediction row per question, and produces
+`runs/egolongqa/internvideo3_timestamp512_fa2_dev140_2026-07-14/summary.json` when complete.

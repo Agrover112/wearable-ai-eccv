@@ -38,5 +38,27 @@ fi
   --python "$ENV_PREFIX/bin/python" \
   -r "$PROJECT_ROOT/baselines/longqa/requirements-internvideo3.txt"
 
+# Transformers uses TorchCodec only for CPU video extraction in this pipeline.
+"$UV_BIN" pip install \
+  --python "$ENV_PREFIX/bin/python" \
+  --no-deps \
+  torchcodec==0.10.0 \
+  --index-url https://download.pytorch.org/whl/cpu
+
+# FlashAttention has no wheel for this Torch release, so build its H100 kernels locally.
+"$CONDA_BIN" install --yes --prefix "$ENV_PREFIX" \
+  --channel nvidia \
+  cuda-nvcc=12.8
+"$UV_BIN" pip install \
+  --python "$ENV_PREFIX/bin/python" \
+  ninja packaging psutil
+CUDA_HOME="$ENV_PREFIX" \
+FLASH_ATTN_CUDA_ARCHS="${FLASH_ATTN_CUDA_ARCHS:-90}" \
+MAX_JOBS="${MAX_JOBS:-8}" \
+"$UV_BIN" pip install \
+  --python "$ENV_PREFIX/bin/python" \
+  --no-build-isolation \
+  flash-attn==2.8.3.post1
+
 echo "InternVideo3 environment ready."
 echo "Activate it with: source scripts/activate_internvideo3_env.sh"

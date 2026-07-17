@@ -608,6 +608,9 @@ class InternVideo3Model(VideoQAModel):
 
         logger.info("Loading model: %s ...", model_id)
         revision = os.environ.get("INTERNVIDEO3_REVISION", self.REVISION)
+        self.attn_implementation = os.environ.get(
+            "INTERNVIDEO3_ATTN_IMPLEMENTATION", "flash_attention_2"
+        )
         self.min_pixels = _env_int("VISION_MIN_PIXELS", 262144)
         self.max_pixels = _env_int("VISION_MAX_PIXELS", 524288)
         self.processor = AutoProcessor.from_pretrained(
@@ -619,12 +622,12 @@ class InternVideo3Model(VideoQAModel):
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
             dtype=torch.bfloat16,
-            attn_implementation="sdpa",
+            attn_implementation=self.attn_implementation,
             device_map="auto",
             revision=revision,
             trust_remote_code=True,
         )
-        logger.info("Model loaded.")
+        logger.info("Model loaded with %s attention.", self.attn_implementation)
 
     def generate(
         self,

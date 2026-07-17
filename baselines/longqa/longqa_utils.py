@@ -15,6 +15,7 @@ PROMPT_VARIANTS = (
     "evidence_first",
     "option_verify",
     "temporal_anchor",
+    "timestamp_grounded",
     "anti_shortcut",
     "combined",
 )
@@ -106,6 +107,17 @@ _VARIANT_INSTRUCTIONS = {
         "evidence from the relevant temporal neighborhood over global "
         "impressions. Return only the final option letter."
     ),
+    "timestamp_grounded": (
+        "You are analyzing a long first-person video whose observations are "
+        "shown in chronological order with timestamp labels. Locate all "
+        "occurrences relevant to the question and cite the decisive timestamps. "
+        "For first/last questions, inspect the full timeline; for before/after "
+        "questions, identify the anchor event before examining the requested "
+        "direction. Compare all four options against the timestamped visual "
+        "evidence, including fine details such as color, text, object identity, "
+        "and state changes. Give a concise evidence summary, then end with exactly "
+        "`Final answer: X`, where X is A, B, C, or D."
+    ),
     "anti_shortcut": (
         "Use visual evidence from the video, not answer priors. Do not choose "
         "based on option letter frequency, option length, or which option "
@@ -134,11 +146,17 @@ def build_longqa_prompt(
     """Build a LongQA prompt while preserving baseline text by default."""
     if prompt_variant not in PROMPT_VARIANTS:
         raise ValueError(f"Unknown prompt variant: {prompt_variant}")
+    instruction = _VARIANT_INSTRUCTIONS[prompt_variant]
+    if prompt_variant == "timestamp_grounded":
+        return (
+            f"{instruction}\n\n"
+            f"Question: {question}\n\n"
+            f"Options:\n{mcq_options}"
+        )
     base = BASELINE_PROMPT_TEMPLATE.format(
         question=question,
         mcq_options=mcq_options,
     )
-    instruction = _VARIANT_INSTRUCTIONS[prompt_variant]
     if not instruction:
         return base
     return f"{instruction}\n\n{base}"
@@ -168,7 +186,9 @@ def normalize_answer(raw: object) -> str:
     if leading:
         return leading.group(1).upper()
 
-    standalone = list(re.finditer(r"\b([A-Da-d])\b", text))
+    # Lowercase a-d are common words in explanations; only accept them when
+    # an answer declaration or a single-letter response matched above.
+    standalone = list(re.finditer(r"\b([A-D])\b", text))
     if standalone:
         return standalone[-1].group(1).upper()
 

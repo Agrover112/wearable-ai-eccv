@@ -23,6 +23,8 @@ a slide deck.
   `configs/egolongqa_dev140_seed20260709.json`.
 - Access the Slurm submission host with `ssh slurm`. Run `gpucheck` on that host to inspect
   current GPU availability before choosing resources or submitting GPU jobs.
+- Use FlashAttention-2 for InternVideo3 experiments unless the user explicitly requests a
+  different attention backend. The default build targets H100 (`SM90`).
 - Prefix commit subjects with a conventional tag such as `feat:`, `fix:`, `docs:`, or
   `refactor:`. Feature commits for this project should start with `feat:` and include a
   meaningful commit body describing the implementation and verification.

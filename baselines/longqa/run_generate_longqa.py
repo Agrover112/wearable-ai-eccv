@@ -119,6 +119,12 @@ def main() -> None:
         help="LongQA prompt variant (default: baseline).",
     )
     parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=16,
+        help="Maximum answer tokens per LongQA query (default: 16).",
+    )
+    parser.add_argument(
         "--batch-size",
         type=int,
         default=None,
@@ -204,6 +210,8 @@ def _submit_slurm(
         "--prompt-variant",
         args.prompt_variant,
     ]
+    if args.max_new_tokens != 16:
+        extra.extend(["--max-new-tokens", str(args.max_new_tokens)])
     if args.subset_file:
         extra.extend(["--subset-file", args.subset_file])
     if args.llm_model:
@@ -402,7 +410,7 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 for row in batch
             ]
             responses = model.generate_batch(
-                batch_frames, batch_messages, max_new_tokens=16
+                batch_frames, batch_messages, max_new_tokens=args.max_new_tokens
             )
             for row, response in zip(batch, responses):
                 pred = build_prediction_row(
@@ -484,7 +492,7 @@ def _worker_fn(
                 for row in batch
             ]
             responses = model.generate_batch(
-                batch_frames, batch_messages, max_new_tokens=16
+                batch_frames, batch_messages, max_new_tokens=args.max_new_tokens
             )
             for row, response in zip(batch, responses):
                 pred = build_prediction_row(

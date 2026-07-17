@@ -171,6 +171,7 @@ class TestNormalizeAnswer:
             ("The answer is A.", "A"),
             ("The answer is B", "B"),
             ("I think the answer is C.", "C"),
+            ("D. It defecated near a bush in the snowy yard.", "D"),
             ("  A  ", "A"),
             ("\nB\n", "B"),
         ],
@@ -1739,6 +1740,39 @@ class TestVLLMModel:
 
 
 class TestInternVideo3Model:
+    @pytest.mark.parametrize(
+        ("environment", "expected"),
+        [
+            ({}, "flash_attention_2"),
+            (
+                {"INTERNVIDEO3_ATTN_IMPLEMENTATION": "sdpa"},
+                "sdpa",
+            ),
+        ],
+    )
+    def test_attention_implementation(self, environment, expected):
+        processor = unittest.mock.MagicMock()
+        auto_processor = unittest.mock.MagicMock()
+        auto_processor.from_pretrained.return_value = processor
+        auto_model = unittest.mock.MagicMock()
+        fake_torch = unittest.mock.MagicMock()
+        fake_transformers = unittest.mock.MagicMock(
+            AutoModelForCausalLM=auto_model,
+            AutoProcessor=auto_processor,
+        )
+
+        with unittest.mock.patch.dict(
+            "sys.modules",
+            {"torch": fake_torch, "transformers": fake_transformers},
+        ), unittest.mock.patch.dict(os.environ, environment, clear=True):
+            model = mdl.InternVideo3Model()
+
+        assert model.attn_implementation == expected
+        assert (
+            auto_model.from_pretrained.call_args.kwargs["attn_implementation"]
+            == expected
+        )
+
     def test_frames_are_one_video_in_first_user_turn(self):
         model = mdl.InternVideo3Model.__new__(mdl.InternVideo3Model)
         model.min_pixels = 262144

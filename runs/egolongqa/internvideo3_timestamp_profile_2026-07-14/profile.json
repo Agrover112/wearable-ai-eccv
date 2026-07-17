@@ -1,0 +1,102 @@
+{
+  "model": "yanziang/InternVideo3-8B-Instruct",
+  "revision": "c4602918b65225650d152db2850fe34e01d21fcd",
+  "attn_implementation": "sdpa",
+  "video_name": "31cdcd6a7135a92b.mp4",
+  "question": "What color were the decorative lights on the first house I passed with such lights, and what color were they on the last house with decorative lights I saw?",
+  "gold_answer": "C",
+  "min_pixels_per_frame": 65536,
+  "max_pixels_per_frame": 131072,
+  "max_new_tokens": 256,
+  "model_load_seconds": 25.8015,
+  "gpu": "NVIDIA H100 NVL",
+  "profiles": [
+    {
+      "processor_seconds": 13.494,
+      "prompt_tokens": 32692,
+      "sampled_frames": 512,
+      "video_grid_thw": [
+        256,
+        26,
+        18
+      ],
+      "visual_tokens": 29952,
+      "timestamp_count": 256,
+      "first_timestamp_seconds": 0.6,
+      "last_timestamp_seconds": 599.4,
+      "transfer_seconds": 0.0849,
+      "inference_seconds": 9.0894,
+      "peak_allocated_gib": 24.459,
+      "peak_reserved_gib": 28.598,
+      "output_tokens": 114,
+      "response": "The video shows a nighttime walk through a residential area. The first house with decorative lights appears in the segment from 101.5s to 113.5s, where a house is illuminated with purple and red lights. The last house with decorative lights is seen in the segment from 439.5s to 451.5s, where a house is decorated with red and green lights. Therefore, the first house had purple and red lights, and the last house had red and green lights.\n\nFinal answer: C",
+      "parsed_answer": "C",
+      "requested_frames": 512
+    },
+    {
+      "processor_seconds": 18.7849,
+      "prompt_tokens": 65157,
+      "sampled_frames": 1024,
+      "video_grid_thw": [
+        512,
+        26,
+        18
+      ],
+      "visual_tokens": 59904,
+      "timestamp_count": 512,
+      "first_timestamp_seconds": 0.3,
+      "last_timestamp_seconds": 599.7,
+      "transfer_seconds": 0.165,
+      "inference_seconds": 25.5598,
+      "peak_allocated_gib": 31.394,
+      "peak_reserved_gib": 39.682,
+      "output_tokens": 64,
+      "response": "The video shows a nighttime walk through a residential area. The first house with decorative lights appears around 439.5s, featuring red and green lights. The last house with decorative lights is seen around 495.5s, displaying orange lights. This matches option D.\n\nFinal answer: D",
+      "parsed_answer": "D",
+      "requested_frames": 1024
+    },
+    {
+      "processor_seconds": 28.8581,
+      "prompt_tokens": 130087,
+      "sampled_frames": 2048,
+      "video_grid_thw": [
+        1024,
+        26,
+        18
+      ],
+      "visual_tokens": 119808,
+      "timestamp_count": 1024,
+      "first_timestamp_seconds": 0.1,
+      "last_timestamp_seconds": 599.9,
+      "transfer_seconds": 0.3278,
+      "inference_seconds": 114.1049,
+      "peak_allocated_gib": 45.269,
+      "peak_reserved_gib": 61.84,
+      "output_tokens": 153,
+      "response": "The first house with decorative lights appears in the segment from 439.5s to 463.5s. The lights on this house are predominantly red and green, with some blue accents visible on the roofline. The last house with decorative lights is seen in the segment from 463.5s to 495.5s, where the lights are primarily red and green, with some blue and white lights visible on the roof and along with a few orange lights on the house with the lit windows. The last house with decorative lights is the one with the lit windows, which has orange lights. Therefore, the first house had red and green lights, and the last house had orange lights.\n\nFinal answer: D",
+      "parsed_answer": "D",
+      "requested_frames": 2048
+    }
+  ],
+  "warmup": {
+    "processor_seconds": 0.7644,
+    "prompt_tokens": 481,
+    "sampled_frames": 4,
+    "video_grid_thw": [
+      2,
+      26,
+      18
+    ],
+    "visual_tokens": 234,
+    "timestamp_count": 2,
+    "first_timestamp_seconds": 100.0,
+    "last_timestamp_seconds": 500.0,
+    "transfer_seconds": 0.0009,
+    "inference_seconds": 1.1692,
+    "peak_allocated_gib": 17.573,
+    "peak_reserved_gib": 17.594,
+    "output_tokens": 1,
+    "response": "The",
+    "parsed_answer": ""
+  }
+}

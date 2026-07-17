@@ -1,0 +1,20 @@
+{
+  "samples": 30,
+  "correct": 19,
+  "accuracy": 0.6333,
+  "attention_implementation": "sdpa",
+  "gpu": "NVIDIA A100 80GB PCIe",
+  "model_load_seconds": 47.9443,
+  "processor_seconds": {
+    "mean": 55.2854,
+    "p50": 49.2223,
+    "p95": 86.8284,
+    "max": 91.0385
+  },
+  "inference_seconds": {
+    "mean": 11.2194,
+    "p50": 10.2254,
+    "p95": 16.2808,
+    "max": 21.4669
+  }
+}
