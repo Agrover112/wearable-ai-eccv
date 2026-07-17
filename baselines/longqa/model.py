@@ -844,6 +844,11 @@ class VLLMModel(VideoQAModel):
                         ),
                     ]
                 )
+        max_num_batched_tokens = os.environ.get("VLLM_MAX_NUM_BATCHED_TOKENS")
+        if max_num_batched_tokens:
+            server_args.extend(
+                ["--max-num-batched-tokens", str(int(max_num_batched_tokens))]
+            )
 
         import sys
 
@@ -1163,6 +1168,251 @@ class VLLMModel(VideoQAModel):
                 f"{missing}; returned tokens={[item.get('token') for item in candidates]}"
             )
         return scores
+
+    def score_candidate_texts(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        candidates: dict[str, str],
+        assistant_prefix: str = "Answer:\n",
+    ) -> dict[str, dict[str, object]]:
+        """Score complete candidate answers as assistant-message continuations."""
+        import base64
+        import io
+        import json
+        import urllib.request
+
+        image_content: list[dict[str, object]] = []
+        for frame in frames:
+            buffer = io.BytesIO()
+            frame.save(buffer, format="JPEG")
+            encoded = base64.b64encode(buffer.getvalue()).decode()
+            image_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+                }
+            )
+        openai_messages: list[dict[str, object]] = []
+        images_inserted = False
+        for message in messages:
+            if message["role"] == "user" and not images_inserted and frames:
+                openai_messages.append(
+                    {
+                        "role": "user",
+                        "content": image_content
+                        + [{"type": "text", "text": message["content"]}],
+                    }
+                )
+                images_inserted = True
+            else:
+                openai_messages.append(message)
+
+        def request_prompt_logprobs(assistant_text: str) -> dict[str, object]:
+            payload_messages = openai_messages + [
+                {"role": "assistant", "content": assistant_text}
+            ]
+            payload = json.dumps(
+                {
+                    "model": self.model_id,
+                    "messages": payload_messages,
+                    "max_tokens": 1,
+                    "temperature": 0.0,
+                    "prompt_logprobs": 0,
+                    "return_token_ids": True,
+                    "add_generation_prompt": False,
+                    "continue_final_message": True,
+                }
+            ).encode()
+            request = urllib.request.Request(
+                f"http://localhost:{self._port}/v1/chat/completions",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
+                result = json.loads(response.read())
+            if "error" in result:
+                raise RuntimeError(f"vLLM returned error: {result['error']}")
+            usage = result.get("usage", {})
+            if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
+                record_prompt_token_counts(
+                    [int(usage["prompt_tokens"])], self._context_window
+                )
+            if result.get("prompt_token_ids") is None or result.get("prompt_logprobs") is None:
+                raise RuntimeError(
+                    "vLLM response omitted prompt token IDs or log probabilities"
+                )
+            return result
+
+        base = request_prompt_logprobs(assistant_prefix)
+        base_ids = [int(token_id) for token_id in base["prompt_token_ids"]]
+        scored: dict[str, dict[str, object]] = {}
+        for label, candidate in candidates.items():
+            result = request_prompt_logprobs(assistant_prefix + str(candidate).strip())
+            token_ids = [int(token_id) for token_id in result["prompt_token_ids"]]
+            common = 0
+            for base_id, candidate_id in zip(base_ids, token_ids):
+                if base_id != candidate_id:
+                    break
+                common += 1
+            suffix_ids = token_ids[common:]
+            prompt_logprobs = result["prompt_logprobs"]
+            if not suffix_ids or len(prompt_logprobs) != len(token_ids):
+                raise RuntimeError(
+                    f"Could not isolate candidate token span for {label}: "
+                    f"base={len(base_ids)}, candidate={len(token_ids)}, lcp={common}"
+                )
+            token_scores: list[float] = []
+            for position, token_id in enumerate(suffix_ids, start=common):
+                values = prompt_logprobs[position]
+                selected = values.get(str(token_id)) if isinstance(values, dict) else None
+                if not isinstance(selected, dict) or "logprob" not in selected:
+                    raise RuntimeError(
+                        f"Missing selected-token logprob for {label} at prompt position {position}"
+                    )
+                token_scores.append(float(selected["logprob"]))
+            total = float(sum(token_scores))
+            scored[label] = {
+                "text": str(candidate).strip(),
+                "total_logprob": total,
+                "mean_logprob": total / len(token_scores),
+                "token_count": len(token_scores),
+                "token_logprobs": token_scores,
+                "candidate_token_ids": suffix_ids,
+                "prompt_prefix_tokens": common,
+            }
+        return scored
+
+    def generate_json(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        schema: dict[str, object],
+        schema_name: str = "structured_output",
+        max_new_tokens: int = 256,
+    ) -> dict[str, object]:
+        """Generate a JSON object constrained by an OpenAI JSON schema."""
+        import base64
+        import io
+        import json
+        import urllib.request
+
+        image_content: list[dict[str, object]] = []
+        for frame in frames:
+            buffer = io.BytesIO()
+            frame.save(buffer, format="JPEG")
+            encoded = base64.b64encode(buffer.getvalue()).decode()
+            image_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+                }
+            )
+        openai_messages: list[dict[str, object]] = []
+        images_inserted = False
+        for message in messages:
+            if message["role"] == "user" and not images_inserted and frames:
+                openai_messages.append(
+                    {
+                        "role": "user",
+                        "content": image_content
+                        + [{"type": "text", "text": message["content"]}],
+                    }
+                )
+                images_inserted = True
+            else:
+                openai_messages.append(message)
+        payload = json.dumps(
+            {
+                "model": self.model_id,
+                "messages": openai_messages,
+                "max_tokens": max_new_tokens,
+                "temperature": 0.0,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": schema_name,
+                        "strict": True,
+                        "schema": schema,
+                    },
+                },
+            }
+        ).encode()
+        request = urllib.request.Request(
+            f"http://localhost:{self._port}/v1/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
+            result = json.loads(response.read())
+        if "error" in result:
+            raise RuntimeError(f"vLLM returned error: {result['error']}")
+        usage = result.get("usage", {})
+        if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
+            record_prompt_token_counts([int(usage["prompt_tokens"])], self._context_window)
+        try:
+            content = result["choices"][0]["message"]["content"]
+            parsed = json.loads(content)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
+            raise RuntimeError(f"vLLM did not return valid schema JSON: {result}") from error
+        if not isinstance(parsed, dict):
+            raise RuntimeError(f"Expected a JSON object, received: {parsed!r}")
+        return parsed
+
+    def generate_json_batch(
+        self,
+        batch_frames: list[list[object]],
+        batch_messages: list[list[dict[str, str]]],
+        schema: dict[str, object],
+        schema_name: str = "structured_output",
+        max_new_tokens: int = 256,
+    ) -> list[dict[str, object]]:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        if len(batch_frames) != len(batch_messages):
+            raise ValueError("JSON batch frames and messages must have equal lengths")
+        results: list[dict[str, object] | None] = [None] * len(batch_frames)
+        failed: list[tuple[int, Exception]] = []
+        with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
+            futures = {
+                pool.submit(
+                    self.generate_json,
+                    frames,
+                    messages,
+                    schema,
+                    schema_name,
+                    max_new_tokens,
+                ): index
+                for index, (frames, messages) in enumerate(
+                    zip(batch_frames, batch_messages)
+                )
+            }
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    results[index] = future.result()
+                except Exception as error:
+                    failed.append((index, error))
+        for index, error in failed:
+            logger.warning(
+                "Structured request %d failed at %d tokens; retrying at %d: %s",
+                index,
+                max_new_tokens,
+                max(max_new_tokens * 2, 512),
+                error,
+            )
+            results[index] = self.generate_json(
+                batch_frames[index],
+                batch_messages[index],
+                schema,
+                schema_name,
+                max(max_new_tokens * 2, 512),
+            )
+        if any(result is None for result in results):
+            raise RuntimeError("JSON batch completed with missing responses")
+        return [result for result in results if result is not None]
 
     def generate_batch(
         self,

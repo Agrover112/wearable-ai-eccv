@@ -243,6 +243,29 @@ def apply_subset(rows: list[dict[str, Any]], subset_file: str | None) -> list[di
     return [row for row in rows if sample_key(row) in keys]
 
 
+def index_row_aligned_metadata(
+    metadata_rows: list[dict[str, Any]],
+    reference_rows: list[dict[str, Any]],
+    label: str = "metadata",
+) -> dict[str, dict[str, Any]]:
+    """Index row-aligned metadata without collapsing repeated video IDs."""
+    if len(metadata_rows) != len(reference_rows):
+        raise RuntimeError(
+            f"{label} has {len(metadata_rows)} rows but its reference has "
+            f"{len(reference_rows)} rows"
+        )
+    indexed: dict[str, dict[str, Any]] = {}
+    for index, (metadata, reference) in enumerate(zip(metadata_rows, reference_rows)):
+        if str(metadata.get("video_path", "")) != str(reference.get("video_path", "")):
+            raise RuntimeError(f"{label} video mismatch at row {index}")
+        stored_key = str(metadata.get("sample_key", ""))
+        key = sample_key(reference)
+        if stored_key and stored_key != key:
+            raise RuntimeError(f"{label} sample-key mismatch at row {index}")
+        indexed[key] = metadata
+    return indexed
+
+
 def query_hash(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
 

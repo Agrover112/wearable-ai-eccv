@@ -12,8 +12,15 @@ extensions used in our experiments:
   identity validation;
 - eventlet, option-contrastive, and temporal-pivot proof-pack selection with
   resumable grounding and prediction fingerprints;
+- schema-constrained visual event ledgers with optional open-vocabulary object
+  detections;
+- full-answer semantic likelihood scoring across separate retrieved and
+  uniform visual contexts;
+- disagreement verification through support/contradiction prompts, pairwise
+  order swaps, option permutations, and calibrated candidate scores;
 - matched video-blind and open-QA-to-option baselines;
 - question-type and image-resolution analysis utilities;
+- grouped cross-validation utilities for disagreement-routing diagnostics;
 - prompt variants that preserve question-plus-options input and emit only an
   option letter;
 - grounding-frame audits and rolling partial-run analysis.

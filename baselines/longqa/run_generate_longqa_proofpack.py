@@ -31,6 +31,7 @@ from longqa_utils import (
     build_prediction_row,
     parse_mcq_options,
     query_hash,
+    sample_key,
 )
 from run_generate_longqa_grounded import (
     CandidateFrame,
@@ -1444,6 +1445,7 @@ def main() -> None:
 
                 record = {
                     "index": row_idx,
+                    "sample_key": sample_key(row),
                     "video_path": row.get("video_path", ""),
                     "strategy": args.strategy,
                     "candidate_frames": len(candidates),

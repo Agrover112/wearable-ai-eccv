@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import hashlib
 import json
 import os
@@ -13,10 +14,13 @@ from longqa_utils import (
     apply_subset,
     build_longqa_prompt,
     build_prediction_row,
+    index_row_aligned_metadata,
+    normalize_answer,
     parse_mcq_options,
     sample_key,
 )
 from run_generate_longqa_grounded import _run_eval, extract_frames_by_indices, load_jsonl
+from run_generate_longqa_likelihood import build_scoring_prompt
 from run_generate_longqa_proofpack import baseline_uniform_indices, compile_temporal_program
 
 
@@ -151,6 +155,51 @@ def parse_pairwise_choice(response: object) -> int | None:
     return int(matches[-1]) if matches else None
 
 
+def rotate_mcq_options(row: dict[str, Any], offset: int) -> tuple[dict[str, Any], dict[str, str]]:
+    """Cyclically rotate option semantics and return displayed->original mapping."""
+    options = parse_mcq_options(row["mcq_options"])
+    if set(options) != set("ABCD"):
+        raise ValueError("option permutation requires exactly A/B/C/D options")
+    original_order = list("ABCD")
+    rotated = original_order[offset % 4 :] + original_order[: offset % 4]
+    displayed_to_original = dict(zip(original_order, rotated))
+    permuted = dict(row)
+    permuted["mcq_options"] = " ".join(
+        f"{displayed}. {options[original]}"
+        for displayed, original in displayed_to_original.items()
+    )
+    return permuted, displayed_to_original
+
+
+def choose_candidate_from_votes(
+    votes: list[str], first: str, second: str
+) -> tuple[str, dict[str, int]]:
+    counts = Counter(vote for vote in votes if vote and vote in "ABCD")
+    first_count = counts[first]
+    second_count = counts[second]
+    answer = second if second_count > first_count else first
+    return answer, {letter: counts[letter] for letter in "ABCD"}
+
+
+def choose_candidate_from_scores(
+    first: str,
+    second: str,
+    primary_scores: dict[str, float],
+    secondary_scores: dict[str, float],
+    blind_scores: dict[str, float],
+    blind_weight: float,
+) -> tuple[str, dict[str, float]]:
+    scores = {
+        letter: float(
+            0.5 * (primary_scores[letter] + secondary_scores[letter])
+            - blind_weight * blind_scores[letter]
+        )
+        for letter in "ABCD"
+    }
+    answer = second if scores[second] > scores[first] else first
+    return answer, scores
+
+
 def _fingerprint(args: argparse.Namespace) -> str:
     payload = {
         "primary": os.path.abspath(args.primary_predictions),
@@ -161,6 +210,7 @@ def _fingerprint(args: argparse.Namespace) -> str:
         "proofpack_quota": args.proofpack_quota,
         "verify_operators": sorted(args.verify_operators or []),
         "verifier_prompt": args.verifier_prompt,
+        "blind_weight": args.blind_weight,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode()).hexdigest()[:12]
@@ -189,8 +239,20 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--verifier-prompt",
-        choices=["baseline", "support_contradiction", "pairwise_order_swap"],
+        choices=[
+            "baseline",
+            "support_contradiction",
+            "pairwise_order_swap",
+            "candidate_likelihood",
+            "option_permutation",
+        ],
         default="baseline",
+    )
+    parser.add_argument(
+        "--blind-weight",
+        type=float,
+        default=-0.1,
+        help="Blind-language score weight used by candidate_likelihood.",
     )
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
@@ -218,10 +280,11 @@ def main() -> None:
     fingerprint = _fingerprint(args)
 
     rows = apply_subset(load_jsonl(input_path), args.subset_file)
-    primary = _load_by_key(primary_path)
+    primary_rows = load_jsonl(primary_path)
+    primary = {sample_key(row): row for row in primary_rows}
     secondary = _load_by_key(secondary_path)
     proofpack_rows = load_jsonl(proofpack_path)
-    proofpack = {str(row.get("video_path", "")): row for row in proofpack_rows}
+    proofpack = index_row_aligned_metadata(proofpack_rows, primary_rows, "primary proof pack")
     missing = [
         sample_key(row)
         for row in rows
@@ -234,9 +297,9 @@ def main() -> None:
         row for row in rows if _answer(primary[sample_key(row)]) != _answer(secondary[sample_key(row)])
     ]
     missing_proof = [
-        str(row["video_path"])
+        sample_key(row)
         for row in disagreements
-        if str(row["video_path"]) not in proofpack
+        if sample_key(row) not in proofpack
     ]
     if missing_proof:
         raise RuntimeError(f"Primary proof pack missing {len(missing_proof)} disagreement rows")
@@ -286,14 +349,94 @@ def main() -> None:
             else:
                 video_path = os.path.join(video_folder, str(row["video_path"]))
                 _fps, total_frames = _video_metadata(video_path)
-                frame_indices, frame_meta = build_verifier_frame_indices(
-                    proofpack[str(row["video_path"])]["selected"],
-                    total_frames,
-                    max_frames=args.max_frames,
-                    proofpack_quota=args.proofpack_quota,
-                )
-                frames = extract_frames_by_indices(video_path, frame_indices)
-                if args.verifier_prompt == "pairwise_order_swap":
+                if args.verifier_prompt == "candidate_likelihood":
+                    frame_indices: list[int] = []
+                    frame_meta: dict[str, Any] = {}
+                    frames: list[Any] = []
+                else:
+                    frame_indices, frame_meta = build_verifier_frame_indices(
+                        proofpack[key]["selected"],
+                        total_frames,
+                        max_frames=args.max_frames,
+                        proofpack_quota=args.proofpack_quota,
+                    )
+                    frames = extract_frames_by_indices(video_path, frame_indices)
+                if args.verifier_prompt == "candidate_likelihood":
+                    primary_indices = sorted(
+                        int(item["frame_index"])
+                        for item in proofpack[key]["selected"][: args.max_frames]
+                    )
+                    secondary_indices = baseline_uniform_indices(total_frames, args.max_frames)
+                    primary_frames = extract_frames_by_indices(video_path, primary_indices)
+                    secondary_frames = extract_frames_by_indices(video_path, secondary_indices)
+                    prompt = [{"role": "user", "content": build_scoring_prompt(row, True)}]
+                    primary_scores = model.score_choice_letters(primary_frames, prompt)
+                    secondary_scores = model.score_choice_letters(secondary_frames, prompt)
+                    blind_scores = model.score_choice_letters(
+                        [],
+                        [{"role": "user", "content": build_scoring_prompt(row, False)}],
+                    )
+                    answer, fused_scores = choose_candidate_from_scores(
+                        first,
+                        second,
+                        primary_scores,
+                        secondary_scores,
+                        blind_scores,
+                        args.blind_weight,
+                    )
+                    pred = build_prediction_row(
+                        row, answer, prompt_variant="candidate_likelihood_verifier"
+                    )
+                    pred["candidate_primary_option_logprobs"] = primary_scores
+                    pred["candidate_secondary_option_logprobs"] = secondary_scores
+                    pred["candidate_blind_option_logprobs"] = blind_scores
+                    pred["candidate_fused_option_scores"] = fused_scores
+                    pred["candidate_blind_weight"] = args.blind_weight
+                    pred["candidate_selected_from"] = [first, second]
+                    pred["verifier_frame_meta"] = {
+                        "primary_frames": len(primary_frames),
+                        "secondary_frames": len(secondary_frames),
+                    }
+                elif args.verifier_prompt == "option_permutation":
+                    mapped_votes: list[str] = []
+                    raw_responses: list[str] = []
+                    mappings: list[dict[str, str]] = []
+                    for offset in range(4):
+                        permuted_row, displayed_to_original = rotate_mcq_options(row, offset)
+                        response = model.generate(
+                            frames,
+                            [
+                                {
+                                    "role": "user",
+                                    "content": build_longqa_prompt(
+                                        permuted_row["question"],
+                                        permuted_row["mcq_options"],
+                                        prompt_variant="baseline",
+                                    ),
+                                }
+                            ],
+                            max_new_tokens=8,
+                        )
+                        displayed_answer = normalize_answer(response)
+                        mapped_votes.append(displayed_to_original.get(displayed_answer, ""))
+                        raw_responses.append(str(response))
+                        mappings.append(displayed_to_original)
+                    answer, vote_counts = choose_candidate_from_votes(
+                        mapped_votes, first, second
+                    )
+                    pred = build_prediction_row(
+                        row, answer, prompt_variant="option_permutation_verifier"
+                    )
+                    pred["permutation_raw_responses"] = raw_responses
+                    pred["permutation_mapped_votes"] = mapped_votes
+                    pred["permutation_vote_counts"] = vote_counts
+                    pred["permutation_mappings"] = mappings
+                    pred["permutation_candidate_restricted"] = True
+                    pred["permutation_fallback_primary"] = (
+                        vote_counts[first] == vote_counts[second]
+                    )
+                    pred["verifier_frame_meta"] = frame_meta
+                elif args.verifier_prompt == "pairwise_order_swap":
                     forward_raw = model.generate(
                         frames,
                         [{"role": "user", "content": build_pairwise_verifier_prompt(row, first, second)}],
@@ -345,8 +488,12 @@ def main() -> None:
                         row, response, prompt_variant="disagreement_verifier"
                     )
                 pred["verifier_applied"] = True
-                pred["verifier_frames"] = len(frames)
-                pred["verifier_frame_meta"] = frame_meta
+                pred["verifier_frames"] = (
+                    args.max_frames * 2
+                    if args.verifier_prompt == "candidate_likelihood"
+                    else len(frames)
+                )
+                pred.setdefault("verifier_frame_meta", frame_meta)
                 pred["verifier_gated"] = False
                 verified += 1
             pred["verifier_operator"] = operator
