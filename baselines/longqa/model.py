@@ -766,6 +766,11 @@ class VLLMModel(VideoQAModel):
             raise
         return self
 
+    def _chat_template_options(self) -> dict[str, object]:
+        if "qwen3.5" in self.model_id.lower():
+            return {"chat_template_kwargs": {"enable_thinking": False}}
+        return {}
+
     def _start_server(self) -> None:
         import subprocess
 
@@ -849,6 +854,9 @@ class VLLMModel(VideoQAModel):
             server_args.extend(
                 ["--max-num-batched-tokens", str(int(max_num_batched_tokens))]
             )
+        gdn_prefill_backend = os.environ.get("VLLM_GDN_PREFILL_BACKEND")
+        if gdn_prefill_backend:
+            server_args.extend(["--gdn-prefill-backend", gdn_prefill_backend])
 
         import sys
 
@@ -1061,6 +1069,7 @@ class VLLMModel(VideoQAModel):
                 "messages": openai_messages,
                 "max_tokens": max_new_tokens,
                 "temperature": 0.0,
+                **self._chat_template_options(),
             }
         ).encode()
 
@@ -1137,6 +1146,7 @@ class VLLMModel(VideoQAModel):
                 "temperature": 0.0,
                 "logprobs": True,
                 "top_logprobs": 20,
+                **self._chat_template_options(),
             }
         ).encode()
         request = urllib.request.Request(
@@ -1222,6 +1232,7 @@ class VLLMModel(VideoQAModel):
                     "return_token_ids": True,
                     "add_generation_prompt": False,
                     "continue_final_message": True,
+                    **self._chat_template_options(),
                 }
             ).encode()
             request = urllib.request.Request(
@@ -1462,6 +1473,11 @@ DEFAULT_MODEL_IDS: dict[str, str] = {
     "internvideo3": "yanziang/InternVideo3-8B-Instruct",
 }
 
+DEFAULT_VLLM_MODEL_IDS: dict[str, str] = {
+    **DEFAULT_MODEL_IDS,
+    "qwen": "Qwen/Qwen3.5-9B",
+}
+
 MODEL_TYPES = tuple(DEFAULT_MODEL_IDS)
 VLLM_MODEL_TYPES = ("llama4", "qwen")
 
@@ -1589,17 +1605,17 @@ def create_model(
         Instantiated VideoQAModel.
     """
     if backend == "vllm":
-        if model_type not in DEFAULT_MODEL_IDS and model_id is None:
+        if model_type not in DEFAULT_VLLM_MODEL_IDS and model_id is None:
             raise ValueError(
                 f"Unknown model type '{model_type}'. "
-                f"Available: {list(DEFAULT_MODEL_IDS.keys())}"
+                f"Available: {list(DEFAULT_VLLM_MODEL_IDS.keys())}"
             )
         if model_type not in VLLM_MODEL_TYPES:
             raise ValueError(
                 f"vLLM does not support model type '{model_type}'. "
                 f"Supported vLLM model types: {list(VLLM_MODEL_TYPES)}"
             )
-        effective_id = model_id or DEFAULT_MODEL_IDS[model_type]
+        effective_id = model_id or DEFAULT_VLLM_MODEL_IDS[model_type]
         effective_tp = (
             tp_size if tp_size is not None else DEFAULT_TP_SIZES.get(model_type, 1)
         )

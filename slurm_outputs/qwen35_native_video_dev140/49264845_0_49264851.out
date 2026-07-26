@@ -1,0 +1,6 @@
+Job ID: 49264851
+Array task: 0
+Video FPS: 0.25
+Started at: Sun Jul 26 01:37:58 AM CEST 2026
+Native-video LongQA config: rows=140, model=Qwen/Qwen3.5-9B, video_fps=0.25, max_model_len=131072, fingerprint=4bbfbb090026
+vLLM allowed local media path: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.cache/hf/hub/datasets--facebook--wearable-ai/blobs

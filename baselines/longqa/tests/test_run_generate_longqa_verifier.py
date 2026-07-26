@@ -1,7 +1,11 @@
+import sys
+from unittest.mock import patch
+
 from run_generate_longqa_verifier import (
     build_pairwise_verifier_prompt,
     build_verifier_frame_indices,
     build_verifier_prompt,
+    parse_args,
     parse_pairwise_choice,
 )
 
@@ -63,3 +67,21 @@ def test_pairwise_prompt_exposes_only_candidate_semantics():
     assert "A. Sat" not in prompt
     assert parse_pairwise_choice("2") == 2
     assert parse_pairwise_choice("Candidate 1") == 1
+
+
+def test_verifier_defaults_to_qwen35_9b():
+    argv = [
+        "run_generate_longqa_verifier.py",
+        "--primary-predictions",
+        "primary.jsonl",
+        "--secondary-predictions",
+        "secondary.jsonl",
+        "--primary-proofpack",
+        "proofpack.jsonl",
+        "--output",
+        "predictions.jsonl",
+    ]
+    with patch.object(sys, "argv", argv):
+        args = parse_args()
+
+    assert args.llm_model == "Qwen/Qwen3.5-9B"

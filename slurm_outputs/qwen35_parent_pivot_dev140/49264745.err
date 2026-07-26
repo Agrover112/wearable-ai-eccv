@@ -1,0 +1,4 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+/var/lib/slurm/slurmd/job49264745/slurm_script: line 37: python: command not found

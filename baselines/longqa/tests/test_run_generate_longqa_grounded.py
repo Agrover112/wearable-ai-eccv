@@ -4,11 +4,52 @@ from types import SimpleNamespace
 
 from run_generate_longqa_grounded import (
     CandidateFrame,
+    QWEN_FRAME_RETRIEVAL_INSTRUCTION,
+    TextImageGrounder,
     _pooled_features,
     load_grounder_feature_cache,
     save_grounder_feature_cache,
     select_per_option_union_frames,
 )
+
+
+class FakeQwenEmbedder:
+    def __init__(self):
+        self.calls = []
+
+    def encode(self, inputs, **kwargs):
+        self.calls.append((inputs, kwargs))
+        return np.asarray([[1.0, 0.0] for _ in inputs], dtype=np.float32)
+
+
+def make_qwen_grounder():
+    grounder = TextImageGrounder.__new__(TextImageGrounder)
+    grounder.is_qwen_vl_embedding = True
+    grounder.batch_size = 4
+    grounder.model = FakeQwenEmbedder()
+    return grounder
+
+
+def test_qwen_grounder_encodes_images_as_normalized_multimodal_inputs():
+    grounder = make_qwen_grounder()
+    frames = [CandidateFrame(index=0, timestamp=0.0, image="frame")]
+
+    features = grounder.encode_images(frames)
+
+    inputs, kwargs = grounder.model.calls[0]
+    assert inputs == [{"image": "frame"}]
+    assert kwargs["normalize_embeddings"] is True
+    np.testing.assert_allclose(features, [[1.0, 0.0]])
+
+
+def test_qwen_grounder_applies_frame_retrieval_instruction_to_text():
+    grounder = make_qwen_grounder()
+
+    grounder.encode_texts(["paying for coffee"])
+
+    inputs, kwargs = grounder.model.calls[0]
+    assert inputs == ["paying for coffee"]
+    assert kwargs["prompt"] == QWEN_FRAME_RETRIEVAL_INSTRUCTION
 
 
 def test_pooled_features_accepts_legacy_tensor_output():

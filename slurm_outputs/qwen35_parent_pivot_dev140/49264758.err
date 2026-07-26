@@ -1,0 +1,11 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+Traceback (most recent call last):
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_proofpack.py", line 1552, in <module>
+    main()
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_proofpack.py", line 1221, in main
+    grounder = TextImageGrounder(
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_grounded.py", line 190, in __init__
+    from sentence_transformers import SentenceTransformer
+ModuleNotFoundError: No module named 'sentence_transformers'

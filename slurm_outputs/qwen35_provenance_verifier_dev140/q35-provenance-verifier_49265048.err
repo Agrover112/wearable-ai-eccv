@@ -1,0 +1,5 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+Golden (700) and predictions (140) have different lengths; evaluating against the first 140 golden rows.
+longqa: only 140/700 predictions matched golden entries (< 50%) — check that predictions are from the correct dataset

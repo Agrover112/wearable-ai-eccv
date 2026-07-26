@@ -1,0 +1,11 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+Traceback (most recent call last):
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_dense_bursts.py", line 567, in <module>
+    main()
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_dense_bursts.py", line 455, in main
+    fingerprint = dense_burst_fingerprint(args)
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_dense_bursts.py", line 285, in dense_burst_fingerprint
+    "burst_offsets_seconds": list(args.burst_offsets_seconds),
+AttributeError: 'Namespace' object has no attribute 'burst_offsets_seconds'. Did you mean: 'burst_offset_seconds'?

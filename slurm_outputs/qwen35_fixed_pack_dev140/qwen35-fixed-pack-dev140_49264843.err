@@ -1,0 +1,48 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+INFO: vLLM server log: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_fixed_uniform64_dev140/vllm_server_1p3o2_g4.log
+INFO: vLLM server warming up (timeout 3600s, log /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_fixed_uniform64_dev140/vllm_server_1p3o2_g4.log)
+INFO: vLLM server still warming up (elapsed 30s, log 0 KiB)
+Traceback (most recent call last):
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_fixed_pack.py", line 418, in <module>
+    main()
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_fixed_pack.py", line 382, in main
+    with model, open(output_path, mode) as handle:
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/model.py", line 763, in __enter__
+    self._wait_for_health()
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/model.py", line 899, in _wait_for_health
+    raise RuntimeError(
+RuntimeError: vLLM server exited with code 1. Log: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_fixed_uniform64_dev140/vllm_server_1p3o2_g4.log
+(APIServer pid=729081)     return loop.run_until_complete(wrapper())
+(APIServer pid=729081)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=729081)     return await main
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/vllm/entrypoints/openai/api_server.py", line 672, in run_server
+(APIServer pid=729081)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/vllm/entrypoints/openai/api_server.py", line 686, in run_server_worker
+(APIServer pid=729081)     async with build_async_engine_client(
+(APIServer pid=729081)   File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/contextlib.py", line 199, in __aenter__
+(APIServer pid=729081)     return await anext(self.gen)
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/vllm/entrypoints/openai/api_server.py", line 100, in build_async_engine_client
+(APIServer pid=729081)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=729081)   File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/contextlib.py", line 199, in __aenter__
+(APIServer pid=729081)     return await anext(self.gen)
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/vllm/entrypoints/openai/api_server.py", line 124, in build_async_engine_client_from_engine_args
+(APIServer pid=729081)     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/vllm/engine/arg_utils.py", line 1539, in create_engine_config
+(APIServer pid=729081)     maybe_override_with_speculators(
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/vllm/transformers_utils/config.py", line 583, in maybe_override_with_speculators
+(APIServer pid=729081)     config_dict, _ = PretrainedConfig.get_config_dict(
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/transformers/configuration_utils.py", line 682, in get_config_dict
+(APIServer pid=729081)     config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/transformers/configuration_utils.py", line 737, in _get_config_dict
+(APIServer pid=729081)     resolved_config_file = cached_file(
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/transformers/utils/hub.py", line 278, in cached_file
+(APIServer pid=729081)     file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
+(APIServer pid=729081)   File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/.venv/lib/python3.10/site-packages/transformers/utils/hub.py", line 454, in cached_files
+(APIServer pid=729081)     raise OSError(
+(APIServer pid=729081) OSError: Qwen/Qwen3.5-9B is not a local folder and is not a valid model identifier listed on 'https://huggingface.co/models'
+(APIServer pid=729081) If this is a private repository, make sure to pass a token having permission to this repo either by logging in with `hf auth login` or by passing `token=<your_token>`
+
+[2026-07-26T01:38:31.110] error: *** JOB 49264843 ON gpu24-h100-08 CANCELLED AT 2026-07-26T01:38:31 DUE to SIGNAL Terminated ***

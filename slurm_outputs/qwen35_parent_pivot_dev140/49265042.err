@@ -1,0 +1,73 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/modules.json "HTTP/1.1 307 Temporary Redirect"
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+WARNING: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/modules.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/config_sentence_transformers.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/config_sentence_transformers.json "HTTP/1.1 200 OK"
+INFO: Loading SentenceTransformer model from Qwen/Qwen3-VL-Embedding-8B.
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/config_sentence_transformers.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/config_sentence_transformers.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/README.md "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/modules.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/modules.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/sentence_bert_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/sentence_bert_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/adapter_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/config.json "HTTP/1.1 200 OK"
+Loading weights:   0%|          | 0/749 [00:00<?, ?it/s]Loading weights: 100%|██████████| 749/749 [00:00<00:00, 12449.36it/s]
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-VL-Embedding-8B/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/chat_template.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/chat_template.jinja "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/chat_template.jinja "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/tokenizer_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-VL-Embedding-8B/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-VL-Embedding-8B/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+INFO: HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-VL-Embedding-8B "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/video_preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/video_preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/video_preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/video_preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/preprocessor_config.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: HEAD https://huggingface.co/Qwen/Qwen3-VL-Embedding-8B/resolve/main/1_Pooling/config.json "HTTP/1.1 307 Temporary Redirect"
+INFO: HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Qwen/Qwen3-VL-Embedding-8B/2c4565515e0f265c6511776e7193b22c0968ddc7/1_Pooling%2Fconfig.json "HTTP/1.1 200 OK"
+INFO: HTTP Request: GET https://huggingface.co/api/models/Qwen/Qwen3-VL-Embedding-8B "HTTP/1.1 200 OK"
+INFO: Loaded 1 prompt with these keys: ['default']
+WARNING: Default prompt name is set to 'default'. This prompt will be applied to all inference calls, except if a `prompt` or `prompt_name` parameter is provided.
+INFO: vLLM server log: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_parent_temporal_pivot_dev140/vllm_logs/vllm_server_rtjufqhi.log
+INFO: vLLM server warming up (timeout 3600s, log /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_parent_temporal_pivot_dev140/vllm_logs/vllm_server_rtjufqhi.log)
+INFO: vLLM server still warming up (elapsed 30s, log 0 KiB)
+INFO: vLLM server still warming up (elapsed 60s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 90s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 120s, log 7 KiB)
+INFO: vLLM server still warming up (elapsed 150s, log 8 KiB)
+INFO: vLLM server still warming up (elapsed 181s, log 9 KiB)
+INFO: vLLM server ready on port 60779 (pid 3058051, warmup took 206s)
+WARNING: Golden (700) and predictions (140) have different lengths; evaluating against the first 140 golden rows.
+WARNING: longqa: only 140/700 predictions matched golden entries (< 50%) — check that predictions are from the correct dataset

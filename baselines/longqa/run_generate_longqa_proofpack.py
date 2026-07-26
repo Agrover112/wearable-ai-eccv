@@ -2,7 +2,7 @@
 """Generate LongQA predictions from structured temporal proof packs.
 
 This experimental runner leaves the established uniform and grounded baselines
-untouched. It reuses cached SigLIP/SigLIP2 candidate embeddings and supports:
+untouched. It reuses cached text-image candidate embeddings and supports:
 
 * eventlet_hybrid: global anchors plus local triplets around relevant events,
 * option_contrastive: balanced, discriminative eventlets for every option,
@@ -1154,15 +1154,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--structured-evidence", action="store_true")
 
-    parser.add_argument("--grounder-model", default="google/siglip2-so400m-patch14-384")
+    parser.add_argument(
+        "--grounder-model", default="Qwen/Qwen3-VL-Embedding-8B"
+    )
     parser.add_argument("--grounder-device", default="cuda")
-    parser.add_argument("--grounder-batch-size", type=int, default=16)
+    parser.add_argument("--grounder-batch-size", type=int, default=4)
     parser.add_argument("--grounder-dtype", default="bfloat16")
     parser.add_argument("--grounder-revision", default=None)
     parser.add_argument("--grounder-cache-dir", default=None)
 
     parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
-    parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
+    parser.add_argument("--llm-model", default="Qwen/Qwen3.5-9B")
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=1)

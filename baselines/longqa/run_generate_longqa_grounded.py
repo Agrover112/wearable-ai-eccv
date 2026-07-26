@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Generate LongQA predictions with CLIP/SigLIP temporal grounding.
+"""Generate LongQA predictions with embedding-based temporal grounding.
 
 This experimental entry point is intentionally separate from the official
 starter-kit baselines. It keeps the final VLM call unchanged, but replaces
 uniform final-frame sampling with:
 
   1. sample a larger uniform candidate pool from the full video,
-  2. score each frame against the question/options with a CLIP-like model,
+  2. score each frame against the question/options with an embedding model,
   3. keep top-K relevant frames plus optional uniform anchors/windows,
   4. feed the selected frames to the VLM and evaluate normally.
 """
@@ -32,6 +32,10 @@ from longqa_utils import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_GROUNDER_MODEL = "google/siglip-base-patch16-224"
+QWEN_VL_EMBEDDING_PREFIX = "Qwen/Qwen3-VL-Embedding-"
+QWEN_FRAME_RETRIEVAL_INSTRUCTION = (
+    "Retrieve video frames relevant to the user's query."
+)
 GROUNDING_CACHE_SCHEMA = 1
 
 
@@ -163,7 +167,7 @@ def extract_frames_by_indices(video_path: str, frame_indices: list[int]) -> list
 
 
 class TextImageGrounder:
-    """CLIP/SigLIP text-image similarity scorer."""
+    """Text-image similarity scorer for CLIP-like and Qwen VL embedders."""
 
     def __init__(
         self,
@@ -174,8 +178,6 @@ class TextImageGrounder:
         revision: str | None = None,
     ) -> None:
         import torch
-        from transformers import AutoModel, AutoProcessor
-
         if device == "cuda" and not torch.cuda.is_available():
             device = "cpu"
         self.device = torch.device(device)
@@ -183,11 +185,28 @@ class TextImageGrounder:
         self.model_id = model_id
         self.model_revision = revision
         self.dtype = dtype
-        self.processor = AutoProcessor.from_pretrained(model_id, revision=revision)
-        model_kwargs = {"revision": revision}
-        if dtype != "auto":
-            model_kwargs["dtype"] = getattr(torch, dtype)
-        self.model = AutoModel.from_pretrained(model_id, **model_kwargs).to(self.device)
+        self.is_qwen_vl_embedding = model_id.startswith(QWEN_VL_EMBEDDING_PREFIX)
+        if self.is_qwen_vl_embedding:
+            from sentence_transformers import SentenceTransformer
+
+            model_kwargs = {}
+            if dtype != "auto":
+                model_kwargs["torch_dtype"] = getattr(torch, dtype)
+            self.processor = None
+            self.model = SentenceTransformer(
+                model_id,
+                device=str(self.device),
+                revision=revision,
+                model_kwargs=model_kwargs,
+            )
+        else:
+            from transformers import AutoModel, AutoProcessor
+
+            self.processor = AutoProcessor.from_pretrained(model_id, revision=revision)
+            model_kwargs = {"revision": revision}
+            if dtype != "auto":
+                model_kwargs["dtype"] = getattr(torch, dtype)
+            self.model = AutoModel.from_pretrained(model_id, **model_kwargs).to(self.device)
         self.model.eval()
 
     def encode_images(self, frames: list[CandidateFrame]) -> "np.ndarray":
@@ -197,6 +216,14 @@ class TextImageGrounder:
 
         if not frames:
             return np.empty((0, 0), dtype=np.float32)
+        if self.is_qwen_vl_embedding:
+            return self.model.encode(
+                [{"image": frame.image} for frame in frames],
+                batch_size=self.batch_size,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).astype(np.float32)
         if not hasattr(self.model, "get_image_features"):
             raise RuntimeError("Grounding model does not expose get_image_features")
 
@@ -228,6 +255,15 @@ class TextImageGrounder:
 
         if not texts:
             return np.empty((0, 0), dtype=np.float32)
+        if self.is_qwen_vl_embedding:
+            return self.model.encode(
+                texts,
+                prompt=QWEN_FRAME_RETRIEVAL_INSTRUCTION,
+                batch_size=self.batch_size,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).astype(np.float32)
         if not hasattr(self.model, "get_text_features"):
             raise RuntimeError("Grounding model does not expose get_text_features")
         inputs = self.processor(
@@ -786,7 +822,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--grounder-model",
         default=DEFAULT_GROUNDER_MODEL,
-        help="CLIP/SigLIP-style model used only for frame selection.",
+        help="Text-image embedding model used only for frame selection.",
     )
     parser.add_argument("--grounder-device", default="cuda")
     parser.add_argument("--grounder-batch-size", type=int, default=32)

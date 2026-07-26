@@ -1,0 +1,2 @@
+/var/lib/slurm/slurmd/job49264659/slurm_script: line 21: scripts/activate_local_env.sh: No such file or directory
+/var/lib/slurm/slurmd/job49264659/slurm_script: line 21: .venv/bin/activate: No such file or directory

@@ -1,0 +1,18 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+INFO: vLLM server log: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_fixed_uniform64_dev140/vllm_server_3kwb9djs.log
+INFO: vLLM server warming up (timeout 3600s, log /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_fixed_uniform64_dev140/vllm_server_3kwb9djs.log)
+INFO: vLLM server still warming up (elapsed 30s, log 0 KiB)
+INFO: vLLM server still warming up (elapsed 60s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 90s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 120s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 150s, log 7 KiB)
+INFO: vLLM server still warming up (elapsed 180s, log 9 KiB)
+INFO: vLLM server still warming up (elapsed 211s, log 9 KiB)
+INFO: vLLM server still warming up (elapsed 241s, log 9 KiB)
+INFO: vLLM server still warming up (elapsed 271s, log 9 KiB)
+INFO: vLLM server still warming up (elapsed 301s, log 11 KiB)
+INFO: vLLM server ready on port 39381 (pid 755237, warmup took 316s)
+WARNING: Golden (700) and predictions (140) have different lengths; evaluating against the first 140 golden rows.
+WARNING: longqa: only 140/700 predictions matched golden entries (< 50%) — check that predictions are from the correct dataset

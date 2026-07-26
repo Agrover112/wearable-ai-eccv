@@ -1,0 +1,14 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+INFO: Native-video vLLM server log: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_native_video_fps0p5_dev140/vllm_logs/vllm_server_e1xsmr9q.log
+INFO: vLLM server warming up (timeout 3600s, log /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_native_video_fps0p5_dev140/vllm_logs/vllm_server_e1xsmr9q.log)
+INFO: vLLM server still warming up (elapsed 30s, log 0 KiB)
+INFO: vLLM server still warming up (elapsed 60s, log 2 KiB)
+INFO: vLLM server still warming up (elapsed 90s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 120s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 150s, log 6 KiB)
+INFO: vLLM server still warming up (elapsed 181s, log 6 KiB)
+INFO: vLLM server still warming up (elapsed 211s, log 9 KiB)
+INFO: vLLM server still warming up (elapsed 241s, log 11 KiB)
+[2026-07-26T04:04:56.421] error: *** JOB 49265786 ON gpu24-h100-05 CANCELLED AT 2026-07-26T04:04:56 DUE to SIGNAL Terminated ***

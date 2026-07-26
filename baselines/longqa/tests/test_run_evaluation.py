@@ -1523,6 +1523,10 @@ class TestVLLMModel:
         assert model.tp_size == 1
         assert model.concurrency == 16
 
+    def test_qwen_vllm_factory_defaults_to_qwen35_9b(self):
+        model = mdl.create_model("qwen", backend="vllm")
+        assert model.model_id == "Qwen/Qwen3.5-9B"
+
     @staticmethod
     def _make_fake_image():
         """Create a mock image with a .save() method that writes valid JPEG-like bytes."""
@@ -1567,6 +1571,17 @@ class TestVLLMModel:
             assert content[0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
             assert content[-1]["type"] == "text"
             assert content[-1]["text"] == "What is this?"
+
+    def test_qwen35_generation_disables_thinking(self):
+        model = mdl.VLLMModel("Qwen/Qwen3.5-9B", tp_size=1)
+        messages = [{"role": "user", "content": "Return only A."}]
+
+        with self._patch_urlopen(model, "A") as mock_urlopen:
+            assert model.generate([], messages, max_new_tokens=16) == "A"
+
+            request = mock_urlopen.call_args[0][0]
+            payload = json.loads(request.data)
+            assert payload["chat_template_kwargs"] == {"enable_thinking": False}
 
     def test_generate_no_frames(self):
         model = mdl.VLLMModel("test-model", tp_size=1)
@@ -1932,6 +1947,17 @@ class TestVLLMStartServer:
 
         cmd = mock_popen.call_args[0][0]
         assert "--mm-processor-kwargs" not in cmd
+
+    def test_optional_gdn_prefill_backend(self, monkeypatch):
+        model = self._make_model()
+        monkeypatch.setenv("VLLM_GDN_PREFILL_BACKEND", "triton")
+
+        with unittest.mock.patch("subprocess.Popen") as mock_popen:
+            mock_popen.return_value = unittest.mock.MagicMock()
+            model._start_server()
+
+        cmd = mock_popen.call_args[0][0]
+        assert cmd[cmd.index("--gdn-prefill-backend") + 1] == "triton"
 
     def teardown_method(self):
         """Close temp log files created by _make_model."""

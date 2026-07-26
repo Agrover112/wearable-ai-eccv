@@ -1,0 +1,40 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+INFO: Native-video vLLM server log: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_native_video_fps0p25_dev140/vllm_logs/vllm_server_reufgvr0.log
+INFO: vLLM server warming up (timeout 3600s, log /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_native_video_fps0p25_dev140/vllm_logs/vllm_server_reufgvr0.log)
+INFO: vLLM server still warming up (elapsed 30s, log 0 KiB)
+INFO: vLLM server still warming up (elapsed 60s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 90s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 120s, log 5 KiB)
+INFO: vLLM server still warming up (elapsed 150s, log 7 KiB)
+INFO: vLLM server still warming up (elapsed 180s, log 8 KiB)
+INFO: vLLM server still warming up (elapsed 211s, log 8 KiB)
+INFO: vLLM server ready on port 60527 (pid 1902398, warmup took 241s)
+Traceback (most recent call last):
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_native_video.py", line 460, in <module>
+    main()
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_native_video.py", line 435, in main
+    response = model.generate_video(
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_native_video.py", line 258, in generate_video
+    with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 519, in open
+    response = self._open(req, data)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 536, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 496, in _call_chain
+    result = func(*args)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 1377, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 1352, in do_open
+    r = h.getresponse()
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/http/client.py", line 1375, in getresponse
+    response.begin()
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/http/client.py", line 318, in begin
+    version, status, reason = self._read_status()
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/http/client.py", line 287, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+[2026-07-26T02:31:18.927] error: Detected 1 oom_kill event in StepId=49265083.batch. Some of the step tasks have been OOM Killed.

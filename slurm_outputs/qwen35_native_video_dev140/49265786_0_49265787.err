@@ -1,0 +1,41 @@
+
+EnvironmentLocationNotFound: Not a conda environment: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.conda/envs/wearable-ai-eccv
+
+INFO: Native-video vLLM server log: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_native_video_fps0p25_dev140/vllm_logs/vllm_server_o6k2y5_p.log
+INFO: vLLM server warming up (timeout 3600s, log /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_native_video_fps0p25_dev140/vllm_logs/vllm_server_o6k2y5_p.log)
+INFO: vLLM server still warming up (elapsed 30s, log 0 KiB)
+INFO: vLLM server still warming up (elapsed 60s, log 1 KiB)
+INFO: vLLM server still warming up (elapsed 90s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 120s, log 3 KiB)
+INFO: vLLM server still warming up (elapsed 150s, log 6 KiB)
+INFO: vLLM server still warming up (elapsed 181s, log 6 KiB)
+INFO: vLLM server still warming up (elapsed 211s, log 9 KiB)
+INFO: vLLM server still warming up (elapsed 241s, log 10 KiB)
+INFO: vLLM server still warming up (elapsed 271s, log 11 KiB)
+INFO: vLLM server still warming up (elapsed 301s, log 11 KiB)
+INFO: vLLM server still warming up (elapsed 331s, log 11 KiB)
+INFO: vLLM server still warming up (elapsed 362s, log 21 KiB)
+INFO: vLLM server still warming up (elapsed 392s, log 22 KiB)
+INFO: vLLM server still warming up (elapsed 422s, log 23 KiB)
+INFO: vLLM server still warming up (elapsed 452s, log 25 KiB)
+INFO: vLLM server ready on port 46377 (pid 768662, warmup took 457s)
+Traceback (most recent call last):
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_native_video.py", line 462, in <module>
+    main()
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_native_video.py", line 437, in main
+    response = model.generate_video(
+  File "/scratch/inf0/user/ssureshn/wearable-ai-eccv/baselines/longqa/run_generate_longqa_native_video.py", line 260, in generate_video
+    with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 216, in urlopen
+    return opener.open(url, data, timeout)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 525, in open
+    response = meth(req, response)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 634, in http_response
+    response = self.parent.error(
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 563, in error
+    return self._call_chain(*args)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 496, in _call_chain
+    result = func(*args)
+  File "/CT/snair_physchar/work/miniforge3/envs/fit3d/lib/python3.10/urllib/request.py", line 643, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 500: Internal Server Error

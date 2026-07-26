@@ -254,7 +254,7 @@ def parse_args() -> argparse.Namespace:
         default=-0.1,
         help="Blind-language score weight used by candidate_likelihood.",
     )
-    parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
+    parser.add_argument("--llm-model", default="Qwen/Qwen3.5-9B")
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=1)

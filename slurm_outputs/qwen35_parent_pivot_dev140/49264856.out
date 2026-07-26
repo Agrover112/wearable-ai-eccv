@@ -1,0 +1,15 @@
+Job ID: 49264856
+Run directory: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/qwen35_parent_temporal_pivot_dev140
+Started at: Sun Jul 26 01:39:39 AM CEST 2026
+Proof-pack config: strategy=temporal_pivot, candidates=128, final_frames=64, structured=False, grounder=Qwen/Qwen3-VL-Embedding-8B, cache=/scratch/inf0/user/ssureshn/wearable-ai-eccv/.cache/egolongqa/qwen3vl_embedding_c128, fingerprint=3fe37a7124ac
+  Selection progress: 1/140
+  Selection progress: 2/140
+  Selection progress: 3/140
+  Selection progress: 4/140
+  Selection progress: 5/140
+  Selection progress: 6/140
+  Selection progress: 7/140
+  Selection progress: 8/140
+  Selection progress: 9/140
+  Selection progress: 10/140
+  Selection progress: 11/140

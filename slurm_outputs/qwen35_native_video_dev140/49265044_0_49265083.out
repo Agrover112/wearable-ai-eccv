@@ -1,0 +1,30 @@
+Job ID: 49265083
+Array task: 0
+Video FPS: 0.25
+Started at: Sun Jul 26 02:02:01 AM CEST 2026
+Native-video LongQA config: rows=140, model=Qwen/Qwen3.5-9B, video_fps=0.25, max_model_len=131072, fingerprint=4bbfbb090026
+vLLM allowed local media path: /scratch/inf0/user/ssureshn/wearable-ai-eccv/.cache/hf/hub/datasets--facebook--wearable-ai/blobs
+  Native-video progress: 1/140
+  Native-video progress: 2/140
+  Native-video progress: 3/140
+  Native-video progress: 4/140
+  Native-video progress: 5/140
+  Native-video progress: 6/140
+  Native-video progress: 7/140
+  Native-video progress: 8/140
+  Native-video progress: 9/140
+  Native-video progress: 10/140
+  Native-video progress: 11/140
+  Native-video progress: 12/140
+  Native-video progress: 13/140
+  Native-video progress: 14/140
+  Native-video progress: 15/140
+  Native-video progress: 16/140
+  Native-video progress: 17/140
+  Native-video progress: 18/140
+  Native-video progress: 19/140
+  Native-video progress: 20/140
+  Native-video progress: 21/140
+  Native-video progress: 22/140
+  Native-video progress: 23/140
+  Native-video progress: 24/140

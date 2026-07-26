@@ -1,0 +1,2 @@
+Annotation manifest written to /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/longqa_evidence_recall_audit_qwen35_dev140/annotation_manifest.jsonl
+Selected 34 samples for manual annotation; no event labels were created. Schema: /scratch/inf0/user/ssureshn/wearable-ai-eccv/runs/egolongqa/longqa_evidence_recall_audit_qwen35_dev140/annotation_schema.json
