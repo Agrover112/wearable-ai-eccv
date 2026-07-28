@@ -134,6 +134,21 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_optional_nonnegative_int(name: str) -> int | None:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Invalid integer for %s=%r; ignoring it", name, raw)
+        return None
+    if value < 0:
+        logger.warning("%s must be non-negative; ignoring %d", name, value)
+        return None
+    return value
+
+
 def _env_float(name: str, default: float) -> float:
     raw = os.environ.get(name)
     if raw is None or raw.strip() == "":
@@ -642,9 +657,10 @@ class InternVideo3Model(VideoQAModel):
             processor_kwargs["video_metadata"] = VideoMetadata(
                 total_num_frames=len(frames),
                 fps=float(frames[0].info["source_fps"]),
-                frames_indices=[int(frame.info["source_frame_index"]) for frame in frames],
+                frames_indices=[
+                    int(frame.info["source_frame_index"]) for frame in frames
+                ],
             )
-            # InternVideo3's processor uses a total-video pixel budget.
             self.processor.video_processor.size = {
                 "shortest_edge": self.min_pixels * len(frames),
                 "longest_edge": self.max_pixels * len(frames),
@@ -688,10 +704,7 @@ class InternVideo3Model(VideoQAModel):
             text = msg["content"]
             if role == "user" and not video_inserted and frames:
                 content = [
-                    {
-                        "type": "video",
-                        "video": frames,
-                    },
+                    {"type": "video", "video": frames},
                     {"type": "text", "text": text},
                 ]
                 mm_messages.append({"role": "user", "content": content})
@@ -718,6 +731,15 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
+def _merge_reasoning_content(message: dict[str, object]) -> str | None:
+    """Combine parsed reasoning with final content across vLLM schema versions."""
+    content = message.get("content")
+    reasoning = message.get("reasoning_content") or message.get("reasoning")
+    if reasoning:
+        return f"{reasoning}\n\n{content}" if content else str(reasoning)
+    return str(content) if content is not None else None
+
+
 class VLLMModel(VideoQAModel):
     """vLLM backend that auto-manages an OpenAI-compatible vLLM server.
 
@@ -741,6 +763,9 @@ class VLLMModel(VideoQAModel):
         self.model_type = model_type
         self.request_timeout = request_timeout
         self._context_window: int | None = None
+        self._thinking_token_budget = _env_optional_nonnegative_int(
+            "VLLM_THINKING_TOKEN_BUDGET"
+        )
         self._proc: object | None = None
         self._port: int | None = None
         self._log: object | None = None
@@ -796,6 +821,19 @@ class VLLMModel(VideoQAModel):
                 ]
             )
             server_args.extend(["--dtype", "bfloat16"])
+            reasoning_parser = os.environ.get("VLLM_REASONING_PARSER")
+            if reasoning_parser:
+                server_args.extend(["--reasoning-parser", reasoning_parser])
+            if self._thinking_token_budget is not None:
+                server_args.extend(
+                    [
+                        "--reasoning-config",
+                        (
+                            '{"reasoning_start_str":"<think>",'
+                            '"reasoning_end_str":"</think>"}'
+                        ),
+                    ]
+                )
         else:
             self._context_window = 131072
             # Minimal llama4 config (minimal subset of the Maverick judge
@@ -849,6 +887,9 @@ class VLLMModel(VideoQAModel):
             server_args.extend(
                 ["--max-num-batched-tokens", str(int(max_num_batched_tokens))]
             )
+        max_logprobs = os.environ.get("VLLM_MAX_LOGPROBS")
+        if max_logprobs:
+            server_args.extend(["--max-logprobs", str(int(max_logprobs))])
 
         import sys
 
@@ -1022,10 +1063,12 @@ class VLLMModel(VideoQAModel):
         frames: list[object],
         messages: list[dict[str, str]],
         max_new_tokens: int = 4096,
+        thinking_token_budget: int | None = None,
     ) -> str:
         import base64
         import io
         import json
+        import urllib.error
         import urllib.request
 
         image_content: list[dict[str, object]] = []
@@ -1055,14 +1098,20 @@ class VLLMModel(VideoQAModel):
             else:
                 openai_messages.append(msg)
 
-        payload = json.dumps(
-            {
-                "model": self.model_id,
-                "messages": openai_messages,
-                "max_tokens": max_new_tokens,
-                "temperature": 0.0,
-            }
-        ).encode()
+        request_data: dict[str, object] = {
+            "model": self.model_id,
+            "messages": openai_messages,
+            "max_tokens": max_new_tokens,
+            "temperature": 0.0,
+        }
+        effective_thinking_budget = (
+            self._thinking_token_budget
+            if thinking_token_budget is None
+            else thinking_token_budget
+        )
+        if effective_thinking_budget is not None:
+            request_data["thinking_token_budget"] = effective_thinking_budget
+        payload = json.dumps(request_data).encode()
 
         req = urllib.request.Request(
             f"http://localhost:{self._port}/v1/chat/completions",
@@ -1070,8 +1119,14 @@ class VLLMModel(VideoQAModel):
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.request_timeout) as resp:
-            result = json.loads(resp.read())
+        try:
+            with urllib.request.urlopen(req, timeout=self.request_timeout) as resp:
+                result = json.loads(resp.read())
+        except urllib.error.HTTPError as error:
+            body = error.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"vLLM HTTP {error.code}: {body[:2000]}"
+            ) from error
         if "error" in result:
             raise RuntimeError(f"vLLM returned error: {result['error']}")
         usage = result.get("usage", {})
@@ -1079,12 +1134,14 @@ class VLLMModel(VideoQAModel):
         if prompt_tokens is not None:
             record_prompt_token_counts([int(prompt_tokens)], self._context_window)
         try:
-            content = result["choices"][0]["message"]["content"]
+            message = result["choices"][0]["message"]
+            content = message["content"]
         except (KeyError, IndexError) as e:
             raise RuntimeError(
                 f"Unexpected vLLM response structure: {e}. "
                 f"Response keys: {list(result.keys())}"
             ) from e
+        content = _merge_reasoning_content(message)
         if content is None:
             raise RuntimeError(
                 "vLLM returned null content (possible content-filter or empty "
@@ -1169,6 +1226,161 @@ class VLLMModel(VideoQAModel):
             )
         return scores
 
+    def score_token_uncertainty(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        top_logprobs: int = 100,
+    ) -> dict[str, object]:
+        """Estimate next-token entropy from the vLLM top-K distribution.
+
+        The returned lower bound treats all probability mass outside the
+        returned top-K tokens as one aggregate outcome. This is exact when the
+        tail mass is zero and remains explicitly distinguishable from the
+        full-vocabulary entropy used by the UG paper.
+        """
+        import base64
+        import io
+        import json
+        import urllib.request
+
+        if top_logprobs <= 0:
+            raise ValueError("top_logprobs must be positive")
+        image_content: list[dict[str, object]] = []
+        for frame in frames:
+            buffer = io.BytesIO()
+            frame.save(buffer, format="JPEG")
+            encoded = base64.b64encode(buffer.getvalue()).decode()
+            image_content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{encoded}"},
+                }
+            )
+        openai_messages: list[dict[str, object]] = []
+        images_inserted = False
+        for message in messages:
+            if message["role"] == "user" and not images_inserted and frames:
+                openai_messages.append(
+                    {
+                        "role": "user",
+                        "content": image_content
+                        + [{"type": "text", "text": message["content"]}],
+                    }
+                )
+                images_inserted = True
+            else:
+                openai_messages.append(message)
+        payload = json.dumps(
+            {
+                "model": self.model_id,
+                "messages": openai_messages,
+                "max_tokens": 1,
+                "temperature": 0.0,
+                "logprobs": True,
+                "top_logprobs": top_logprobs,
+            }
+        ).encode()
+        request = urllib.request.Request(
+            f"http://localhost:{self._port}/v1/chat/completions",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
+            result = json.loads(response.read())
+        if "error" in result:
+            raise RuntimeError(f"vLLM returned error: {result['error']}")
+        usage = result.get("usage", {})
+        if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
+            record_prompt_token_counts([int(usage["prompt_tokens"])], self._context_window)
+        try:
+            content = result["choices"][0]["logprobs"]["content"][0]
+            candidates = content["top_logprobs"]
+        except (KeyError, IndexError, TypeError) as error:
+            raise RuntimeError(
+                f"vLLM response did not contain token logprobs: {result}"
+            ) from error
+        probabilities = [
+            math.exp(float(candidate["logprob"]))
+            for candidate in candidates
+            if math.isfinite(float(candidate["logprob"]))
+        ]
+        observed_mass = min(1.0, float(sum(probabilities)))
+        tail_mass = max(0.0, 1.0 - observed_mass)
+        entropy = -sum(
+            probability * math.log(probability)
+            for probability in probabilities
+            if probability > 0.0
+        )
+        if tail_mass > 0.0:
+            entropy -= tail_mass * math.log(tail_mass)
+        normalized_entropy = 0.0
+        if observed_mass > 0.0:
+            normalized = [probability / observed_mass for probability in probabilities]
+            normalized_entropy = -sum(
+                probability * math.log(probability)
+                for probability in normalized
+                if probability > 0.0
+            )
+        return {
+            "entropy_lower_bound": float(entropy),
+            "topk_normalized_entropy": float(normalized_entropy),
+            "observed_probability_mass": observed_mass,
+            "tail_probability_mass": tail_mass,
+            "top_logprobs_requested": top_logprobs,
+            "top_logprobs_returned": len(candidates),
+            "predicted_token": str(content.get("token", "")),
+            "predicted_logprob": float(content.get("logprob", float("-inf"))),
+            "distribution": [
+                {
+                    "token": str(candidate.get("token", "")),
+                    "logprob": float(candidate["logprob"]),
+                }
+                for candidate in candidates
+            ],
+        }
+
+    def score_token_uncertainty_batch(
+        self,
+        batch_frames: list[list[object]],
+        batch_messages: list[list[dict[str, str]]],
+        top_logprobs: int = 100,
+    ) -> list[dict[str, object]]:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        if len(batch_frames) != len(batch_messages):
+            raise ValueError("uncertainty batch frames and messages must have equal lengths")
+        results: list[dict[str, object] | None] = [None] * len(batch_frames)
+        failures: list[tuple[int, Exception]] = []
+        with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
+            futures = {
+                pool.submit(
+                    self.score_token_uncertainty,
+                    frames,
+                    messages,
+                    top_logprobs,
+                ): index
+                for index, (frames, messages) in enumerate(
+                    zip(batch_frames, batch_messages)
+                )
+            }
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    results[index] = future.result()
+                except Exception as error:
+                    failures.append((index, error))
+        if failures:
+            index, error = failures[0]
+            raise RuntimeError(
+                f"{len(failures)} uncertainty requests failed; "
+                f"first failure at batch index {index}: {error}"
+            ) from error
+        if any(result is None for result in results):
+            raise RuntimeError("uncertainty batch completed with missing responses")
+        return [result for result in results if result is not None]
+
     def score_candidate_texts(
         self,
         frames: list[object],
@@ -1176,7 +1388,12 @@ class VLLMModel(VideoQAModel):
         candidates: dict[str, str],
         assistant_prefix: str = "Answer:\n",
     ) -> dict[str, dict[str, object]]:
-        """Score complete candidate answers as assistant-message continuations."""
+        """Score complete candidate answers as assistant-message continuations.
+
+        vLLM returns prompt log probabilities for the teacher-forced candidate
+        tokens. The mean score is length-normalized so short options do not win
+        solely because they contain fewer tokens.
+        """
         import base64
         import io
         import json
@@ -1236,13 +1453,9 @@ class VLLMModel(VideoQAModel):
                 raise RuntimeError(f"vLLM returned error: {result['error']}")
             usage = result.get("usage", {})
             if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
-                record_prompt_token_counts(
-                    [int(usage["prompt_tokens"])], self._context_window
-                )
+                record_prompt_token_counts([int(usage["prompt_tokens"])], self._context_window)
             if result.get("prompt_token_ids") is None or result.get("prompt_logprobs") is None:
-                raise RuntimeError(
-                    "vLLM response omitted prompt token IDs or log probabilities"
-                )
+                raise RuntimeError("vLLM response omitted prompt token IDs or log probabilities")
             return result
 
         base = request_prompt_logprobs(assistant_prefix)
@@ -1419,6 +1632,7 @@ class VLLMModel(VideoQAModel):
         batch_frames: list[list[object]],
         batch_messages: list[list[dict[str, str]]],
         max_new_tokens: int = 4096,
+        thinking_token_budget: int | None = None,
     ) -> list[str]:
         from concurrent.futures import as_completed, ThreadPoolExecutor
 
@@ -1431,7 +1645,13 @@ class VLLMModel(VideoQAModel):
         errors: list[tuple[int, Exception]] = []
         with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
             futures = {
-                pool.submit(self.generate, frames, msgs, max_new_tokens): i
+                pool.submit(
+                    self.generate,
+                    frames,
+                    msgs,
+                    max_new_tokens,
+                    thinking_token_budget,
+                ): i
                 for i, (frames, msgs) in enumerate(zip(batch_frames, batch_messages))
             }
             for future in as_completed(futures):
@@ -1448,6 +1668,21 @@ class VLLMModel(VideoQAModel):
                 f"First failures: {error_msgs}"
             )
         return [r if r is not None else "" for r in results]
+
+    def generate_final_answer_batch(
+        self,
+        batch_frames: list[list[object]],
+        batch_messages: list[list[dict[str, str]]],
+        max_new_tokens: int = 64,
+    ) -> list[str]:
+        """Generate answer-only retries without reopening a reasoning block."""
+        budget = 0 if self._thinking_token_budget is not None else None
+        return self.generate_batch(
+            batch_frames,
+            batch_messages,
+            max_new_tokens=max_new_tokens,
+            thinking_token_budget=budget,
+        )
 
 
 MODEL_REGISTRY: dict[str, type[VideoQAModel]] = {

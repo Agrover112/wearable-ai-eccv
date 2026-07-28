@@ -1,8 +1,14 @@
+import pytest
+
+from longqa_utils import index_row_aligned_metadata
 from run_generate_longqa_verifier import (
     build_pairwise_verifier_prompt,
     build_verifier_frame_indices,
     build_verifier_prompt,
+    choose_candidate_from_scores,
+    choose_candidate_from_votes,
     parse_pairwise_choice,
+    rotate_mcq_options,
 )
 
 
@@ -63,3 +69,52 @@ def test_pairwise_prompt_exposes_only_candidate_semantics():
     assert "A. Sat" not in prompt
     assert parse_pairwise_choice("2") == 2
     assert parse_pairwise_choice("Candidate 1") == 1
+
+
+def test_option_rotations_cover_each_display_position_once():
+    row = {
+        "question": "What happened?",
+        "mcq_options": "A. Alpha B. Beta C. Gamma D. Delta",
+    }
+    mappings = [rotate_mcq_options(row, offset)[1] for offset in range(4)]
+    for original in "ABCD":
+        assert {displayed for mapping in mappings for displayed, value in mapping.items() if value == original} == set("ABCD")
+
+
+def test_vote_aggregation_is_candidate_restricted_and_ties_fall_back():
+    answer, counts = choose_candidate_from_votes(["C", "D", "D", "A"], "B", "C")
+    assert answer == "C"
+    assert counts == {"A": 1, "B": 0, "C": 1, "D": 2}
+    answer, _ = choose_candidate_from_votes(["A", "D"], "B", "C")
+    assert answer == "B"
+
+
+def test_candidate_likelihood_restricts_choice_after_score_fusion():
+    answer, scores = choose_candidate_from_scores(
+        "B",
+        "D",
+        {"A": 10.0, "B": 1.0, "C": 9.0, "D": 2.0},
+        {"A": 10.0, "B": 3.0, "C": 9.0, "D": 2.0},
+        {"A": 0.0, "B": -1.0, "C": 0.0, "D": -2.0},
+        -0.1,
+    )
+    assert answer == "B"
+    assert scores["A"] > scores["B"]
+
+
+def test_row_aligned_proofpacks_keep_questions_from_same_video_distinct():
+    references = [
+        {"video_path": "same.mp4", "question": "First question?"},
+        {"video_path": "same.mp4", "question": "Second question?"},
+    ]
+    metadata = [
+        {"video_path": "same.mp4", "selected": [1]},
+        {"video_path": "same.mp4", "selected": [2]},
+    ]
+    indexed = index_row_aligned_metadata(metadata, references, "proof pack")
+    assert indexed["same.mp4||First question?"]["selected"] == [1]
+    assert indexed["same.mp4||Second question?"]["selected"] == [2]
+    with pytest.raises(RuntimeError, match="video mismatch"):
+        index_row_aligned_metadata(
+            [{"video_path": "wrong.mp4"}, metadata[1]], references, "proof pack"
+        )

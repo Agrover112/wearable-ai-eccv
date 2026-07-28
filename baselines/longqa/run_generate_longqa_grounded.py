@@ -336,7 +336,8 @@ def save_grounder_feature_cache(
     import numpy as np
 
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    tmp_path = f"{cache_path}.tmp.npz"
+    # Parallel selectors may populate the same cache concurrently.
+    tmp_path = f"{cache_path}.{os.getpid()}.tmp.npz"
     stat = os.stat(video_path) if video_path else None
     np.savez_compressed(
         tmp_path,

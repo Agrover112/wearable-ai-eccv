@@ -14,6 +14,7 @@ import argparse
 import json
 import logging
 import os
+import re
 from pathlib import Path
 
 from longqa_utils import (
@@ -119,6 +120,20 @@ def main() -> None:
         help="LongQA prompt variant (default: baseline).",
     )
     parser.add_argument(
+        "--longqa-max-new-tokens",
+        type=int,
+        default=16,
+        help="Maximum answer tokens per LongQA generation call (default: 16).",
+    )
+    parser.add_argument(
+        "--require-final-answer-marker",
+        action="store_true",
+        help=(
+            "Require `Final Answer: X`; if absent, append the first response as "
+            "assistant context and request a short final-answer continuation."
+        ),
+    )
+    parser.add_argument(
         "--batch-size",
         type=int,
         default=None,
@@ -169,7 +184,7 @@ def main() -> None:
 
         add_slurm_args(parser)
     except ImportError:
-        # The local and interactive paths do not require the optional submit helper.
+        # The standalone ECCV baseline does not require the cluster submit helper.
         pass
     args = parser.parse_args()
 
@@ -203,7 +218,11 @@ def _submit_slurm(
         str(args.frames_per_interval),
         "--prompt-variant",
         args.prompt_variant,
+        "--longqa-max-new-tokens",
+        str(getattr(args, "longqa_max_new_tokens", 16)),
     ]
+    if getattr(args, "require_final_answer_marker", False):
+        extra.append("--require-final-answer-marker")
     if args.subset_file:
         extra.extend(["--subset-file", args.subset_file])
     if args.llm_model:
@@ -402,13 +421,25 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 for row in batch
             ]
             responses = model.generate_batch(
-                batch_frames, batch_messages, max_new_tokens=16
+                batch_frames,
+                batch_messages,
+                max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
+            )
+            responses = _complete_missing_final_answers(
+                model,
+                batch_frames,
+                batch_messages,
+                responses,
+                getattr(args, "require_final_answer_marker", False),
             )
             for row, response in zip(batch, responses):
                 pred = build_prediction_row(
                     row,
                     response,
                     prompt_variant=args.prompt_variant,
+                )
+                pred["longqa_max_new_tokens"] = getattr(
+                    args, "longqa_max_new_tokens", 16
                 )
                 out_f.write(json.dumps(pred) + "\n")
                 out_f.flush()
@@ -484,7 +515,16 @@ def _worker_fn(
                 for row in batch
             ]
             responses = model.generate_batch(
-                batch_frames, batch_messages, max_new_tokens=16
+                batch_frames,
+                batch_messages,
+                max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
+            )
+            responses = _complete_missing_final_answers(
+                model,
+                batch_frames,
+                batch_messages,
+                responses,
+                getattr(args, "require_final_answer_marker", False),
             )
             for row, response in zip(batch, responses):
                 pred = build_prediction_row(
@@ -492,12 +532,84 @@ def _worker_fn(
                     response,
                     prompt_variant=args.prompt_variant,
                 )
+                pred["longqa_max_new_tokens"] = getattr(
+                    args, "longqa_max_new_tokens", 16
+                )
                 out_f.write(json.dumps(pred) + "\n")
                 out_f.flush()
             done = min(batch_start + batch_size, len(shard))
             print(f"  [Worker {rank}] Progress: {done}/{len(shard)}")
     _print_context_summary(summarize_prompt_token_stats(), prefix=f"[Worker {rank}] ")
     print(f"  [Worker {rank}] Done: {out_file}")
+
+
+def has_final_answer_marker(response: object) -> bool:
+    return bool(
+        re.search(
+            r"\bfinal\s+answer\s*[:.]?\s*\(?[A-D]\)?\b",
+            str(response),
+            re.IGNORECASE,
+        )
+    )
+
+
+def _complete_missing_final_answers(
+    model: object,
+    batch_frames: list[list[object]],
+    batch_messages: list[list[dict[str, str]]],
+    responses: list[str],
+    required: bool,
+) -> list[str]:
+    if not required:
+        return responses
+    missing = [
+        index
+        for index, response in enumerate(responses)
+        if not has_final_answer_marker(response)
+    ]
+    if not missing:
+        return responses
+    retry_messages = [
+        batch_messages[index]
+        + [{"role": "assistant", "content": responses[index]}]
+        + [
+            {
+                "role": "user",
+                "content": (
+                    "Using the reasoning above, end now with exactly "
+                    "`Final Answer: X`, where X is A, B, C, or D."
+                ),
+            }
+        ]
+        for index in missing
+    ]
+    retry_frames = [batch_frames[index] for index in missing]
+    final_answer_batch = getattr(model, "generate_final_answer_batch", None)
+    if callable(final_answer_batch):
+        retry_responses = final_answer_batch(
+            retry_frames,
+            retry_messages,
+            max_new_tokens=64,
+        )
+    else:
+        retry_responses = model.generate_batch(
+            retry_frames,
+            retry_messages,
+            max_new_tokens=64,
+        )
+    completed = list(responses)
+    for index, retry in zip(missing, retry_responses):
+        completed[index] = f"{responses[index]}\n\n{retry}"
+    still_missing = [
+        index for index, response in enumerate(completed) if not has_final_answer_marker(response)
+    ]
+    if still_missing:
+        raise RuntimeError(
+            "Final-answer retry failed for "
+            f"{len(still_missing)} response(s): indices {still_missing[:8]}. "
+            "Refusing to write parser-dependent predictions."
+        )
+    return completed
 
 
 def _print_context_summary(stats: dict[str, object], prefix: str = "") -> None:

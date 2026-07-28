@@ -9,7 +9,13 @@ import json
 import os
 from typing import Any
 
-from longqa_utils import apply_subset, build_prediction_row, sample_key
+from longqa_utils import (
+    apply_subset,
+    build_prediction_row,
+    index_row_aligned_metadata,
+    load_subset_keys,
+    sample_key,
+)
 from run_generate_longqa_grounded import _run_eval, extract_frames_by_indices, load_jsonl
 
 
@@ -47,6 +53,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", default="../egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl")
     parser.add_argument("--video-folder", default="../egolongqa/val")
     parser.add_argument("--subset-file", default=None)
+    parser.add_argument(
+        "--exclude-subset-file",
+        default=None,
+        help="Exclude stable sample keys listed in this subset manifest.",
+    )
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--proofpack", required=True)
     parser.add_argument("--output", required=True)
@@ -73,11 +84,26 @@ def main() -> None:
     proofpack_path = _resolve_path(args.proofpack)
     output_path = _resolve_path(args.output)
     eval_output = _resolve_path(args.eval_output) if args.eval_output else None
-    rows = apply_subset(load_jsonl(input_path), args.subset_file)
+    all_rows = load_jsonl(input_path)
+    included_rows = apply_subset(all_rows, args.subset_file)
+    rows = list(included_rows)
+    excluded_keys = load_subset_keys(args.exclude_subset_file)
+    if excluded_keys is not None:
+        rows = [row for row in rows if sample_key(row) not in excluded_keys]
     if args.max_samples is not None:
         rows = rows[: args.max_samples]
-    packs = {str(item.get("video_path", "")): item for item in load_jsonl(proofpack_path)}
-    missing = [str(row["video_path"]) for row in rows if str(row["video_path"]) not in packs]
+    pack_rows = load_jsonl(proofpack_path)
+    if len(pack_rows) == len(all_rows):
+        pack_reference = all_rows
+    elif len(pack_rows) == len(included_rows):
+        pack_reference = included_rows
+    else:
+        raise RuntimeError(
+            f"Proof pack has {len(pack_rows)} rows; expected either "
+            f"{len(all_rows)} full rows or {len(included_rows)} included rows"
+        )
+    packs = index_row_aligned_metadata(pack_rows, pack_reference, "proof pack")
+    missing = [sample_key(row) for row in rows if sample_key(row) not in packs]
     if missing:
         raise RuntimeError(f"Proof pack is missing {len(missing)} required rows")
 
@@ -86,6 +112,10 @@ def main() -> None:
         "blind_weight": args.blind_weight,
         "model": args.llm_model,
         "max_frames": args.max_frames,
+        "subset_file": os.path.abspath(args.subset_file) if args.subset_file else None,
+        "exclude_subset_file": (
+            os.path.abspath(args.exclude_subset_file) if args.exclude_subset_file else None
+        ),
     }
     fingerprint = hashlib.sha1(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
     existing = [] if args.no_resume or not os.path.exists(output_path) else load_jsonl(output_path)
@@ -112,7 +142,7 @@ def main() -> None:
     begun = time.time()
     with model, open(output_path, "a" if start else "w") as handle:
         for index, row in enumerate(rows[start:], start=start):
-            pack = packs[str(row["video_path"])]
+            pack = packs[sample_key(row)]
             indices = [int(item["frame_index"]) for item in pack["selected"]][: args.max_frames]
             frames = extract_frames_by_indices(
                 os.path.join(video_folder, str(row["video_path"])), indices

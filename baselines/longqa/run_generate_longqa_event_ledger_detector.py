@@ -68,10 +68,28 @@ class OpenVocabularyDetector:
         box_threshold: float,
         text_threshold: float,
     ) -> list[dict[str, object]]:
-        if not concepts:
+        return self.detect_batch(
+            [image], concepts, box_threshold, text_threshold
+        )[0]
+
+    def detect_batch(
+        self,
+        images: list[object],
+        concepts: list[str],
+        box_threshold: float,
+        text_threshold: float,
+    ) -> list[list[dict[str, object]]]:
+        if not images:
             return []
+        if not concepts:
+            return [[] for _ in images]
         prompt = ". ".join(concepts) + "."
-        inputs = self.processor(images=image, text=prompt, return_tensors="pt")
+        inputs = self.processor(
+            images=images,
+            text=[prompt] * len(images),
+            padding=True,
+            return_tensors="pt",
+        )
         inputs = {
             key: (
                 value.to(device=self.device, dtype=self.dtype)
@@ -85,19 +103,28 @@ class OpenVocabularyDetector:
         kwargs = {
             "threshold": box_threshold,
             "text_threshold": text_threshold,
-            "target_sizes": [image.size[::-1]],
+            "target_sizes": [image.size[::-1] for image in images],
         }
         try:
-            result = self.processor.post_process_grounded_object_detection(
+            results = self.processor.post_process_grounded_object_detection(
                 outputs, inputs.get("input_ids"), **kwargs
-            )[0]
+            )
         except TypeError:
-            result = self.processor.post_process_grounded_object_detection(outputs, **kwargs)[0]
-        cpu_result = {
-            key: value.detach().float().cpu().tolist() if hasattr(value, "detach") else value
-            for key, value in result.items()
-        }
-        return normalize_detector_result(cpu_result)
+            results = self.processor.post_process_grounded_object_detection(
+                outputs, **kwargs
+            )
+        normalized = []
+        for result in results:
+            cpu_result = {
+                key: (
+                    value.detach().float().cpu().tolist()
+                    if hasattr(value, "detach")
+                    else value
+                )
+                for key, value in result.items()
+            }
+            normalized.append(normalize_detector_result(cpu_result))
+        return normalized
 
 
 def detection_cache_path(

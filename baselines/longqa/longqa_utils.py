@@ -17,6 +17,7 @@ PROMPT_VARIANTS = (
     "temporal_anchor",
     "anti_shortcut",
     "combined",
+    "thinking",
 )
 
 RETRIEVAL_QUERY_MODES = (
@@ -81,6 +82,13 @@ BASELINE_PROMPT_TEMPLATE = (
     "Answer with ONLY the single letter of the correct option (A, B, C, or D). "
     "Do not include any other text."
 )
+THINKING_PROMPT_TEMPLATE = (
+    "Watch the video and answer the following multiple-choice question.\n\n"
+    "Question: {question}\n\n"
+    "Options:\n{mcq_options}\n\n"
+    "Reason before answering, then end exactly with `Final Answer: X`, where X "
+    "is the single letter A, B, C, or D."
+)
 
 _VARIANT_INSTRUCTIONS = {
     "baseline": "",
@@ -123,6 +131,12 @@ _VARIANT_INSTRUCTIONS = {
         "location, spatial relationships, and actions. Return only the final "
         "option letter."
     ),
+    "thinking": (
+        "Reason carefully from the chronological visual evidence. Identify the "
+        "relevant event or objects, verify temporal order when required, and "
+        "compare all answer options. You may show your reasoning. End the "
+        "response exactly with `Final Answer: X`, where X is A, B, C, or D."
+    ),
 }
 
 
@@ -134,7 +148,12 @@ def build_longqa_prompt(
     """Build a LongQA prompt while preserving baseline text by default."""
     if prompt_variant not in PROMPT_VARIANTS:
         raise ValueError(f"Unknown prompt variant: {prompt_variant}")
-    base = BASELINE_PROMPT_TEMPLATE.format(
+    template = (
+        THINKING_PROMPT_TEMPLATE
+        if prompt_variant == "thinking"
+        else BASELINE_PROMPT_TEMPLATE
+    )
+    base = template.format(
         question=question,
         mcq_options=mcq_options,
     )

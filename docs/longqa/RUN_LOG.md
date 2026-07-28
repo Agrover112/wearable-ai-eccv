@@ -60,6 +60,24 @@
 | `qwen3_vl_8b_vllm_event_ledger_f16_r8_final64_px451584_dev20_2026-07-17` | 2026-07-17 | EgoLongQA dev20 | Qwen/Qwen3-VL-8B-Instruct | vLLM + schema event ledger | 1x H100 NVL | 20 | 16 ledger frames + 64 answer frames | 200,704 px ledger; 451,584 px answer | 33m46s | 0.7000 | 14/20 | 343 calls; mean 1,979 tok; p95 28,720; max 59.75% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_event_ledger_f16_r8_final64_px451584_dev20_2026-07-17/` |
 | `qwen3_vl_8b_vllm_semantic_candidate_logp_pivot_uniform_dev_2026-07-17` | 2026-07-17 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM full-answer likelihood | 1x H100 NVL | 140 (19 disagreements; 114 scoring calls) | separate 64-frame pivot and uniform contexts | 451,584 px (~672x672) | 32m47s | 0.7857 | 110/140 | mean 27,847 tok; p95 27,874; max 56.71% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_semantic_candidate_logp_pivot_uniform_dev_2026-07-17/` |
 | `qwen3_vl_8b_vllm_event_ledger_groundingdino_final64_px451584_dev20_2026-07-17` | 2026-07-17 | EgoLongQA dev20 | Grounding DINO + Qwen3-VL | detector augmentation | 1x H100 NVL | 0/20 | intended 16 detection frames + 64 answer frames | n/a | two failed startup attempts | n/a | n/a | mixed FP32/BF16 operations inside detector | current code loads detector fully in FP32; rerun required |
+| `qwen3_vl_8b_vllm_uniform64_answer_cot_px451584_dev_2026-07-21` | 2026-07-21/22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + answer-stage temporal rationale | 1x H100 NVL | 140 generated; invalid evaluation | 64 uniform | 451,584 px (~672x672) | 1h51m41s | invalid (raw 0.5286) | raw 74/140 | 140 calls; mean 27,912 tok; p95 28,026; max 57.34% of 49K | 48/140 responses lacked the required final-answer marker before the 192-token cap; archived as failed attempt and rerun required |
+| `qwen3_vl_8b_vllm_tcot_single_c128_sel64_px451584_dev_2026-07-21` | 2026-07-21/22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + single-step Qwen TCoT | 1x H100 NVL | 140 generated; invalid evaluation | mean 15.3 selected from 128 candidates | 50,176 px selector; 451,584 px answer | 3h43m04s | invalid (raw 0.3000) | raw 42/140 | 286 calls; mean 6,715 tok; p95 7,242; max 51.67% of 49K | 52/140 answers lacked a final marker; valid selector cache retained, answer-only rerun required |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel64_px451584_dev_2026-07-21` | 2026-07-21/22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + four-segment Qwen TCoT | 1x H100 NVL | 140 generated; invalid evaluation | mean 28.1 selected from 256 candidates | 50,176 px selector; 451,584 px answer | 6h54m52s | invalid (raw 0.4857) | raw 68/140 | 704 calls; mean 5,223 tok; p95 14,074; max 56.92% of 49K | 40/140 answers lacked a final marker; selector cache complete, answer-only rerun required |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel48_u16_px451584_dev_2026-07-21` | 2026-07-21/22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + four-segment Qwen TCoT and uniform coverage | 1x H100 NVL | 140 generated; invalid evaluation | mean 43.9 final; selected neighborhoods + 16 uniform | 50,176 px selector; 451,584 px answer | 6h30m22s | invalid (raw 0.4929) | raw 69/140 | 595 calls; mean 7,158 tok; p95 21,045; max 57.09% of 49K | 43/140 answers lacked a final marker; concurrent cache race changed selections on 22 rows, matched-cache rerun required |
+| `qwen3_vl_8b_vllm_uniform64_answer_cot_px451584_dev_2026-07-22` | 2026-07-22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + answer-stage temporal rationale with strict retry | 1x H100 NVL | 140 | 64 uniform | 451,584 px (~672x672) | 2h01m56s | **0.7857** | **110/140** | 280 calls; mean 27,820 tok; p95 27,973; max 57.29% of 49K | all 140 rationale calls required answer-only retry; result ties uniform64 and adds no usable answer-stage gain |
+| `qwen3_vl_8b_vllm_tcot_single_c128_sel64_px451584_dev_2026-07-22` | 2026-07-22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + cached single-step Qwen TCoT | 1x H100 NVL | 140 | mean 15.3 selected from 128 candidates | 50,176 px selector; 451,584 px answer | 26m25s | 0.5857 | 82/140 | 140 answer calls; mean 6,763 tok; p95 8,775; max 51.62% of 49K | 140/140 selector cache hits; complete valid archive |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel64_px451584_dev_2026-07-22` | 2026-07-22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + cached four-segment Qwen TCoT | 1x H100 NVL | 140 | mean 28.1 selected from 256 candidates | 50,176 px selector; 451,584 px answer | 46m34s | 0.6786 | 95/140 | 140 answer calls; mean 12,335 tok; p95 19,045; max 56.87% of 49K | 140/140 selector cache hits; complete valid archive |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel48_u16_px451584_dev_2026-07-22` | 2026-07-22 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | vLLM + cached four-segment Qwen TCoT and uniform coverage | 1x H100 NVL | 40/140 valid prefix | mean 43.6 final over prefix; selected neighborhoods + 16 uniform | 50,176 px selector; 451,584 px answer | interrupted after row 40 | partial 0.7000 | 28/40 | no final context summary | transient OpenCV metadata timeout at row 41; resumable prefix archived and working state retained |
+| `qwen3_vl_8b_vllm_object_labels_pivot64_px451584_dev_2026-07-26` | 2026-07-26 | EgoLongQA dev140 | Grounding DINO + Qwen/Qwen3-VL-8B-Instruct | detector labels over temporal-pivot frames + vLLM | 1x H100 NVL | 140 | 64 pivot frames; detections on 32 frames | 451,584 px (~672x672) | 2h59m07s | 0.6857 | 96/140 | mean 27,913 tok; p95 28,027; max 57.34% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_object_labels_pivot64_px451584_dev_2026-07-26/` |
+| `qwen3_vl_8b_thinking_vllm_uniform64_px451584_dev_2026-07-26` | 2026-07-26 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Thinking | vLLM reasoning + strict-retry attempt | 1x H100 NVL | 140 generated; invalid evaluation | 64 uniform | 451,584 px (~672x672) | 2h20m33s resumed run | invalid (raw 0.5929) | raw 83/140 | 155 calls; mean 28,357 tok; p95 30,136; max 61.54% of 49K | 26/140 outputs still lacked a final-answer marker after retry; archived for protocol debugging, not fair comparison |
+| `qwen3_vl_8b_thinking_budget2048_vllm_uniform64_px451584_dev_2026-07-26_failed_job49270165` | 2026-07-26 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Thinking | vLLM bounded-reasoning attempt | 1x H100 NVL | 0/140 | 64 uniform | 451,584 px (~672x672) | failed on first request | n/a | n/a | no successful calls | vLLM required an explicit server-side reasoning configuration for `thinking_token_budget`; failed artifacts archived separately |
+| `qwen3_vl_8b_thinking_budget2048_vllm_uniform64_px451584_dev_2026-07-26` | 2026-07-26/27 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Thinking | vLLM bounded reasoning with final-answer reserve | 1x H100 NVL | 140 | 64 uniform | 451,584 px (~672x672) | 2h28m13s | 0.6714 | 94/140 | 143 calls; mean 28,063 tok; p95 28,157; max 62.05% of 49K | 140/140 valid final markers; three answer-only retries; complete archive |
+| `qwen3_vl_8b_vllm_object_crop_pairs_f56_c8_px451584_dev_2026-07-26` | 2026-07-26 | EgoLongQA dev140 | Grounding DINO + Qwen/Qwen3-VL-8B-Instruct | pivot frames + paired object crops | 1x H100 NVL | 140 | 56 pivot context + up to 8 object crops; 64 final | 451,584 px (~672x672) | 1h51m05s | 0.7786 | 109/140 | mean 26,157 tok; p95 27,924; max 57.06% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_object_crop_pairs_f56_c8_px451584_dev_2026-07-26/` |
+| `qwen3_vl_8b_vllm_object_panels_f56_p8_px451584_dev_2026-07-26` | 2026-07-26 | EgoLongQA dev140 | Grounding DINO + Qwen/Qwen3-VL-8B-Instruct | pivot frames + object evidence panels | 1x H100 NVL | 140 | 56 pivot context + up to 8 panels; 64 final | 451,584 px (~672x672) | 1h49m59s | 0.7643 | 107/140 | mean 27,996 tok; p95 28,106; max 57.50% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_object_panels_f56_p8_px451584_dev_2026-07-26/` |
+| `qwen3_vl_8b_vllm_object_ledger_pivot64_px451584_dev_2026-07-26` | 2026-07-26 | EgoLongQA dev140 | Grounding DINO + Qwen/Qwen3-VL-8B-Instruct | detector-derived object ledger + pivot frames | 1x H100 NVL | 140 | 64 pivot frames with text ledger | 451,584 px (~672x672) | 2h04m32s | 0.7286 | 102/140 | mean 28,408 tok; p95 28,601; max 58.55% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_object_ledger_pivot64_px451584_dev_2026-07-26/` |
+| `qwen3_vl_8b_vllm_ug_segmented_c64_s16x2_u32_final64_px451584_dev20_2026-07-27` | 2026-07-27 | EgoLongQA temporal dev20 | Qwen/Qwen3-VL-8B-Instruct | vLLM + segment-balanced intrinsic uncertainty | 1x H100 NVL | 20 | 32 low-entropy segment frames + uniform fill; 64 final | 50,176 px scoring; 451,584 px answer | 37m57s | 0.7500 | 15/20 | 1,300 calls; mean 642 tok; p95 436; max 57.32% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_segmented_c64_s16x2_u32_final64_px451584_dev20_2026-07-27/` |
+| `qwen3_vl_8b_vllm_ug_temporal_pivot_c128_anc24_final64_px451584_dev20_2026-07-27` | 2026-07-27 | EgoLongQA temporal dev20 | Qwen/Qwen3-VL-8B-Instruct | vLLM + uncertainty temporal pivot | 1x H100 NVL | 20 | 128 target-entropy candidates + 128 pivot-presence scores; 64 final | 50,176 px scoring; 451,584 px answer | 1h27m37s | **0.8000** | **16/20** | 5,140 calls; mean 273 tok; p95 431; max 57.32% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_temporal_pivot_c128_anc24_final64_px451584_dev20_2026-07-27/` |
+| `qwen3_vl_8b_vllm_ug_c128_s16x4_dynamic_tcot_s4_sel48_u16_px451584_dev20_2026-07-27` | 2026-07-27 | EgoLongQA temporal dev20 | Qwen/Qwen3-VL-8B-Instruct | cached uncertainty shortlist + dynamic TCoT | 1x H100 NVL | 20 | 64-frame uncertainty shortlist; 21-54 final frames after TCoT + 16 uniform | 50,176 px selector; 451,584 px answer | 1h06m50s | 0.7500 | 15/20 | 100 calls; mean 4,339 tok; p95 19,667; max 48.49% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_c128_s16x4_dynamic_tcot_s4_sel48_u16_px451584_dev20_2026-07-27/` |
 
 ## Job Status Snapshot (2026-07-11 12:49 CEST)
 
@@ -202,6 +220,227 @@ loading argument was replaced. Its scratch cache is still empty, so the
 corrected job will start cleanly and is the only one of these configurations
 requiring a rerun.
 
+## Job Status Snapshot (2026-07-22 09:00 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_vllm_uniform64_answer_cot_px451584_dev_2026-07-21` | 49237950 | Completed generation; invalid evaluation; rerun required | 140/140 predictions, but 48 responses reached the 192-token cap without `Final Answer:`; raw parser score 74/140 is not comparable |
+| `qwen3_vl_8b_vllm_tcot_single_c128_sel64_px451584_dev_2026-07-21` | 49237951 | Completed selection/generation; invalid evaluation; answer rerun required | 140 selector records are reusable; 52 answers lacked a final marker; raw 42/140 is invalid |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel64_px451584_dev_2026-07-21` | 49237952 | Completed selection/generation; invalid evaluation; answer rerun required | 140 selector records and complete shared cache; 40 answers lacked a final marker; raw 68/140 is invalid |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel48_u16_px451584_dev_2026-07-21` | 49237953 | Completed selection/generation; invalid evaluation; matched-cache rerun required | 43 answers lacked a final marker; only 27 selector rows were cache hits because both dynamic jobs ran concurrently; 22/140 selected sets differ from job 49237952 |
+
+The failure is in the answer protocol rather than model startup, frame extraction,
+or structured frame selection. Across the four runs, 40-52 responses omitted the
+required final marker because the rationale consumed the entire 192-token output
+budget. `normalize_answer()` then sometimes treated a letter occurring in the
+unfinished prose as the prediction. The raw reported accuracies (`0.3000` to
+`0.5286`) are therefore excluded from the dev140 fair-comparison table.
+
+The selector artifacts remain informative. Single-step TCoT selected a median of
+12 seed IDs and saturated its 12-ID limit on 113/140 rows, but consecutive choices
+collapsed to only 15.3 final frames on average after deduplication. Dynamic TCoT
+selected a median of 21 seeds and produced 28.1 selected frames on average; 407/560
+segment calls saturated their six-ID limit, while 77/560 correctly returned no
+evidence. The coverage version increased the final mean to 43.9 frames. One sample
+used the all-empty uniform fallback.
+
+For a weak, selection-biased diagnostic only, rows that did finish with an explicit
+marker scored `71/92` for uniform answer-CoT, `39/88` for single-step, `66/100` for
+dynamic selected-only, and `66/97` for dynamic coverage. These are not valid
+accuracy estimates, but they suggest that the answer-CoT prompt itself is unlikely
+to beat the established `110/140` answer-only uniform baseline and that single-step
+selection is particularly lossy.
+
+The runner now uses the established answer-only MCQ prompt for TCoT selection
+experiments, raises the answer-CoT budget to 512 tokens, and performs a strict
+answer-only retry whenever `Final Answer:` is absent. The answer fingerprint was
+bumped, so reruns restart predictions while reusing the completed selector caches.
+The two dynamic reruns will therefore consume identical cached selections and form
+a valid selected-only versus selected-plus-uniform ablation.
+
+## Job Status Snapshot (2026-07-22 15:30 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_vllm_uniform64_answer_cot_px451584_dev_2026-07-22` | 49239709 | Completed | 140/140; valid strict-retry answers; 110/140; final artifacts archived |
+| `qwen3_vl_8b_vllm_tcot_single_c128_sel64_px451584_dev_2026-07-22` | 49239710 | Completed | 140/140; 140 selector cache hits; 82/140; final artifacts archived |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel64_px451584_dev_2026-07-22` | 49240980 | Completed | 140/140; 140 selector cache hits; 95/140; final artifacts archived |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel48_u16_px451584_dev_2026-07-22` | 49240982 | Partial; resume required | 40 valid predictions and matched selections; stopped before row 41 on transient OpenCV metadata timeout |
+
+The answer-CoT control reaches the same `110/140` accuracy as direct uniform64,
+but every one of its 140 rationale calls still omitted the final marker even with
+512 output tokens and therefore triggered the strict answer-only retry. Its final
+letters differ from the original uniform run on only two rows, both wrong in both
+runs. Explicit answer-stage rationale adds cost without measurable benefit and
+should be retired for this model.
+
+Single-step TCoT falls to `82/140`, changing 54 uniform answers with a `+8/-36`
+crossover. Dynamic segmentation is better at `95/140`, but still changes 30
+uniform answers with only `+6/-21`; its union oracle with uniform reaches
+`116/140`, below the existing pivot/uniform oracle of `120/140`. Direct Qwen frame
+selection is therefore not competitive with uniform64 or the temporal pivot in
+its present low-resolution selector form.
+
+The deficit is visible on the temporal slices that TCoT was intended to help.
+Dynamic TCoT scores `6/11` on explicit recurrence questions versus `8/11` for
+both uniform and pivot; `21/35` on first/last versus `26/35`; and `44/67` on
+before/after versus `53/67` uniform and `54/67` pivot. Questions receiving more
+than 32 dynamic frames score only `15/26` (`0.5769`), compared with `48/68`
+(`0.7059`) for 25-32 frames, suggesting that broad selector output reflects
+uncertainty and introduces distractors rather than useful coverage.
+
+The coverage prefix is directionally better than selected-only on the same first
+40 rows: `28/40` versus `25/40`, with a `+5/-2` crossover, but still trails
+uniform's `29/40`. The first 40 selected sets are byte-equivalent at the semantic
+ID level and all are cache hits, so this prefix comparison is matched. It remains
+non-final until the 100-row suffix is resumed. The runner now retries video
+metadata reads three times with bounded backoff; no selection recomputation is
+needed.
+
+## Job Status Snapshot (2026-07-26 20:03 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_vllm_object_labels_pivot64_px451584_dev_2026-07-26` | 49268048 | Completed | 140/140; accuracy 0.6857; detections, predictions, evaluation, diagnostics, and logs archived |
+| `qwen3_vl_8b_thinking_vllm_uniform64_px451584_dev_2026-07-26` | 49268291 / 49268387 | Completed generation; invalid evaluation | first attempt stopped after 11 cached rows on the old vLLM reasoning schema; resumed run reached 140/140, but 26 outputs remained unfinished after strict retry |
+| `qwen3_vl_8b_vllm_object_crop_pairs_f56_c8_px451584_dev_2026-07-26` | 49269887 | Running | 140 detection rows cached; vLLM server started; prediction file created but still empty at 20:03 CEST |
+| `qwen3_vl_8b_vllm_object_panels_f56_p8_px451584_dev_2026-07-26` | 49269888 | Running | reused all 140 cached detection rows; vLLM server startup in progress; no predictions yet at 20:03 CEST |
+| `qwen3_vl_8b_vllm_object_ledger_dev` | n/a | Scheduled/pending | no Slurm log or output directory yet; local environment does not expose `squeue`/`sacct`, so the job ID cannot be recovered here |
+
+The object-label experiment is valid but substantially worse than both parent
+views. Relative to the high-resolution temporal pivot, it changes 34 answers
+with only five fixes and twenty regressions, falling from `111/140` to `96/140`.
+Relative to uniform64 it changes 36 answers with six fixes and twenty
+regressions. The detector fired very densely: every row had detections, with a
+mean of 29.5 of 32 detection frames and 131.7 boxes per question. This indicates
+that noisy labels and overlays dominate the visual input rather than selectively
+clarifying a few ambiguous objects.
+
+The Thinking checkpoint cannot yet be compared with Instruct. Its first job
+exposed the vLLM `reasoning` versus `reasoning_content` schema difference and
+was correctly resumed after the compatibility fix. However, 26 of the resumed
+primary calls used their entire 2,048-token reasoning budget without a final
+answer, and all 26 short retries again omitted the required marker. The raw
+parser score of `83/140` is therefore excluded. Even as a weak diagnostic, its
+answer distribution (`A/B/C/D = 30/38/51/21`) severely under-selects the
+dev-set-majority `C` answer (`91/140` gold).
+
+The first bounded-reasoning rerun, job `49270165`, failed before producing a
+prediction because vLLM requires both `thinking_token_budget` and a server-side
+reasoning delimiter configuration. The server launcher now supplies
+`<think>`/`</think>` through `--reasoning-config`, in addition to the
+2,048-token reasoning budget and 256-token final-answer reserve. If a marker is
+still absent, the fallback uses zero additional thinking tokens; the runner
+aborts rather than writing parser-dependent predictions. The failed job was
+archived separately, so the next submission starts the clean `budget2048` run
+ID from row zero.
+
+## Job Status Snapshot (2026-07-26 22:16 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_thinking_budget2048_vllm_uniform64_px451584_dev_2026-07-26` | 49270165 | Failed; superseded | vLLM rejected the first request because `thinking_token_budget` lacked `--reasoning-config`; 0/140 predictions; corrected rerun `49270540` completed |
+| `qwen3_vl_8b_vllm_object_crop_pairs_f56_c8_px451584_dev_2026-07-26` | 49269887 | Completed | 140/140; accuracy 0.7786; runtime 1h51m05s; complete artifacts archived |
+| `qwen3_vl_8b_vllm_object_panels_f56_p8_px451584_dev_2026-07-26` | 49269888 | Completed | 140/140; accuracy 0.7643; runtime 1h49m59s; complete artifacts archived |
+| `qwen3_vl_8b_vllm_object_ledger_pivot64_px451584_dev_2026-07-26` | 49269889 | Completed | 140/140; accuracy 0.7286; runtime 2h04m32s; complete artifacts archived |
+| `qwen3_vl_8b_thinking_budget2048_vllm_uniform64_px451584_dev_2026-07-26` | 49270540 | Completed | 140/140 valid marked predictions; accuracy 0.6714; runtime 2h28m13s; complete artifacts archived |
+
+Completed object-label and invalid Thinking working copies were removed only
+after their canonical archives were verified byte-for-byte. Job `49270165` has
+its Slurm and vLLM diagnostics under
+`runs/egolongqa/qwen3_vl_8b_thinking_budget2048_vllm_uniform64_px451584_dev_2026-07-26_failed_job49270165/`.
+The corrected Thinking run completed after this snapshot. Its duplicate working
+copy and raw Slurm logs were removed only after byte-for-byte comparison with
+the canonical archive. All completed object runs were removed from the working
+output under the same rule.
+Ten older July 15/22 working directories with complete canonical archives were
+also removed. After job `49270540` completed and its archive was verified, the
+working output tree and `slurm_logs/` were both empty.
+
+Crop-pairs finishes close to the strongest baselines at `109/140`. Relative to
+the temporal pivot it changes 21 answers with eight fixes and ten regressions;
+relative to uniform64 it changes 28 with twelve fixes and thirteen regressions.
+It contributes five correct answers missed by both, raising the pivot/uniform
+oracle from `120/140` to `125/140`. Object crops are therefore useful as a
+complementary evidence view even though they do not improve standalone
+accuracy. They are markedly better than drawing labels over the full images:
+crop-pairs fixes nineteen label-run errors while regressing six, a net gain of
+thirteen answers.
+
+Evidence-panels reaches `107/140`. It changes 22 pivot answers with seven fixes
+and eleven regressions. It contributes four answers missed by pivot and uniform,
+but only one that is also missed by crop-pairs; adding panels to the
+pivot/uniform/crop oracle raises it only from `125/140` to `126/140`. Panels are
+therefore a weaker, slightly redundant object view, while crop-pairs remains the
+better candidate for later disagreement routing.
+
+The object ledger reaches only `102/140`. Relative to pivot it changes 19
+answers with five fixes and fourteen regressions; relative to crop-pairs it
+changes 26 with eight fixes and fifteen regressions. It contributes one answer
+beyond the pivot/uniform/crop/panel oracle, raising that unattainable upper bound
+from `126/140` to `127/140`, but this marginal complementarity does not justify
+its standalone loss or extra textual clutter.
+
+Object-view aggregation:
+
+| Views | Deterministic result | Oracle union |
+| --- | ---: | ---: |
+| Pivot + uniform | n/a | 120/140 |
+| Pivot + uniform + crop-pairs | majority 112/140 | 125/140 |
+| Crop for `object_detail`/`spatial`; pivot otherwise | routed 113/140 | n/a |
+| Pivot + uniform + crop-pairs + panels | n/a | 126/140 |
+| Pivot + uniform + crop-pairs + panels + ledger | majority 111/140 | 127/140 |
+
+The three-view majority is a small dev-only gain over pivot (`112` versus
+`111`), while adding weaker object views reduces majority accuracy. Oracle gains
+show useful disagreement evidence, not a deployable selector; routing must be
+validated without using each row's label.
+
+The existing label-independent question classifier assigns 29 rows to
+`object_detail` and 43 to `spatial`. Selecting the saved crop answer for those
+72 rows and the pivot answer otherwise reaches `113/140`: it changes thirteen
+pivot outputs with six fixes and four regressions. This rule was not fitted to
+individual labels, but its aggregate score was observed on dev140 and therefore
+still requires a locked confirmation set before promotion.
+
+## Job Status Snapshot (2026-07-28 13:00 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_vllm_ug_segmented_c64_s16x2_u32_final64_px451584_dev20_2026-07-27` | 49279342 | Completed | 20/20; accuracy 0.7500; runtime 37m57s; complete predictions, selections, diagnostics, and logs archived |
+| `qwen3_vl_8b_vllm_ug_temporal_pivot_c128_anc24_final64_px451584_dev20_2026-07-27` | 49280485 | Completed | 20/20; accuracy 0.8000; runtime 1h27m37s; complete predictions, selections, diagnostics, and logs archived |
+| `qwen3_vl_8b_vllm_ug_c128_s16x4_dynamic_tcot_s4_sel48_u16_px451584_dev20_2026-07-27` | 49283645 | Completed | 20/20; accuracy 0.7500; runtime 1h06m50s; all 20 c128 uncertainty score sets reused from job 49280485 |
+| `slurm_longqa_qwen3_ug_short_window_dev20.sh` | n/a | Not submitted | no Slurm log, working output, or archive |
+| `slurm_longqa_qwen3_ug_object_crops_dev140prefix20.sh` | n/a | Not submitted | no Slurm log, working output, or archive |
+| `slurm_longqa_qwen3_ug_disagreement_router_dev.sh` | n/a | Not submitted | no Slurm log, working output, or archive |
+
+The exact temporal-dev20 references are uniform64 at `17/20` and the existing
+SigLIP2 temporal pivot at `15/20`. Segment-balanced uncertainty also reaches
+`15/20`: against uniform it makes no fixes and two regressions, while against
+SigLIP2 pivot it makes one fix and one regression.
+
+Uncertainty temporal pivot reaches `16/20`, improving the SigLIP2 pivot by one
+net answer (`+2/-1`) but remaining one below uniform (`+0/-1`). It contributes
+no answer beyond the uniform/SigLIP2 oracle, which remains `17/20`; the pilot
+therefore supports a dev140 test of the retrieval signal but does not yet
+establish a new best pipeline.
+
+The uncertainty-plus-dynamic-TCoT run produces exactly the same twenty answers
+as the existing SigLIP2 pivot. It selected 3-24 seed frames per sample and
+formed variable packs of 21-54 frames after adding sixteen uniform frames.
+Caching worked as intended: all twenty c128 uncertainty records were hits, so
+the run made only eighty segment-selector calls and twenty answer calls.
+
+For all three runs, the top-100 score distributions captured effectively all
+probability mass: mean omitted tail was approximately `7e-8`, with maximum
+`6.2e-7`. The entropy lower bound was therefore numerically close to
+full-vocabulary entropy in this batch. The absent tail is not a plausible
+explanation for the lack of a larger gain.
+
+All three completed working directories and six raw Slurm files were removed
+only after byte-for-byte comparison with their canonical archives. The working
+output tree and `slurm_logs/` are empty.
+
 ## Dev140 Fair Comparison
 
 The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full-validation prediction files were re-scored by matching stable `video_path||question` keys, so these numbers are directly comparable to the new dev-only runs.
@@ -211,14 +450,17 @@ The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full
 | `qwen3_vl_8b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_dev_2026-07-11` | **0.7929** | **111/140** | 0.7970 | 0.7551 |
 | `qwen3_vl_8b_vllm_support_contradiction_verifier_global_after_before_last_px451584_dev_2026-07-13` | **0.7929** | **111/140** | 0.7970 | 0.7551 |
 | `qwen3_vl_8b_vllm_uniform64_px451584_dev_2026-07-11` | **0.7857** | **110/140** | **0.8045** | **0.7959** |
+| `qwen3_vl_8b_vllm_uniform64_answer_cot_px451584_dev_2026-07-22` | **0.7857** | **110/140** | **0.8045** | **0.7959** |
 | `qwen3_vl_8b_vllm_semantic_candidate_logp_pivot_uniform_dev_2026-07-17` | **0.7857** | **110/140** | 0.7970 | 0.7755 |
 | `qwen3_vl_8b_vllm_siglip2_multi_event_router_c3x2_px451584_dev_2026-07-13` | **0.7857** | **110/140** | 0.7895 | 0.7551 |
 | `qwen3_vl_8b_vllm_pairwise_order_swap_verifier_px451584_dev_2026-07-15` | 0.7786 | 109/140 | 0.7895 | 0.7143 |
 | `qwen3_vl_8b_vllm_option_permutation_verifier_px451584_dev_2026-07-15` | 0.7786 | 109/140 | 0.7895 | 0.7347 |
 | `qwen3_vl_8b_vllm_siglip2_qca_global_router_pivot24_s16_b64_px451584_dev_2026-07-13` | 0.7786 | 109/140 | 0.7820 | 0.7347 |
 | `qwen3_vl_8b_vllm_siglip2_temporal_pivot_anc24_final64_px200704_dev_2026-07-11` | **0.7786** | **109/140** | 0.7820 | 0.7551 |
+| `qwen3_vl_8b_vllm_object_crop_pairs_f56_c8_px451584_dev_2026-07-26` | **0.7786** | **109/140** | 0.7820 | 0.7551 |
 | `qwen3_vl_8b_vllm_siglip2_temporal_pivot_covfill_anc32_tgt6_final64_px451584_dev_2026-07-11` | 0.7714 | 108/140 | 0.7820 | 0.7755 |
 | `qwen3_vl_8b_vllm_candidate_logp_verifier_blindwm01_px451584_dev_2026-07-15` | 0.7643 | 107/140 | 0.7669 | 0.7347 |
+| `qwen3_vl_8b_vllm_object_panels_f56_p8_px451584_dev_2026-07-26` | 0.7643 | 107/140 | 0.7744 | 0.7347 |
 | `qwen3_vl_8b_vllm_uniform32_px451584_dev_2026-07-11` | 0.7571 | 106/140 | 0.7594 | 0.6939 |
 | `qwen3_vl_8b_vllm_uniform64_px200704_2026-07-07` | 0.7429 | 104/140 | 0.7444 | 0.7551 |
 | `qwen3_vl_8b_vllm_siglip2_eventlet8x3_anc32_bnd8_final64_px200704_dev_2026-07-11` | 0.7429 | 104/140 | 0.7519 | 0.7347 |
@@ -227,6 +469,7 @@ The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full
 | `qwen3_vl_8b_vllm_uniform64_px200704_prompt_combined_dev_2026-07-09` | 0.7429 | 104/140 | 0.7444 | 0.7551 |
 | `qwen3_vl_8b_vllm_cft_question_options_nms10_prompt_combined_dev_2026-07-09` | 0.7429 | 104/140 | 0.7444 | 0.7347 |
 | `qwen3_vl_8b_vllm_uniform96_px451584_dev_2026-07-11` | 0.7286 | 102/140 | 0.7368 | 0.7143 |
+| `qwen3_vl_8b_vllm_object_ledger_pivot64_px451584_dev_2026-07-26` | 0.7286 | 102/140 | 0.7293 | 0.6531 |
 | `qwen3_vl_8b_vllm_siglip2_c128_top24_anc8_px200704_prompt_baseline_dev_2026-07-11` | 0.7214 | 101/140 | 0.7293 | 0.7347 |
 | `qwen3_vl_8b_vllm_siglip_c128_top24_anc8_px200704_2026-07-06` | 0.7214 | 101/140 | 0.7293 | 0.7347 |
 | `qwen3_vl_8b_vllm_32frames_px200704_2026-07-04` | 0.7143 | 100/140 | 0.7143 | 0.6939 |
@@ -237,6 +480,9 @@ The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full
 | `qwen3_vl_8b_vllm_uniform48_px313600_dev_2026-07-11` | 0.6857 | 96/140 | 0.6992 | 0.6531 |
 | `qwen3_vl_8b_vllm_siglip2_qframe_c128_h4m8l32_mixedres_dev_2026-07-15` | 0.6857 | 96/140 | 0.6842 | 0.6327 |
 | `qwen3_vl_8b_vllm_siglip2_adaq_c256_f64_px200704_dev_2026-07-15` | 0.6857 | 96/140 | 0.6842 | 0.6735 |
+| `qwen3_vl_8b_vllm_object_labels_pivot64_px451584_dev_2026-07-26` | 0.6857 | 96/140 | 0.6917 | 0.6327 |
+| `qwen3_vl_8b_vllm_tcot_dynamic_c256_s4_sel64_px451584_dev_2026-07-22` | 0.6786 | 95/140 | 0.6767 | 0.7143 |
+| `qwen3_vl_8b_thinking_budget2048_vllm_uniform64_px451584_dev_2026-07-26` | 0.6714 | 94/140 | 0.6692 | 0.7755 |
 | `qwen2_5_vl_7b_hf_32frames_full_2026-07-03` | 0.6714 | 94/140 | 0.6692 | 0.7347 |
 | `qwen3_vl_8b_vllm_32frames_full_2026-07-03` | 0.6714 | 94/140 | 0.6692 | 0.6735 |
 | `qwen3_vl_8b_vllm_siglip2_focus_c256_a16_z025_f64_px200704_dev_2026-07-15` | 0.6643 | 93/140 | 0.6692 | 0.6939 |
@@ -244,11 +490,45 @@ The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full
 | `qwen3_vl_8b_vllm_pivot_letterlogp_blindw05_px451584_dev_2026-07-15` | 0.6429 | 90/140 | 0.6466 | 0.6327 |
 | `qwen3_vl_8b_vllm_default32_full_2026-07-02` | 0.6214 | 87/140 | 0.6165 | 0.5510 |
 | `qwen2_5_vl_7b_hf_default32_full_2026-07-02` | 0.6071 | 85/140 | 0.6015 | 0.6531 |
+| `qwen3_vl_8b_vllm_tcot_single_c128_sel64_px451584_dev_2026-07-22` | 0.5857 | 82/140 | 0.5940 | 0.6327 |
 | `qwen3_vl_8b_vllm_openqa_minilm_uniform64_px200704_dev_2026-07-11` | 0.5286 | 74/140 | 0.5263 | 0.6531 |
 | `qwen3_vl_8b_vllm_video_blind_prompt_baseline_dev_2026-07-11` | 0.5214 | 73/140 | 0.5338 | 0.4694 |
 
 Dev140 inference:
 
+- The corrected Qwen3-VL Thinking run is now protocol-valid but reaches only
+  `94/140`, sixteen below uniform64 and seventeen below temporal pivot. It
+  changes 40 uniform answers, with ten fixes and twenty-six regressions. Its
+  non-`C` accuracy is strong (`38/49`), but it predicts `C` only 59 times
+  against 91 `C` labels; bounded reasoning therefore amplifies answer changes
+  without improving the temporal evidence. Do not scale this checkpoint in the
+  current formulation.
+- Thinking contributes only two answers beyond the pivot/uniform/crop oracle
+  (`125/140` to `127/140`). This is insufficient to justify its 2.3K-token
+  generation budget as a regular ensemble branch.
+- Paired object crops reach `109/140`, two below the parent high-resolution
+  pivot and one below uniform64. The standalone score is not a promotion, but
+  its five unique fixes lift the pivot/uniform/crop oracle to `125/140`
+  (`0.8929`). This is the first object-centric representation in the current
+  batch that preserves strong aggregate accuracy and adds meaningful
+  complementarity.
+- Object evidence panels reach `107/140` and add four fixes beyond pivot plus
+  uniform, but only one beyond crop-pairs. They preserve far more accuracy than
+  text overlays, yet are not sufficiently distinct from crops to justify
+  scaling both representations.
+- The detector-derived object ledger reaches `102/140` and adds only one oracle
+  answer beyond the stronger crop and panel views. Converting detections into
+  more text again appears to distract Qwen; retire this ledger formulation.
+- Automatic object labels do not improve the already strong temporal-pivot
+  frames. They score `96/140`, fifteen below the unchanged pivot input. The
+  detector is not sparse enough to act as a targeted visual cue: it emits a
+  mean of 131.7 boxes per question across 29.5 of the 32 inspected frames.
+  Label overlays should therefore not be scaled or ensembled in this form.
+- The Qwen3-VL Thinking run is not included in the fair-comparison table.
+  Twenty-six outputs remained unfinished even after the strict retry, making
+  the reported raw `83/140` dependent on incidental letter parsing. A future
+  reasoning test needs a reliable final-answer channel or a separate
+  answer-only model call before its accuracy can be interpreted.
 - Locked likelihood on the disjoint 560-row complement reaches `419/560`
   (`0.7482`), two answers above visual-only likelihood (`417`) and two above
   the original pivot generation on those same rows (`417`). It changes 28 pivot
