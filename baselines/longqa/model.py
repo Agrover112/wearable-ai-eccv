@@ -733,8 +733,10 @@ class VLLMModel(VideoQAModel):
         max_frames: int = 32,
         model_type: str = "qwen",
         request_timeout: int = 3600,
+        revision: str | None = None,
     ) -> None:
         self.model_id = model_id
+        self.revision = revision
         self.tp_size = tp_size
         self.concurrency = concurrency
         self.max_frames = max_frames
@@ -789,6 +791,8 @@ class VLLMModel(VideoQAModel):
             "--trust-remote-code",
             "--enforce-eager",
         ]
+        if self.revision:
+            server_args.extend(["--revision", self.revision])
         if self.model_type != "llama4":
             self._context_window = _env_int("VLLM_QWEN_MAX_MODEL_LEN", 16384)
             gpu_memory_utilization = _env_float("VLLM_GPU_MEMORY_UTILIZATION", 0.90)
@@ -1302,11 +1306,13 @@ class VLLMModel(VideoQAModel):
         schema: dict[str, object],
         schema_name: str = "structured_output",
         max_new_tokens: int = 256,
+        retry_max_new_tokens: int | None = None,
     ) -> dict[str, object]:
-        """Generate a JSON object constrained by an OpenAI JSON schema."""
+        """Generate schema JSON, retrying only token-truncated responses."""
         import base64
         import io
         import json
+        import time
         import urllib.request
 
         image_content: list[dict[str, object]] = []
@@ -1334,43 +1340,65 @@ class VLLMModel(VideoQAModel):
                 images_inserted = True
             else:
                 openai_messages.append(message)
-        payload = json.dumps(
-            {
-                "model": self.model_id,
-                "messages": openai_messages,
-                "max_tokens": max_new_tokens,
-                "temperature": 0.0,
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema_name,
-                        "strict": True,
-                        "schema": schema,
+        token_limits = [max_new_tokens]
+        if retry_max_new_tokens is not None:
+            token_limits.append(retry_max_new_tokens)
+        deadline = time.monotonic() + self.request_timeout
+        for attempt, token_limit in enumerate(token_limits):
+            payload = json.dumps(
+                {
+                    "model": self.model_id,
+                    "messages": openai_messages,
+                    "max_tokens": token_limit,
+                    "temperature": 0.0,
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": schema_name,
+                            "strict": True,
+                            "schema": schema,
+                        },
                     },
-                },
-            }
-        ).encode()
-        request = urllib.request.Request(
-            f"http://localhost:{self._port}/v1/chat/completions",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
-            result = json.loads(response.read())
-        if "error" in result:
-            raise RuntimeError(f"vLLM returned error: {result['error']}")
-        usage = result.get("usage", {})
-        if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
-            record_prompt_token_counts([int(usage["prompt_tokens"])], self._context_window)
-        try:
-            content = result["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
-            raise RuntimeError(f"vLLM did not return valid schema JSON: {result}") from error
-        if not isinstance(parsed, dict):
-            raise RuntimeError(f"Expected a JSON object, received: {parsed!r}")
-        return parsed
+                    **self._chat_template_options(),
+                }
+            ).encode()
+            request = urllib.request.Request(
+                f"http://localhost:{self._port}/v1/chat/completions",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            timeout = max(1, math.floor(deadline - time.monotonic()))
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                result = json.loads(response.read())
+            if "error" in result:
+                raise RuntimeError(f"vLLM returned error: {result['error']}")
+            usage = result.get("usage", {})
+            if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
+                record_prompt_token_counts(
+                    [int(usage["prompt_tokens"])],
+                    self._context_window,
+                )
+            try:
+                content = result["choices"][0]["message"]["content"]
+                parsed = json.loads(content)
+            except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
+                choices = result.get("choices") if isinstance(result, dict) else None
+                finish_reason = choices[0].get("finish_reason") if choices else None
+                if finish_reason == "length" and attempt + 1 < len(token_limits):
+                    logger.warning(
+                        "Structured output hit %d tokens; retrying with %d",
+                        token_limit,
+                        token_limits[attempt + 1],
+                    )
+                    continue
+                raise RuntimeError(
+                    f"vLLM did not return valid schema JSON: {result}"
+                ) from error
+            if not isinstance(parsed, dict):
+                raise RuntimeError(f"Expected a JSON object, received: {parsed!r}")
+            return parsed
+        raise RuntimeError("Structured JSON generation exhausted its token limits")
 
     def generate_json_batch(
         self,
@@ -1589,6 +1617,7 @@ def create_model(
     tp_size: int | None = None,
     concurrency: int = 16,
     max_frames: int = 32,
+    revision: str | None = None,
 ) -> VideoQAModel:
     """Factory to create a model by type name.
 
@@ -1600,6 +1629,7 @@ def create_model(
         tp_size: Tensor parallel size (vllm only). None = auto per model type.
         concurrency: Max concurrent HTTP requests (vllm only).
         max_frames: Max frames per video (used to set vLLM image limit).
+        revision: Optional Hugging Face model revision for vLLM.
 
     Returns:
         Instantiated VideoQAModel.
@@ -1625,6 +1655,7 @@ def create_model(
             concurrency=concurrency,
             max_frames=max_frames,
             model_type=model_type,
+            revision=revision,
         )
 
     if model_type not in MODEL_REGISTRY:

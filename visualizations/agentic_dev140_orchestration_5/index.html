@@ -1,0 +1,1475 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoLongQA Agent Orchestration</title>
+  <style>
+    :root {
+      --ink: #171a18;
+      --muted: #68706b;
+      --paper: #f3f5f2;
+      --surface: #ffffff;
+      --line: #cdd2ce;
+      --line-strong: #8c9690;
+      --temporal: #067b8b;
+      --visual: #d84d38;
+      --both: #7857a5;
+      --correct: #237a49;
+      --wrong: #b8332a;
+      --signal: #c6e64b;
+      --warning: #f1bd41;
+      --rail: #181b19;
+      --rail-muted: #9ba39e;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--paper);
+      color: var(--ink);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      font-family: "IBM Plex Sans", "Aptos", "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.48;
+    }
+
+    button, input { font: inherit; }
+    button { letter-spacing: 0; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      min-height: 64px;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr) auto;
+      align-items: center;
+      border-bottom: 1px solid #303531;
+      background: var(--rail);
+      color: #f8faf7;
+    }
+
+    .brand {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 22px;
+      border-right: 1px solid #303531;
+    }
+
+    .brand-mark {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      background: var(--signal);
+      color: #151715;
+      font: 800 12px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .brand strong {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .run-meta {
+      min-width: 0;
+      padding: 0 22px;
+      color: #c7ceca;
+      font: 12px/1.35 "IBM Plex Mono", "SFMono-Regular", monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .model-tag {
+      margin-right: 20px;
+      padding: 7px 10px;
+      border: 1px solid #4b534e;
+      border-radius: 3px;
+      color: #e8ece9;
+      font: 11px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .shell {
+      min-height: calc(100vh - 64px);
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+    }
+
+    .sample-rail {
+      position: sticky;
+      top: 64px;
+      height: calc(100vh - 64px);
+      padding: 22px 14px;
+      overflow-y: auto;
+      border-right: 1px solid #303531;
+      background: var(--rail);
+      color: #f8faf7;
+    }
+
+    .rail-label {
+      margin: 0 8px 13px;
+      color: var(--rail-muted);
+      font: 700 10px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+
+    .sample-button {
+      width: 100%;
+      min-height: 96px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 10px;
+      margin: 0 0 8px;
+      padding: 13px 11px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: #e9eeea;
+      text-align: left;
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+    }
+
+    .sample-button:hover {
+      background: #222724;
+      border-color: #3e4741;
+      transform: translateX(2px);
+    }
+
+    .sample-button.active {
+      border-color: #657068;
+      background: #292f2b;
+      box-shadow: inset 3px 0 0 var(--signal);
+    }
+
+    .sample-number {
+      color: var(--signal);
+      font: 700 12px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .sample-copy { min-width: 0; }
+
+    .sample-question {
+      display: -webkit-box;
+      margin-bottom: 9px;
+      overflow: hidden;
+      color: #f5f7f5;
+      font-size: 12px;
+      line-height: 1.35;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+    }
+
+    .sample-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--rail-muted);
+      font: 700 9px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--wrong);
+    }
+
+    .status-dot.correct { background: #57c67e; }
+
+    main {
+      min-width: 0;
+      animation: enter 420ms ease both;
+    }
+
+    @keyframes enter {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .question-band {
+      padding: 34px clamp(22px, 4vw, 68px) 30px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .question-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 14px;
+      margin-bottom: 16px;
+      color: var(--muted);
+      font: 700 10px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+    }
+
+    .question-meta .video-id {
+      color: var(--ink);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .question-band h1 {
+      max-width: 1120px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 29px;
+      font-weight: 500;
+      line-height: 1.22;
+      letter-spacing: 0;
+    }
+
+    .options {
+      max-width: 1180px;
+      margin-top: 25px;
+      border-top: 1px solid var(--line);
+    }
+
+    .option-row {
+      min-height: 54px;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 2px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .option-letter {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      font: 800 11px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .option-row.selected .option-letter {
+      border-color: var(--wrong);
+      background: var(--wrong);
+      color: white;
+    }
+
+    .option-row.selected.correct .option-letter,
+    .option-row.gold .option-letter {
+      border-color: var(--correct);
+      background: var(--correct);
+      color: white;
+    }
+
+    .option-text {
+      min-width: 0;
+      font-size: 14px;
+    }
+
+    .option-tags {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mini-tag {
+      padding: 4px 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      color: var(--muted);
+      font: 700 9px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+    }
+
+    .mini-tag.predicted {
+      border-color: var(--wrong);
+      color: var(--wrong);
+    }
+
+    .mini-tag.gold {
+      border-color: var(--correct);
+      color: var(--correct);
+    }
+
+    .option-row.correct .mini-tag.predicted {
+      border-color: var(--correct);
+      color: var(--correct);
+    }
+
+    .result-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .result-badge {
+      padding: 8px 10px;
+      border-radius: 3px;
+      background: var(--wrong);
+      color: white;
+      font: 800 11px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .result-badge.correct { background: var(--correct); }
+
+    .metric {
+      display: flex;
+      gap: 6px;
+      color: var(--muted);
+      font: 11px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .metric strong { color: var(--ink); }
+
+    .view-tabs {
+      position: sticky;
+      top: 64px;
+      z-index: 20;
+      display: flex;
+      min-height: 50px;
+      padding: 0 clamp(22px, 4vw, 68px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(243, 245, 242, .96);
+      backdrop-filter: blur(10px);
+    }
+
+    .view-tab {
+      position: relative;
+      padding: 0 18px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: 800 11px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      cursor: pointer;
+    }
+
+    .view-tab:first-child { padding-left: 0; }
+
+    .view-tab.active { color: var(--ink); }
+
+    .view-tab.active::after {
+      content: "";
+      position: absolute;
+      right: 18px;
+      bottom: -1px;
+      left: 18px;
+      height: 3px;
+      background: var(--ink);
+    }
+
+    .view-tab:first-child.active::after { left: 0; }
+
+    .view-panel {
+      display: none;
+      padding: 30px clamp(22px, 4vw, 68px) 80px;
+    }
+
+    .view-panel.active { display: block; }
+
+    .section-heading {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .section-heading h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 25px;
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+
+    .section-kicker {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font: 700 10px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .filter-button {
+      min-height: 31px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: var(--surface);
+      color: var(--muted);
+      font: 700 10px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      cursor: pointer;
+    }
+
+    .filter-button.active {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: white;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin: -8px 0 20px;
+      color: var(--muted);
+      font: 10px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-mark {
+      width: 13px;
+      height: 4px;
+      background: var(--line-strong);
+    }
+
+    .legend-mark.temporal { background: var(--temporal); }
+    .legend-mark.visual { background: var(--visual); }
+    .legend-mark.both { background: var(--both); }
+
+    .frame-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+      gap: 10px;
+    }
+
+    .frame-tile {
+      position: relative;
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #202420;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .frame-tile:hover {
+      z-index: 2;
+      transform: translateY(-3px);
+      border-color: var(--ink);
+      box-shadow: 0 8px 20px rgba(18, 22, 19, .16);
+    }
+
+    .frame-tile.hidden { display: none; }
+
+    .frame-tile.temporal { box-shadow: inset 0 -4px 0 var(--temporal); }
+    .frame-tile.visual { box-shadow: inset 0 -4px 0 var(--visual); }
+    .frame-tile.both { box-shadow: inset 0 -4px 0 var(--both); }
+
+    .frame-image-wrap {
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: #292e2a;
+    }
+
+    .frame-tile img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .frame-caption {
+      min-height: 34px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 8px 8px;
+      background: var(--surface);
+      color: var(--muted);
+      font: 9px/1.15 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .frame-id {
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .agent-flags {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      display: flex;
+      gap: 3px;
+    }
+
+    .agent-flag {
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 2px;
+      color: white;
+      font: 800 9px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, .24);
+    }
+
+    .agent-flag.temporal { background: var(--temporal); }
+    .agent-flag.visual { background: var(--visual); }
+
+    .orchestration {
+      max-width: 1180px;
+      position: relative;
+      margin-top: 8px;
+    }
+
+    .orchestration::before {
+      content: "";
+      position: absolute;
+      top: 22px;
+      bottom: 30px;
+      left: 21px;
+      width: 2px;
+      background: var(--line);
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 20px;
+      padding-bottom: 42px;
+      animation: stage-in 360ms ease both;
+    }
+
+    .stage:nth-child(2) { animation-delay: 60ms; }
+    .stage:nth-child(3) { animation-delay: 120ms; }
+    .stage:nth-child(4) { animation-delay: 180ms; }
+
+    @keyframes stage-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stage-index {
+      position: relative;
+      z-index: 2;
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--paper);
+      color: var(--ink);
+      font: 800 11px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .stage.temporal .stage-index {
+      border-color: var(--temporal);
+      color: var(--temporal);
+    }
+
+    .stage.visual .stage-index {
+      border-color: var(--visual);
+      color: var(--visual);
+    }
+
+    .stage.organizer .stage-index {
+      border-color: var(--both);
+      color: var(--both);
+    }
+
+    .stage-body {
+      min-width: 0;
+      padding-top: 2px;
+    }
+
+    .stage-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 9px 14px;
+      margin-bottom: 17px;
+      padding-bottom: 11px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .stage.temporal .stage-header { border-color: var(--temporal); }
+    .stage.visual .stage-header { border-color: var(--visual); }
+    .stage.organizer .stage-header { border-color: var(--both); }
+
+    .stage-header h3 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+
+    .stage-time {
+      color: var(--muted);
+      font: 10px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .summary-line {
+      margin: 0 0 18px;
+      padding-left: 13px;
+      border-left: 3px solid var(--line-strong);
+      font-size: 14px;
+    }
+
+    .hypothesis-type {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 5px 7px;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      font: 800 9px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .records {
+      border-top: 1px solid var(--line);
+    }
+
+    .record {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 13px;
+      padding: 15px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .record-letter {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      background: var(--surface);
+      font: 800 10px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .record-main { min-width: 0; }
+
+    .record-title {
+      margin-bottom: 5px;
+      font-weight: 650;
+    }
+
+    .record-detail {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px 20px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .record-detail strong {
+      color: var(--ink);
+      font-weight: 650;
+    }
+
+    .checks {
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .checks li {
+      position: relative;
+      padding-left: 14px;
+      margin-top: 4px;
+    }
+
+    .checks li::before {
+      content: "";
+      position: absolute;
+      top: .58em;
+      left: 0;
+      width: 6px;
+      height: 2px;
+      background: var(--line-strong);
+    }
+
+    .verdict-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+
+    .verdict {
+      padding: 4px 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      font: 800 9px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .verdict.supported {
+      border-color: var(--correct);
+      color: var(--correct);
+    }
+
+    .verdict.contradicted {
+      border-color: var(--wrong);
+      color: var(--wrong);
+    }
+
+    .confidence {
+      color: var(--muted);
+      font: 10px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .evidence-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .evidence-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      font-size: 12px;
+    }
+
+    .frame-link {
+      min-width: 35px;
+      min-height: 24px;
+      padding: 0 6px;
+      border: 0;
+      border-radius: 3px;
+      background: var(--ink);
+      color: white;
+      font: 800 9px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      cursor: pointer;
+    }
+
+    .stage.temporal .frame-link { background: var(--temporal); }
+    .stage.visual .frame-link { background: var(--visual); }
+
+    .missing {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-style: italic;
+    }
+
+    details.raw-agent {
+      margin-top: 14px;
+      border-top: 1px dashed var(--line-strong);
+    }
+
+    details.raw-agent summary {
+      padding: 11px 0;
+      color: var(--muted);
+      font: 800 10px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    pre {
+      max-width: 100%;
+      margin: 0;
+      padding: 16px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #202420;
+      color: #e7ece8;
+      font: 11px/1.55 "IBM Plex Mono", "SFMono-Regular", monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .decision {
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr);
+      gap: 15px;
+      margin-top: 20px;
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .decision-letter {
+      width: 70px;
+      height: 70px;
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+      background: var(--both);
+      color: white;
+      font: 800 28px/1 Georgia, serif;
+    }
+
+    .decision h4 {
+      margin: 0 0 7px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .decision p { margin: 0; font-size: 13px; }
+
+    .timing-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      background: var(--line);
+    }
+
+    .timing-cell {
+      min-height: 76px;
+      padding: 13px;
+      background: var(--surface);
+    }
+
+    .timing-cell span {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font: 700 9px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+    }
+
+    .timing-cell strong {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    .raw-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .raw-header h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 25px;
+      font-weight: 500;
+    }
+
+    .copy-button {
+      min-height: 32px;
+      padding: 0 11px;
+      border: 1px solid var(--ink);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--ink);
+      font: 800 10px/1 "IBM Plex Mono", "SFMono-Regular", monospace;
+      cursor: pointer;
+    }
+
+    dialog {
+      width: min(1000px, calc(100vw - 34px));
+      max-height: calc(100vh - 34px);
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #454c47;
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: 0 26px 80px rgba(0, 0, 0, .34);
+    }
+
+    dialog::backdrop {
+      background: rgba(13, 16, 14, .8);
+      backdrop-filter: blur(3px);
+    }
+
+    .dialog-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(270px, .6fr);
+      max-height: calc(100vh - 34px);
+    }
+
+    .dialog-image {
+      min-height: 420px;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: #171a18;
+    }
+
+    .dialog-image img {
+      width: 100%;
+      max-height: calc(100vh - 72px);
+      object-fit: contain;
+    }
+
+    .dialog-info {
+      position: relative;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .dialog-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .dialog-info h3 {
+      margin: 0 40px 5px 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    .dialog-meta {
+      margin-bottom: 20px;
+      color: var(--muted);
+      font: 10px/1.5 "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .citation-block {
+      margin-top: 19px;
+      padding-top: 15px;
+      border-top: 2px solid var(--line);
+    }
+
+    .citation-block.temporal { border-color: var(--temporal); }
+    .citation-block.visual { border-color: var(--visual); }
+
+    .citation-block h4 {
+      margin: 0 0 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .citation-note {
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .citation-note strong {
+      display: inline-block;
+      min-width: 22px;
+      font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .brand { border-right: 0; }
+      .run-meta { display: none; }
+      .shell { grid-template-columns: 1fr; }
+      .sample-rail {
+        position: static;
+        width: 100%;
+        height: auto;
+        display: flex;
+        gap: 7px;
+        padding: 10px;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid #303531;
+      }
+      .rail-label { display: none; }
+      .sample-button {
+        flex: 0 0 188px;
+        min-height: 76px;
+        margin: 0;
+        padding: 10px;
+      }
+      .sample-question { -webkit-line-clamp: 2; }
+      .view-tabs { top: 64px; }
+      .dialog-layout { grid-template-columns: 1fr; overflow-y: auto; }
+      .dialog-image { min-height: 260px; }
+      .dialog-image img { max-height: 48vh; }
+      .dialog-info { overflow: visible; }
+    }
+
+    @media (max-width: 620px) {
+      .topbar { min-height: 56px; }
+      .model-tag { display: none; }
+      .shell { min-height: calc(100vh - 56px); }
+      .question-band { padding-top: 25px; }
+      .question-band h1 { font-size: 23px; }
+      .option-row { grid-template-columns: 31px minmax(0, 1fr); }
+      .option-tags { grid-column: 2; }
+      .view-tabs {
+        top: 56px;
+        overflow-x: auto;
+      }
+      .view-tab { min-width: max-content; }
+      .frame-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stage { grid-template-columns: 34px minmax(0, 1fr); gap: 13px; }
+      .stage-index { width: 34px; height: 34px; }
+      .orchestration::before { left: 16px; }
+      .record-detail { grid-template-columns: 1fr; }
+      .timing-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .decision { grid-template-columns: 58px minmax(0, 1fr); }
+      .decision-letter { width: 52px; height: 52px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">05</span>
+      <strong>EgoLongQA Orchestration</strong>
+    </div>
+    <div class="run-meta" id="runMeta"></div>
+    <div class="model-tag" id="modelTag"></div>
+  </header>
+
+  <div class="shell">
+    <aside class="sample-rail" id="sampleRail" aria-label="Video samples">
+      <div class="rail-label">Five traced videos</div>
+    </aside>
+
+    <main>
+      <section class="question-band">
+        <div class="question-meta" id="questionMeta"></div>
+        <h1 id="question"></h1>
+        <div class="options" id="options"></div>
+        <div class="result-line" id="resultLine"></div>
+      </section>
+
+      <nav class="view-tabs" aria-label="Trace views">
+        <button class="view-tab active" data-view="evidence">Evidence frames</button>
+        <button class="view-tab" data-view="orchestration">Agent outputs</button>
+        <button class="view-tab" data-view="raw">Raw trace</button>
+      </nav>
+
+      <section class="view-panel active" id="view-evidence">
+        <div class="section-heading">
+          <div>
+            <div class="section-kicker" id="evidenceKicker"></div>
+            <h2>Shared proofpack and cited frames</h2>
+          </div>
+          <div class="filter-group" id="frameFilters">
+            <button class="filter-button active" data-filter="all">All 64</button>
+            <button class="filter-button" data-filter="temporal">Temporal</button>
+            <button class="filter-button" data-filter="visual">Visual</button>
+            <button class="filter-button" data-filter="both">Both</button>
+            <button class="filter-button" data-filter="uncited">Uncited</button>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="legend-mark"></i>Proofpack only</span>
+          <span><i class="legend-mark temporal"></i>Temporal citation</span>
+          <span><i class="legend-mark visual"></i>Visual citation</span>
+          <span><i class="legend-mark both"></i>Both specialists</span>
+        </div>
+        <div class="frame-grid" id="frameGrid"></div>
+      </section>
+
+      <section class="view-panel" id="view-orchestration">
+        <div class="section-heading">
+          <div>
+            <div class="section-kicker">Complete saved outputs</div>
+            <h2>Hypothesis to final decision</h2>
+          </div>
+        </div>
+        <div class="orchestration" id="orchestration"></div>
+      </section>
+
+      <section class="view-panel" id="view-raw">
+        <div class="raw-header">
+          <div>
+            <div class="section-kicker">Schema 1 · exact persisted record</div>
+            <h2>Raw agent trace</h2>
+          </div>
+          <button class="copy-button" id="copyTrace">Copy JSON</button>
+        </div>
+        <pre id="rawTrace"></pre>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="frameDialog">
+    <div class="dialog-layout">
+      <div class="dialog-image"><img id="dialogImage" alt=""></div>
+      <div class="dialog-info">
+        <button class="dialog-close" id="dialogClose" title="Close" aria-label="Close">&times;</button>
+        <h3 id="dialogTitle"></h3>
+        <div class="dialog-meta" id="dialogMeta"></div>
+        <div id="dialogCitations"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="data.js"></script>
+  <script>
+    (() => {
+      const data = window.ORCHESTRATION_DATA;
+      let activeSample = 0;
+      let activeFilter = "all";
+
+      const $ = (selector) => document.querySelector(selector);
+      const esc = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+      const pretty = (value) => JSON.stringify(value, null, 2);
+      const seconds = (value) => `${Number(value).toFixed(1)}s`;
+
+      $("#runMeta").textContent = data.run;
+      $("#modelTag").textContent = data.model;
+
+      function citationClass(sample, frameId) {
+        const key = String(frameId);
+        const temporal = Boolean(sample.citations.temporal[key]);
+        const visual = Boolean(sample.citations.visual[key]);
+        return temporal && visual ? "both" : temporal ? "temporal" : visual ? "visual" : "uncited";
+      }
+
+      function renderRail() {
+        const label = $("#sampleRail .rail-label");
+        $("#sampleRail").innerHTML = "";
+        $("#sampleRail").append(label);
+        data.samples.forEach((sample, index) => {
+          const button = document.createElement("button");
+          button.className = `sample-button${index === activeSample ? " active" : ""}`;
+          button.innerHTML = `
+            <span class="sample-number">${String(index + 1).padStart(2, "0")}</span>
+            <span class="sample-copy">
+              <span class="sample-question">${esc(sample.question)}</span>
+              <span class="sample-status">
+                <i class="status-dot ${sample.correct ? "correct" : ""}"></i>
+                ${sample.correct ? "Correct" : "Incorrect"} · dev ${sample.dev_index}
+              </span>
+            </span>`;
+          button.addEventListener("click", () => {
+            activeSample = index;
+            activeFilter = "all";
+            render();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          });
+          $("#sampleRail").append(button);
+        });
+      }
+
+      function renderQuestion(sample) {
+        $("#questionMeta").innerHTML = `
+          <span>Dev question ${sample.dev_index}</span>
+          <span>${esc(sample.category)}</span>
+          <span class="video-id">${esc(sample.video_path)}</span>`;
+        $("#question").textContent = sample.question;
+        $("#options").innerHTML = Object.entries(sample.options).map(([letter, text]) => {
+          const selected = letter === sample.selected_answer;
+          const gold = letter === sample.gold_answer;
+          const classes = [
+            "option-row",
+            selected ? "selected" : "",
+            gold ? "gold" : "",
+            selected && gold ? "correct" : "",
+          ].filter(Boolean).join(" ");
+          return `
+            <div class="${classes}">
+              <span class="option-letter">${letter}</span>
+              <span class="option-text">${esc(text)}</span>
+              <span class="option-tags">
+                ${selected ? '<span class="mini-tag predicted">Selected</span>' : ""}
+                ${gold ? '<span class="mini-tag gold">Gold</span>' : ""}
+              </span>
+            </div>`;
+        }).join("");
+        const timing = sample.timing;
+        $("#resultLine").innerHTML = `
+          <span class="result-badge ${sample.correct ? "correct" : ""}">
+            ${sample.correct ? "Correct" : "Incorrect"} · ${sample.selected_answer}
+          </span>
+          <span class="metric">Gold <strong>${sample.gold_answer}</strong></span>
+          <span class="metric">Budgeted <strong>${seconds(timing.budgeted_inference_seconds)}</strong></span>
+          <span class="metric">Full pipeline <strong>${seconds(timing.full_pipeline_seconds)}</strong></span>`;
+      }
+
+      function filterMatches(kind) {
+        if (activeFilter === "all") return true;
+        if (activeFilter === "both") return kind === "both";
+        if (activeFilter === "uncited") return kind === "uncited";
+        return kind === activeFilter || kind === "both";
+      }
+
+      function renderFrames(sample) {
+        const temporalCount = Object.keys(sample.citations.temporal).length;
+        const visualCount = Object.keys(sample.citations.visual).length;
+        $("#evidenceKicker").textContent =
+          `64 selected · ${temporalCount} temporal citations · ${visualCount} visual citations`;
+        document.querySelectorAll(".filter-button").forEach((button) => {
+          button.classList.toggle("active", button.dataset.filter === activeFilter);
+        });
+        $("#frameGrid").innerHTML = sample.evidence.map((frame) => {
+          const kind = citationClass(sample, frame.frame_id);
+          const temporal = kind === "temporal" || kind === "both";
+          const visual = kind === "visual" || kind === "both";
+          return `
+            <button class="frame-tile ${kind} ${filterMatches(kind) ? "" : "hidden"}"
+                    data-frame="${frame.frame_id}"
+                    aria-label="Open frame ${frame.frame_id}">
+              <span class="frame-image-wrap">
+                <img src="${esc(frame.image)}" alt="Frame ${frame.frame_id} at ${frame.timestamp.toFixed(1)} seconds" loading="lazy">
+              </span>
+              <span class="agent-flags">
+                ${temporal ? '<i class="agent-flag temporal">T</i>' : ""}
+                ${visual ? '<i class="agent-flag visual">V</i>' : ""}
+              </span>
+              <span class="frame-caption">
+                <b class="frame-id">F${String(frame.frame_id).padStart(2, "0")}</b>
+                <span>${frame.timestamp.toFixed(1)}s · ${esc(frame.source)}</span>
+              </span>
+            </button>`;
+        }).join("");
+      }
+
+      function rawDetails(label, object) {
+        return `
+          <details class="raw-agent">
+            <summary>${esc(label)} JSON</summary>
+            <pre>${esc(pretty(object))}</pre>
+          </details>`;
+      }
+
+      function renderHypotheses(report) {
+        return `
+          <span class="hypothesis-type">${esc(report.question_type)}</span>
+          <div class="records">
+            ${report.hypotheses.map((item) => `
+              <div class="record">
+                <div class="record-letter">${item.option}</div>
+                <div class="record-main">
+                  <div class="record-title">${esc(item.claim)}</div>
+                  <div class="record-detail">
+                    <span><strong>Anchor:</strong> ${esc(item.anchor_event)}</span>
+                    <span><strong>Target:</strong> ${esc(item.target_event)}</span>
+                    <span><strong>Relation:</strong> ${esc(item.relation)}</span>
+                  </div>
+                  <ul class="checks">${item.visual_checks.map((check) => `<li>${esc(check)}</li>`).join("")}</ul>
+                </div>
+              </div>`).join("")}
+          </div>
+          ${rawDetails("Hypothesis", report)}`;
+      }
+
+      function renderSpecialist(report, role) {
+        return `
+          <p class="summary-line">${esc(report.summary)}</p>
+          <div class="records">
+            ${report.verdicts.map((item) => `
+              <div class="record">
+                <div class="record-letter">${item.option}</div>
+                <div class="record-main">
+                  <div class="verdict-head">
+                    <span class="verdict ${item.status.toLowerCase()}">${esc(item.status)}</span>
+                    <span class="confidence">confidence ${item.confidence}</span>
+                  </div>
+                  <div class="evidence-list">
+                    ${item.evidence.map((evidence) => `
+                      <div class="evidence-item">
+                        <button class="frame-link" data-frame="${evidence.frame_id}">F${String(evidence.frame_id).padStart(2, "0")}</button>
+                        <span>${esc(evidence.observation)}</span>
+                      </div>`).join("") || '<span class="missing">No cited frame</span>'}
+                  </div>
+                  ${item.missing_evidence ? `<div class="missing">${esc(item.missing_evidence)}</div>` : ""}
+                </div>
+              </div>`).join("")}
+          </div>
+          ${rawDetails(role, report)}`;
+      }
+
+      function renderOrganizer(report, sample) {
+        return `
+          <div class="records">
+            ${report.option_assessments.map((item) => `
+              <div class="record">
+                <div class="record-letter">${item.option}</div>
+                <div class="record-main">
+                  <div class="verdict-head">
+                    <span class="verdict ${item.support_score > 0 ? "supported" : item.support_score < 0 ? "contradicted" : ""}">
+                      score ${item.support_score}
+                    </span>
+                  </div>
+                  <div class="record-title">${esc(item.reason)}</div>
+                </div>
+              </div>`).join("")}
+          </div>
+          <div class="decision">
+            <div class="decision-letter">${report.selected_option}</div>
+            <div>
+              <h4>Organizer decision</h4>
+              <p>${esc(report.rationale)}</p>
+            </div>
+          </div>
+          <div class="timing-strip">
+            <div class="timing-cell"><span>Hypothesis</span><strong>${seconds(sample.timing.hypothesis_seconds)}</strong></div>
+            <div class="timing-cell"><span>Parallel specialists</span><strong>${seconds(sample.timing.parallel_specialists_seconds)}</strong></div>
+            <div class="timing-cell"><span>Organizer</span><strong>${seconds(sample.timing.organizer_seconds)}</strong></div>
+            <div class="timing-cell"><span>Retrieval</span><strong>${seconds(sample.timing.proofpack_retrieval_seconds)}</strong></div>
+          </div>
+          ${rawDetails("Organizer", report)}`;
+      }
+
+      function renderOrchestration(sample) {
+        $("#orchestration").innerHTML = `
+          <section class="stage hypothesis">
+            <div class="stage-index">01</div>
+            <div class="stage-body">
+              <header class="stage-header">
+                <h3>Hypothesis compiler</h3>
+                <span class="stage-time">${seconds(sample.timing.hypothesis_seconds)}</span>
+              </header>
+              ${renderHypotheses(sample.agents.hypothesis)}
+            </div>
+          </section>
+          <section class="stage temporal">
+            <div class="stage-index">02T</div>
+            <div class="stage-body">
+              <header class="stage-header">
+                <h3>Temporal specialist</h3>
+                <span class="stage-time">parallel specialist window ${seconds(sample.timing.parallel_specialists_seconds)}</span>
+              </header>
+              ${renderSpecialist(sample.agents.temporal, "Temporal")}
+            </div>
+          </section>
+          <section class="stage visual">
+            <div class="stage-index">02V</div>
+            <div class="stage-body">
+              <header class="stage-header">
+                <h3>Visual specialist</h3>
+                <span class="stage-time">parallel specialist window ${seconds(sample.timing.parallel_specialists_seconds)}</span>
+              </header>
+              ${renderSpecialist(sample.agents.visual, "Visual")}
+            </div>
+          </section>
+          <section class="stage organizer">
+            <div class="stage-index">03</div>
+            <div class="stage-body">
+              <header class="stage-header">
+                <h3>Organizer</h3>
+                <span class="stage-time">${seconds(sample.timing.organizer_seconds)}</span>
+              </header>
+              ${renderOrganizer(sample.agents.organizer, sample)}
+            </div>
+          </section>`;
+      }
+
+      function showFrame(frameId) {
+        const sample = data.samples[activeSample];
+        const frame = sample.evidence.find((item) => item.frame_id === Number(frameId));
+        const temporal = sample.citations.temporal[String(frameId)] || [];
+        const visual = sample.citations.visual[String(frameId)] || [];
+        $("#dialogImage").src = frame.image;
+        $("#dialogImage").alt = `Frame ${frame.frame_id} at ${frame.timestamp.toFixed(1)} seconds`;
+        $("#dialogTitle").textContent = `Frame ${String(frame.frame_id).padStart(2, "0")}`;
+        $("#dialogMeta").textContent =
+          `${frame.timestamp.toFixed(3)}s · source ${frame.source} · video frame ${frame.frame_index}`;
+        const blocks = [
+          ["temporal", "Temporal specialist", temporal],
+          ["visual", "Visual specialist", visual],
+        ].filter(([, , items]) => items.length);
+        $("#dialogCitations").innerHTML = blocks.length ? blocks.map(([role, title, items]) => `
+          <section class="citation-block ${role}">
+            <h4>${title}</h4>
+            ${items.map((item) => `
+              <div class="citation-note">
+                <strong>${item.option}</strong>
+                <span>${esc(item.status)} · ${esc(item.observation)}</span>
+              </div>`).join("")}
+          </section>`).join("") : `
+          <section class="citation-block">
+            <h4>Proofpack frame</h4>
+            <div class="citation-note">Not cited in either specialist report.</div>
+          </section>`;
+        $("#frameDialog").showModal();
+      }
+
+      function render() {
+        const sample = data.samples[activeSample];
+        renderRail();
+        renderQuestion(sample);
+        renderFrames(sample);
+        renderOrchestration(sample);
+        $("#rawTrace").textContent = pretty(sample.raw_trace);
+      }
+
+      document.addEventListener("click", (event) => {
+        const frameTarget = event.target.closest("[data-frame]");
+        if (frameTarget) showFrame(frameTarget.dataset.frame);
+      });
+
+      $("#frameFilters").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-filter]");
+        if (!button) return;
+        activeFilter = button.dataset.filter;
+        renderFrames(data.samples[activeSample]);
+      });
+
+      document.querySelectorAll(".view-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".view-tab").forEach((item) => item.classList.remove("active"));
+          document.querySelectorAll(".view-panel").forEach((item) => item.classList.remove("active"));
+          tab.classList.add("active");
+          $(`#view-${tab.dataset.view}`).classList.add("active");
+        });
+      });
+
+      $("#dialogClose").addEventListener("click", () => $("#frameDialog").close());
+      $("#frameDialog").addEventListener("click", (event) => {
+        if (event.target === $("#frameDialog")) $("#frameDialog").close();
+      });
+
+      $("#copyTrace").addEventListener("click", async () => {
+        await navigator.clipboard.writeText(pretty(data.samples[activeSample].raw_trace));
+        $("#copyTrace").textContent = "Copied";
+        setTimeout(() => { $("#copyTrace").textContent = "Copy JSON"; }, 1200);
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

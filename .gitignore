@@ -34,3 +34,6 @@ venv/
 # ── OS ──
 .DS_Store
 *.bak
+visualizations/agentic_dev140_orchestration_5/assets
+slurm_scripts
+slurm_outputs

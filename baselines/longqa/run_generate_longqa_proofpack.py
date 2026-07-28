@@ -61,7 +61,7 @@ STRATEGIES = (
     "multi_event",
     "multi_event_router",
 )
-PROOFPACK_SCHEMA = 2
+PROOFPACK_SCHEMA = 3
 
 
 @dataclass(frozen=True)
@@ -1089,6 +1089,7 @@ def inference_fingerprint(args: argparse.Namespace, proofpack_hash: str) -> str:
         "structured_evidence": args.structured_evidence,
         "model_type": args.model_type,
         "llm_model": args.llm_model,
+        "llm_revision": args.llm_revision,
         "backend": args.backend,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -1165,6 +1166,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--llm-model", default="Qwen/Qwen3.5-9B")
+    parser.add_argument("--llm-revision", default=None)
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=1)
@@ -1232,6 +1234,7 @@ def main() -> None:
                     handle.write(json.dumps(record) + "\n")
         with open(grounding_output, mode) as handle:
             for row_idx, row in enumerate(rows[len(records) :], start=len(records)):
+                selection_started = time.perf_counter()
                 video_path = os.path.join(video_folder, str(row["video_path"]))
                 candidates, image_features, cache_hit = load_or_encode_grounder_features(
                     video_path, args.candidate_frames, grounder, cache_dir
@@ -1454,6 +1457,9 @@ def main() -> None:
                     "selected_frames": len(selected),
                     "proofpack_fingerprint": fingerprint,
                     "feature_cache_hit": cache_hit,
+                    "selection_seconds": round(
+                        time.perf_counter() - selection_started, 3
+                    ),
                     "grounder_model": args.grounder_model,
                     "queries": queries,
                     "selection_meta": selection_meta,
@@ -1498,6 +1504,7 @@ def main() -> None:
         tp_size=args.tp,
         concurrency=args.concurrency,
         max_frames=args.final_max_frames,
+        revision=args.llm_revision,
     )
     reset_prompt_token_stats()
     mode = "a" if pred_start else "w"
