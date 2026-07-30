@@ -466,7 +466,11 @@ def _index_proofpack(
 
 
 def _index_jsonl(path: str) -> dict[str, dict[str, Any]]:
-    return {sample_key(row): row for row in load_jsonl(path)}
+    rows = load_jsonl(path)
+    return {
+        str(row.get("sample_key") or sample_key(row)): row
+        for row in rows
+    }
 
 
 def build_crop_context(
@@ -625,6 +629,7 @@ def select_uncertainty_dynamic_tcot(
         max_selected_per_segment=args.max_selected_per_segment,
         selector_max_pixels=args.selector_max_pixels,
         selection_cache_dir=args.tcot_cache_dir,
+        max_frames=args.max_frames,
     )
     tcot_fingerprint = tcot_selection_fingerprint(tcot_args)
     selection = select_with_qwen(
@@ -808,6 +813,27 @@ def main() -> None:
             "uniform": _index_jsonl(_resolve_path(args.secondary_predictions)),
             "crop": _index_jsonl(_resolve_path(args.tertiary_predictions)),
         }
+
+    required_keys = {sample_key(row) for row in rows}
+    auxiliary_indices: dict[str, dict[str, dict[str, Any]]] = {}
+    if proofpacks:
+        auxiliary_indices["proof pack"] = proofpacks
+    if detections:
+        auxiliary_indices["detections"] = detections
+    auxiliary_indices.update(
+        {
+            f"{name} predictions": predictions
+            for name, predictions in prediction_sets.items()
+        }
+    )
+    for label, indexed in auxiliary_indices.items():
+        missing = sorted(required_keys - set(indexed))
+        if missing:
+            preview = ", ".join(missing[:3])
+            raise RuntimeError(
+                f"{label} is missing {len(missing)}/{len(required_keys)} required "
+                f"samples; first missing keys: {preview}"
+            )
 
     existing = (
         []

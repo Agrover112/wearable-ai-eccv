@@ -399,14 +399,25 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
     with model, open(output_path, mode) as out_f:
         for batch_start in range(resume_count, len(data), batch_size):
             batch = data[batch_start : batch_start + batch_size]
-            batch_frames = [
-                extract_frames(
-                    os.path.join(video_folder, str(row["video_path"])),
+            batch_frames = []
+            for row in batch:
+                video_path = os.path.join(video_folder, str(row["video_path"]))
+                if not os.path.isfile(video_path):
+                    raise RuntimeError(
+                        "Video is unavailable; refusing video-blind prediction: "
+                        f"{video_path}"
+                    )
+                frames = extract_frames(
+                    video_path,
                     frames_per_interval=args.frames_per_interval,
                     max_frames=args.max_frames,
                 )
-                for row in batch
-            ]
+                if not frames:
+                    raise RuntimeError(
+                        "No frames extracted; refusing video-blind prediction: "
+                        f"{video_path}"
+                    )
+                batch_frames.append(frames)
             batch_messages = [
                 [
                     {

@@ -123,6 +123,41 @@ class LongQAThinkingTests(unittest.TestCase):
             0,
         )
 
+    def test_qwen35_disables_thinking_by_default(self):
+        with patch.dict("os.environ", {}, clear=True):
+            model = VLLMModel("Qwen/Qwen3.5-9B")
+        request = model._apply_chat_template_options({"model": model.model_id})
+        self.assertEqual(
+            request["chat_template_kwargs"],
+            {"enable_thinking": False},
+        )
+        self.assertEqual(model._gdn_prefill_backend, "triton")
+
+    def test_qwen35_thinking_can_be_explicitly_enabled(self):
+        with patch.dict("os.environ", {"QWEN_ENABLE_THINKING": "true"}, clear=True):
+            model = VLLMModel("Qwen/Qwen3.5-9B")
+        request = model._apply_chat_template_options({"model": model.model_id})
+        self.assertEqual(
+            request["chat_template_kwargs"],
+            {"enable_thinking": True},
+        )
+
+    def test_qwen3vl_request_behavior_is_unchanged(self):
+        with patch.dict("os.environ", {}, clear=True):
+            model = VLLMModel("Qwen/Qwen3-VL-8B-Instruct")
+        request = model._apply_chat_template_options({"model": model.model_id})
+        self.assertNotIn("chat_template_kwargs", request)
+        self.assertIsNone(model._gdn_prefill_backend)
+
+    def test_qwen35_gdn_backend_can_be_overridden(self):
+        with patch.dict(
+            "os.environ",
+            {"VLLM_GDN_PREFILL_BACKEND": "flashinfer"},
+            clear=True,
+        ):
+            model = VLLMModel("Qwen/Qwen3.5-9B")
+        self.assertEqual(model._gdn_prefill_backend, "flashinfer")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -149,6 +149,19 @@ def _env_optional_nonnegative_int(name: str) -> int | None:
     return value
 
 
+def _env_optional_bool(name: str) -> bool | None:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return None
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    logger.warning("Invalid boolean for %s=%r; ignoring it", name, raw)
+    return None
+
+
 def _env_float(name: str, default: float) -> float:
     raw = os.environ.get(name)
     if raw is None or raw.strip() == "":
@@ -766,6 +779,17 @@ class VLLMModel(VideoQAModel):
         self._thinking_token_budget = _env_optional_nonnegative_int(
             "VLLM_THINKING_TOKEN_BUDGET"
         )
+        self._is_qwen35 = "qwen3.5" in model_id.lower()
+        self._enable_thinking = _env_optional_bool("QWEN_ENABLE_THINKING")
+        if self._is_qwen35 and self._enable_thinking is None:
+            self._enable_thinking = False
+        self._gdn_prefill_backend = os.environ.get("VLLM_GDN_PREFILL_BACKEND")
+        if self._is_qwen35 and not self._gdn_prefill_backend:
+            self._gdn_prefill_backend = "triton"
+        if self._gdn_prefill_backend not in {None, "triton", "flashinfer"}:
+            raise ValueError(
+                "VLLM_GDN_PREFILL_BACKEND must be `triton` or `flashinfer`"
+            )
         self._proc: object | None = None
         self._port: int | None = None
         self._log: object | None = None
@@ -822,8 +846,14 @@ class VLLMModel(VideoQAModel):
             )
             server_args.extend(["--dtype", "bfloat16"])
             reasoning_parser = os.environ.get("VLLM_REASONING_PARSER")
+            if self._is_qwen35 and not reasoning_parser:
+                reasoning_parser = "qwen3"
             if reasoning_parser:
                 server_args.extend(["--reasoning-parser", reasoning_parser])
+            if self._gdn_prefill_backend:
+                server_args.extend(
+                    ["--gdn-prefill-backend", self._gdn_prefill_backend]
+                )
             if self._thinking_token_budget is not None:
                 server_args.extend(
                     [
@@ -901,7 +931,6 @@ class VLLMModel(VideoQAModel):
         env.setdefault("VLLM_USE_V1", "1")
         env.setdefault("LLM_DISABLE_COMPILE_CACHE", "1")
         env.setdefault("VLLM_FLASH_ATTN_VERSION", "3")
-        env.setdefault("PYTHONNOUSERSITE", "1")
 
         cmd = [sys.executable, "-m", "vllm.entrypoints.openai.api_server"]
         cmd.extend(server_args)
@@ -912,6 +941,15 @@ class VLLMModel(VideoQAModel):
             start_new_session=True,
             env=env,
         )
+
+    def _apply_chat_template_options(
+        self, request_data: dict[str, object]
+    ) -> dict[str, object]:
+        if self._enable_thinking is not None:
+            request_data["chat_template_kwargs"] = {
+                "enable_thinking": self._enable_thinking
+            }
+        return request_data
 
     def _wait_for_health(self) -> None:
         import time
@@ -1111,6 +1149,7 @@ class VLLMModel(VideoQAModel):
         )
         if effective_thinking_budget is not None:
             request_data["thinking_token_budget"] = effective_thinking_budget
+        self._apply_chat_template_options(request_data)
         payload = json.dumps(request_data).encode()
 
         req = urllib.request.Request(
@@ -1186,16 +1225,16 @@ class VLLMModel(VideoQAModel):
                 images_inserted = True
             else:
                 openai_messages.append(message)
-        payload = json.dumps(
-            {
+        request_data: dict[str, object] = {
                 "model": self.model_id,
                 "messages": openai_messages,
                 "max_tokens": 1,
                 "temperature": 0.0,
                 "logprobs": True,
                 "top_logprobs": 20,
-            }
-        ).encode()
+        }
+        self._apply_chat_template_options(request_data)
+        payload = json.dumps(request_data).encode()
         request = urllib.request.Request(
             f"http://localhost:{self._port}/v1/chat/completions",
             data=payload,
@@ -1271,16 +1310,16 @@ class VLLMModel(VideoQAModel):
                 images_inserted = True
             else:
                 openai_messages.append(message)
-        payload = json.dumps(
-            {
+        request_data: dict[str, object] = {
                 "model": self.model_id,
                 "messages": openai_messages,
                 "max_tokens": 1,
                 "temperature": 0.0,
                 "logprobs": True,
                 "top_logprobs": top_logprobs,
-            }
-        ).encode()
+        }
+        self._apply_chat_template_options(request_data)
+        payload = json.dumps(request_data).encode()
         request = urllib.request.Request(
             f"http://localhost:{self._port}/v1/chat/completions",
             data=payload,
@@ -1429,8 +1468,7 @@ class VLLMModel(VideoQAModel):
             payload_messages = openai_messages + [
                 {"role": "assistant", "content": assistant_text}
             ]
-            payload = json.dumps(
-                {
+            request_data: dict[str, object] = {
                     "model": self.model_id,
                     "messages": payload_messages,
                     "max_tokens": 1,
@@ -1439,8 +1477,9 @@ class VLLMModel(VideoQAModel):
                     "return_token_ids": True,
                     "add_generation_prompt": False,
                     "continue_final_message": True,
-                }
-            ).encode()
+            }
+            self._apply_chat_template_options(request_data)
+            payload = json.dumps(request_data).encode()
             request = urllib.request.Request(
                 f"http://localhost:{self._port}/v1/chat/completions",
                 data=payload,
@@ -1536,8 +1575,7 @@ class VLLMModel(VideoQAModel):
                 images_inserted = True
             else:
                 openai_messages.append(message)
-        payload = json.dumps(
-            {
+        request_data: dict[str, object] = {
                 "model": self.model_id,
                 "messages": openai_messages,
                 "max_tokens": max_new_tokens,
@@ -1550,8 +1588,9 @@ class VLLMModel(VideoQAModel):
                         "schema": schema,
                     },
                 },
-            }
-        ).encode()
+        }
+        self._apply_chat_template_options(request_data)
+        payload = json.dumps(request_data).encode()
         request = urllib.request.Request(
             f"http://localhost:{self._port}/v1/chat/completions",
             data=payload,

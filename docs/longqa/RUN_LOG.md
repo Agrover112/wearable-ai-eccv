@@ -78,6 +78,18 @@
 | `qwen3_vl_8b_vllm_ug_segmented_c64_s16x2_u32_final64_px451584_dev20_2026-07-27` | 2026-07-27 | EgoLongQA temporal dev20 | Qwen/Qwen3-VL-8B-Instruct | vLLM + segment-balanced intrinsic uncertainty | 1x H100 NVL | 20 | 32 low-entropy segment frames + uniform fill; 64 final | 50,176 px scoring; 451,584 px answer | 37m57s | 0.7500 | 15/20 | 1,300 calls; mean 642 tok; p95 436; max 57.32% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_segmented_c64_s16x2_u32_final64_px451584_dev20_2026-07-27/` |
 | `qwen3_vl_8b_vllm_ug_temporal_pivot_c128_anc24_final64_px451584_dev20_2026-07-27` | 2026-07-27 | EgoLongQA temporal dev20 | Qwen/Qwen3-VL-8B-Instruct | vLLM + uncertainty temporal pivot | 1x H100 NVL | 20 | 128 target-entropy candidates + 128 pivot-presence scores; 64 final | 50,176 px scoring; 451,584 px answer | 1h27m37s | **0.8000** | **16/20** | 5,140 calls; mean 273 tok; p95 431; max 57.32% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_temporal_pivot_c128_anc24_final64_px451584_dev20_2026-07-27/` |
 | `qwen3_vl_8b_vllm_ug_c128_s16x4_dynamic_tcot_s4_sel48_u16_px451584_dev20_2026-07-27` | 2026-07-27 | EgoLongQA temporal dev20 | Qwen/Qwen3-VL-8B-Instruct | cached uncertainty shortlist + dynamic TCoT | 1x H100 NVL | 20 | 64-frame uncertainty shortlist; 21-54 final frames after TCoT + 16 uniform | 50,176 px selector; 451,584 px answer | 1h06m50s | 0.7500 | 15/20 | 100 calls; mean 4,339 tok; p95 19,667; max 48.49% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_c128_s16x4_dynamic_tcot_s4_sel48_u16_px451584_dev20_2026-07-27/` |
+| `qwen3_vl_8b_vllm_ug_window_c128_w9_st3_s16_u16_final64_px451584_dev20_2026-07-29` | 2026-07-29 | EgoLongQA temporal dev20 | Qwen/Qwen3-VL-8B-Instruct | vLLM + overlapping-window intrinsic uncertainty | 1x H100 NVL | 20 | low-entropy 9-frame windows at stride 3 + 16 uniform frames; 64 final | 50,176 px scoring; 451,584 px answer | 59m56s | 0.7500 | 15/20 | 840 calls; mean 1,264 tok; max 57.32% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_window_c128_w9_st3_s16_u16_final64_px451584_dev20_2026-07-29/` |
+| `qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev140prefix20_2026-07-29` | 2026-07-29 | EgoLongQA dev140 prefix20 | Qwen/Qwen3-VL-8B-Instruct | vLLM + uncertainty-ranked detector crops | 1x H100 NVL | 20 | 56 pivot context frames + 8 uncertainty-ranked object crops | 50,176 px crop scoring; 451,584 px answer | 22m53s | **0.8000** | **16/20** | 492 calls; mean 1,286 tok; max 56.87% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev140prefix20_2026-07-29/` |
+| `qwen35_9b_vllm_uniform64_px451584_smoke5_2026-07-29` | 2026-07-29 | EgoLongQA dev140 prefix smoke | Qwen/Qwen3.5-9B | vLLM + Triton GDN prefill | 1x H100 NVL | 5 | 64 uniform | 451,584 px (~672x672) | 6m33s, including 3m25s warmup | 1.0000 | 5/5 | mean 27,983 tok; p95/max 28,049; max 57.07% of 49K | `runs/egolongqa/qwen35_9b_vllm_uniform64_px451584_smoke5_2026-07-29/` |
+| `qwen35_9b_vllm_uniform64_px451584_dev_2026-07-29` | 2026-07-29 | EgoLongQA dev140 | Qwen/Qwen3.5-9B | vLLM + Triton GDN prefill | 1x H100 NVL | 140 | 64 uniform | 451,584 px (~672x672) | 1h42m19s | **0.8000** | **112/140** | mean 27,960 tok; p95 28,074; max 57.44% of 49K | `runs/egolongqa/qwen35_9b_vllm_uniform64_px451584_dev_2026-07-29/` |
+| `qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_dev_2026-07-29` | 2026-07-29 | EgoLongQA dev140 | Qwen/Qwen3.5-9B | vLLM + exact Qwen3-VL temporal-pivot frames | 1x H100 NVL | 140 | 64 selected from 128 | 451,584 px (~672x672) | 1h42m43s | **0.8071** | **113/140** | mean 27,960 tok; p95 28,074; max 57.44% of 49K | `runs/egolongqa/qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_dev_2026-07-29/` |
+| `qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29` | 2026-07-29 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | entropy router over pivot, uniform, and crop-pair answers | 1x H100 NVL | 140; 33 routed disagreements | 3x64-frame uncertainty scoring on disagreements | 451,584 px (~672x672) | 1h15m09s | **0.8214** | **115/140** | 99 scoring calls; mean 27,296 tok; max 56.97% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29/` |
+| `offline_majority_ug_router_qwen35_pivot_qwen35_uniform_2026-07-29` | 2026-07-29 | EgoLongQA dev140 | Qwen3-VL + Qwen3.5 fixed ensemble | offline majority vote | none | 140 | reuses three completed runs | n/a | <1 min | **0.8429** | **118/140** | no model calls | `runs/egolongqa/offline_majority_ug_router_qwen35_pivot_qwen35_uniform_2026-07-29/` |
+| `qwen35_9b_vllm_router_pivot_candidate_pair_verifier_px451584_dev_2026-07-29` | 2026-07-29 | EgoLongQA dev140 | Qwen/Qwen3.5-9B | candidate-constrained verifier over Qwen3.5 pivot/router disagreements | 1x H100 NVL | 140; 31 verifier calls | 64 verifier frames | 451,584 px (~672x672) | 17m15s | **0.8214** | **115/140** | calls: mean 27,905 tok; p95 28,000; max 57.04% of 49K | `runs/egolongqa/qwen35_9b_vllm_router_pivot_candidate_pair_verifier_px451584_dev_2026-07-29/` |
+| `qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev_2026-07-29` | 2026-07-29/30 | EgoLongQA dev140 | Qwen/Qwen3-VL-8B-Instruct | uncertainty-ranked detector crops | 1x H100 NVL | 140 | 56 pivot frames + 8 crops selected from 24 | 50,176 px scoring; 451,584 px answer | 2h29m24s | 0.7571 | 106/140 | 2,825 calls; mean 1,518 tok; max 56.99% of 49K | `runs/egolongqa/qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev_2026-07-29/` |
+| `qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_full_2026-07-29` | 2026-07-29/30 | EgoLongQA val | Qwen/Qwen3.5-9B | vLLM + fixed cached temporal-pivot evidence | 1x H100 NVL | 700 | exact cached 64-frame packs selected from 128 | 451,584 px (~672x672) | 7h53m11s | **0.7671** | **537/700** | mean 27,956 tok; p95 28,083; max 57.47% of 49K | `runs/egolongqa/qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_full_2026-07-29/` |
+| `qwen35_9b_vllm_pivot_uniform_disagreement_verifier_px451584_dev_2026-07-30` | 2026-07-30 | EgoLongQA dev140 | Qwen/Qwen3.5-9B | original pivot/uniform disagreement verifier | 1x H100 NVL | 140; 19 verifier calls | 64 verifier frames | 451,584 px (~672x672) | 16m36s | **0.8071** | **113/140** | calls: mean 28,039 tok; p95 28,077; max 57.16% of 49K | `runs/egolongqa/qwen35_9b_vllm_pivot_uniform_disagreement_verifier_px451584_dev_2026-07-30/` |
+| `qwen35_9b_vllm_pivot_uniform_disagreement_verifier_px451584_full_2026-07-30` | 2026-07-30 | EgoLongQA val | Qwen/Qwen3.5-9B | original pivot/uniform disagreement verifier | 1x H100 NVL | 700; 122 verifier calls | 64 verifier frames | 451,584 px (~672x672) | 1h23m59s | **0.7700** | **539/700** | calls: mean 28,014 tok; p95 28,106; max 57.58% of 49K | `runs/egolongqa/qwen35_9b_vllm_pivot_uniform_disagreement_verifier_px451584_full_2026-07-30/` |
 
 ## Job Status Snapshot (2026-07-11 12:49 CEST)
 
@@ -441,12 +453,294 @@ All three completed working directories and six raw Slurm files were removed
 only after byte-for-byte comparison with their canonical archives. The working
 output tree and `slurm_logs/` are empty.
 
+## Job Status Snapshot (2026-07-29 19:43 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_vllm_ug_window_c128_w9_st3_s16_u16_final64_px451584_dev20_2026-07-29` | 49302974 | Running | 14/20 predictions and matching selections written; no stderr; rolling prefix accuracy 12/14 (0.8571). Active output and Slurm files retained in place. |
+| `qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev140prefix20_2026-07-29` | 49302975 | Failed; fixed | Failed before the first prediction because the detection index reconstructed keys from rows that omit `question`, despite all 140 records carrying valid explicit `sample_key` values. The loader now prioritizes `sample_key`; coverage is 140/140. |
+| `qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29` | 49302976 | Failed; fixed | Same detection-index defect as job 49302975. Pivot, uniform, crop-pair prediction inputs and detections now each cover all 140 dev keys. |
+| `qwen35_9b_vllm_uniform64_px451584_smoke5_2026-07-29` | 49303038 | Failed; fixed | Qwen3.5 loaded successfully and vLLM became ready, but the first request selected FlashInfer's JIT GDN kernel and failed because no matching CUDA toolkit was available. Qwen3.5 now defaults to vLLM's supported Triton GDN prefill backend. |
+
+The three failed jobs produced no predictions. Their Slurm and vLLM logs were
+preserved under matching `runs/egolongqa/*_failed_job<id>/` directories, while
+their empty working outputs and duplicate root-level Slurm files were removed.
+The corrected object-crop and router jobs require fresh submissions; there is
+no lost inference work to resume. The Qwen3.5 fix avoids the runtime CUDA
+compilation rather than attempting to use the login node's incompatible CUDA
+11.8 compiler.
+
+## Job Status Follow-up (2026-07-29 19:59 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen35_9b_vllm_uniform64_px451584_smoke5_2026-07-29` | 49303124 | Completed | 5/5 correct; runtime 6m33s including 3m25s server warmup; Triton GDN path completed all requests; complete archive retained |
+| `qwen3_vl_8b_vllm_ug_window_c128_w9_st3_s16_u16_final64_px451584_dev20_2026-07-29` | 49302974 | Completed | 15/20 (0.7500); runtime 59m56s; complete archive retained and duplicate working output removed |
+| `qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev140prefix20_2026-07-29` | 49303120 | Running | corrected rerun reached 12/20 with no stderr |
+| `qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29` | 49303123 | Running | corrected rerun reached 15/140 with no stderr |
+
+The five-sample Qwen3.5 result establishes runtime compatibility only. Four of
+the five gold answers are `C`, so the `1.0000` smoke accuracy is not evidence
+of a model-level improvement; the controlled uniform and cached-pivot dev140
+comparisons are still required.
+
+## Job Status Follow-up (2026-07-29 20:14 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev140prefix20_2026-07-29` | 49303120 | Completed | 16/20 (0.8000); runtime 22m53s; complete archive retained and duplicate working output removed |
+| `qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29` | 49303123 | Running | 58/140 predictions and matching selections written; no stderr |
+| `qwen35_9b_vllm_uniform64_px451584_dev_2026-07-29` | 49303163 | Running | vLLM ready; 16/140 predictions written; no request failures |
+| `qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_dev_2026-07-29` | 49303164 | Running | selection complete at 140/140; generation reached 15/140; no request failures |
+
+On the exact object-crop prefix, uncertainty-ranked crops score `16/20`,
+compared with pivot `14/20`, uniform64 `15/20`, and the original crop-pair
+pipeline `15/20`. Relative to pivot, five answers changed, with three fixes and
+one regression; their combined oracle is `17/20`. This is a useful pilot signal
+but needs a full dev140 confirmation before it can influence a final router.
+
+## Job Status Follow-up (2026-07-29 21:45 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29` | 49303123 | Completed | 115/140 (0.8214); runtime 1h15m09s; complete archive retained |
+| `qwen35_9b_vllm_uniform64_px451584_dev_2026-07-29` | 49303163 | Completed | 112/140 (0.8000); runtime 1h42m19s; complete archive retained |
+| `qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_dev_2026-07-29` | 49303164 | Completed | 113/140 (0.8071); runtime 1h42m43s; all 140 final frame-index lists exactly match the Qwen3-VL pivot reference |
+
+Qwen3.5 provides a modest model-scaling gain under both controlled inputs.
+Uniform changes 27 Qwen3-VL answers with 13 fixes and 11 regressions, while
+pivot changes 35 with 16 fixes and 14 regressions. Qwen3.5 is much stronger on
+non-`C` gold answers but weaker on the `C`-heavy portion of dev140: pivot moves
+from non-`C`/`C` accuracies `0.7551/0.8132` to `0.8776/0.7692`. This explains
+why substantial answer churn yields only a two-answer net gain.
+
+The entropy router keeps the common answer on 107 three-view agreements, which
+are correct on 94 rows. On the 33 disagreements, it reaches 21 correct versus
+17 for pivot, 16 for uniform, and 15 for crop pairs. Relative to pivot, the
+final router changes eleven answers with seven fixes and three regressions.
+The three-view oracle remains 125/140, so ten recoverable rows are still not
+selected by the entropy rule. The observed four-answer router gain is promising
+but not statistically decisive on this repeatedly inspected dev split.
+
+Qwen3.5 uniform and pivot disagree on seventeen rows and have a two-view oracle
+of 120/140. Combining the current router with Qwen3.5 pivot raises the oracle to
+128/140; adding Qwen3.5 uniform raises it to 130/140. These are upper bounds,
+not deployable scores, but they establish that model scaling contributes
+complementary errors and is now a stronger ensembling direction than another
+minor frame-ranking variation.
+
+A label-independent majority vote over the entropy router, Qwen3.5 pivot, and
+Qwen3.5 uniform reaches `118/140` (`0.8429`) without another model call. It
+changes 21 router answers with eleven fixes and eight regressions. The same
+three systems have an oracle of `130/140`, leaving twelve additional
+theoretically recoverable answers. The majority result is directly deployable
+as a fixed rule, but because it was measured after inspecting dev140 it must be
+confirmed on held-out examples before being treated as the expected validation
+score.
+
+## Job Status Follow-up (2026-07-30 06:00 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen35_9b_vllm_router_pivot_candidate_pair_verifier_px451584_dev_2026-07-29` | 49303799 | Completed | 115/140 (0.8214); all 31 pivot/router disagreements verified; runtime 17m15s |
+| `qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev_2026-07-29` | 49303800 | Completed | 106/140 (0.7571); 140/140 selections and predictions; runtime 2h29m24s |
+| `qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_full_2026-07-29` | 49303814 | Completed | 537/700 (0.7671); validated all 700 fixed proof packs and skipped SigLIP2; runtime 7h53m11s |
+
+The candidate-pair verifier improves the Qwen3.5 pivot candidate by two
+answers, but it ties the entropy router that supplied the other candidate.
+Relative to the router, it changes seventeen answers with eight fixes and
+eight regressions. It therefore adds inference cost without improving the
+current deployable dev score.
+
+The uncertainty-ranked crop pilot does not generalize from its first twenty
+examples. It falls from `16/20` on that prefix to `106/140` overall, three
+answers below the original crop-pair run. The two crop variants differ on
+fifteen examples, with six fixes and nine regressions. It contributes no new
+oracle answer beyond the router and Qwen3.5 pivot, so this branch should be
+retired from the main experiment queue.
+
+The full Qwen3.5 pivot run improves the matched Qwen3-VL pivot from `528/700`
+to `537/700`. Across their 167 disagreements, Qwen3.5 makes 75 fixes and 66
+regressions. The net nine-answer gain is useful but small, and the previous
+Qwen3 disagreement verifier remains two answers higher at `539/700`. The full
+run reused the historical proof pack exactly and made no SigLIP2 calls.
+
+The full run scores `115/140` on the dev keys and `422/560` on the remaining
+validation keys. Its frame packs exactly match the earlier Qwen3.5 dev run,
+but two generated answers changed and both became correct. This is minor
+inference variability, not evidence that the full-run selection is better.
+
+After checksum verification, the three duplicate working-output directories,
+their six root-level Slurm files, and two empty dry-run directories were
+removed. Complete canonical artifacts and copied logs remain under
+`runs/egolongqa/`; `slurm_logs/` is empty.
+
+## Job Status Follow-up (2026-07-30 11:05 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen35_9b_vllm_pivot_uniform_disagreement_verifier_px451584_dev_2026-07-30` | 49306485 | Completed | 113/140 (0.8071); all 19 pivot/uniform disagreements verified; runtime 16m36s |
+| `qwen35_9b_vllm_pivot_uniform_disagreement_verifier_px451584_full_2026-07-30` | 49306592 | Completed | 539/700 (0.7700); all 122 disagreements verified; runtime 1h23m59s |
+| `qwen35_9b_vllm_uniform64_px451584_full_2026-07-30` | 49306486 | Running | 165/700 predictions at 11:04 CEST; rolling matched accuracy 125/165 (0.7576); vLLM requests continue successfully |
+
+Replacing Qwen3 with Qwen3.5 in the original verifier improves dev140 by two
+answers, from `111/140` to `113/140`. On the full validation set it ties the
+existing Qwen3 verifier at `539/700`. The two full verifier outputs disagree
+on 43 examples: Qwen3.5 fixes nineteen, regresses on nineteen, and changes five
+answers where both remain wrong. Their two-model oracle is `558/700`, so the
+models are complementary even though their aggregate accuracy is identical.
+
+Relative to the Qwen3 full pivot, the Qwen3.5 verifier makes 29 fixes and 18
+regressions across 52 changed answers, producing the same eleven-answer gain
+as the original Qwen3 verifier. A simple majority over both verifiers and the
+Qwen3.5 pivot reaches only `537/700`; disagreement routing rather than majority
+voting is required to use the available oracle gain.
+
+The Qwen3.5 uniform job is not failed: its root Slurm output is quiet, but its
+prediction file and vLLM server log continue to grow. Its active working
+directory and Slurm files must remain in place until terminal output and final
+evaluation are written.
+
+## Job Status Follow-up (2026-07-30 17:23 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen35_9b_vllm_uniform64_px451584_full_2026-07-30` | 49306486 | Interrupted after generation; resume prepared | The first 686 predictions are valid and score 531/686 (0.7741). A storage communication outage made the final 14 videos unavailable, so rows 686-699 were generated without images and final evaluation then failed while reading annotations. |
+
+The complete 700-row attempt and its logs are preserved under
+`runs/egolongqa/qwen35_9b_vllm_uniform64_px451584_full_2026-07-30_partial_job49306486/`.
+The active prediction file was truncated to the 686 validated rows. Resume it
+with:
+
+```bash
+sbatch slurm_longqa_qwen35_uniform64_px451584_full_resume_20260730.sh
+```
+
+The resume launcher keeps the original run name even after midnight. LongQA
+generation now fails immediately when a video path is unavailable or frame
+extraction returns no images; future storage failures can no longer silently
+write video-blind predictions. The dataset mount was still returning I/O errors
+at this checkpoint, so the resume should be submitted only after the annotation
+file and videos are readable again.
+
+## Job Status Follow-up (2026-07-30 19:30 CEST)
+
+| Job | Slurm ID | Status | Evidence |
+| --- | ---: | --- | --- |
+| `qwen35_9b_vllm_uniform64_px451584_full_2026-07-30` | 49311311 | Failed before inference | Scratch remained unavailable; repeated `mkdir` calls returned `Communication error on send` |
+| `qwen35_9b_vllm_uniform64_px451584_full_2026-07-30` | 49312012 | Completed resume | Resumed from 686 rows, generated the final 14, and evaluated all 700; final result 538/700 (0.7686) |
+| `offline_majority_qwen35_pivot_qwen35_uniform_qwen3_verifier_2026-07-30` | offline | Completed | Fixed three-system vote; 552/700 (0.7886), currently the best full-validation result |
+
+The second resume confirms that the earlier interruption was a storage outage,
+not a model failure. Qwen3.5 uniform64 at 672px reaches `538/700` (`76.86%`),
+with temporal accuracy `0.7702`, non-C accuracy `0.8203`, and predicted
+`A/B/C/D = 63/218/343/76`. The final 14-row resume took 794 seconds including
+model startup. The complete run is archived under
+`runs/egolongqa/qwen35_9b_vllm_uniform64_px451584_full_2026-07-30/`; the
+original attempt with 14 invalid video-blind rows remains separately preserved
+for audit.
+
+The pre-declared majority combines Qwen3.5 temporal pivot (`537/700`), Qwen3.5
+uniform (`538/700`), and the Qwen3 pivot/uniform verifier (`539/700`). It reaches
+`552/700` (`78.86%`), including `436/560` (`77.86%`) outside dev140. The three
+systems agree on 487 questions and disagree on 213. Among the disagreements,
+at least one candidate is correct on 190 questions, while majority voting is
+correct on 113. The fixed triple therefore has an oracle ceiling of `629/700`
+(`89.86%`), making disagreement arbitration the most promising remaining
+direction.
+
+A consolidated six-system disagreement dataset is stored under
+`runs/egolongqa/model_disagreement_audit_2026-07-30/`. Detailed findings and
+the recommended conditional uncertainty/TCoT and crop evaluations are in
+`documentation/LONGQA_MODEL_DISAGREEMENT_ANALYSIS_2026-07-30.md`.
+
+## Prepared Conditional Experiments (2026-07-30)
+
+Four gated experiments were added against the fixed `552/700` majority:
+
+| Launcher | Evaluation gate | Model calls |
+| --- | --- | ---: |
+| `slurm_longqa_qwen35_all_different_arbiter_full.sh` | All 700 rows; intervene only on three-way answer splits | 24 |
+| `slurm_longqa_qwen35_disagreement_confidence_router_full.sh` | Score all fixed-majority disagreements for nested grouped CV | 213 rows x 4 views |
+| `slurm_longqa_qwen3_conditional_ug_dynamic_tcot_dev.sh` | dev140; intervene on any three-system disagreement | 37 |
+| `slurm_longqa_qwen3_conditional_delta_crops_dev.sh` | dev140; intervene on any three-system disagreement | 37 |
+
+The candidate arbiter is restricted to the three proposed answer texts.
+Conditional TCoT first shortlists frames with answer uncertainty, then performs
+chronological segment selection. Delta-gated crops compare each complete source
+frame with the same frame plus its proposed crop and admit the crop only when
+entropy decreases by at least `0.05`. The confidence router excludes category
+and temporal-operator labels and reports out-of-fold performance rather than a
+training-set fit. Full commands and promotion criteria are documented in
+`documentation/LONGQA_CONDITIONAL_EXPERIMENTS_2026-07-30.md`.
+
+### Confidence-router launcher fix (2026-07-30)
+
+Slurm job `49312267` failed before inference because its vLLM subprocess could
+not import the user-site `psutil` package. No feature rows were produced. The
+shared confidence-scoring launcher now exports `site.USER_SITE` through
+`PYTHONPATH` and performs a `psutil` import check before model startup. The
+failed attempt is archived separately under
+`runs/egolongqa/qwen35_9b_vllm_pivot_uniform_mixed_confidence_router_full_2026-07-30_failed_job49312267/`.
+The concurrent candidate-arbiter job `49312266` remained healthy and was not
+modified.
+
+### Candidate-constrained arbiter result (2026-07-30)
+
+| Run | Slurm ID | Result | Runtime |
+| --- | ---: | ---: | ---: |
+| `qwen35_9b_vllm_candidate_arbiter_all_different_mixed64_full_2026-07-30` | 49312266 | **553/700 (0.7900)** | 22m01s |
+
+The arbiter re-evaluated only the 24 questions where Qwen3.5 pivot, Qwen3.5
+uniform, and the Qwen3 verifier returned three different answers. It improved
+that subset from `6/24` to `7/24`, changing 19 answers with four fixes, three
+regressions, and twelve changes where both the old and new answers were wrong.
+The net change is `-1` on dev140 and `+2` on the remaining 560 questions.
+This is a genuine held-out improvement over the fixed majority, but the small
+and unstable fix/regression balance supports retaining the arbiter as an
+ensemble candidate rather than replacing the majority unconditionally.
+
+The confidence-scoring job `49312287` was still active at this checkpoint. Its
+launcher now uses a stable run name for cross-date resume and a 14-hour limit
+for future submissions; the active job keeps its originally assigned Slurm
+limit.
+
+### Conditional delta-crop result (2026-07-30)
+
+| Run | Slurm ID | Result | Runtime |
+| --- | ---: | ---: | ---: |
+| `qwen3_vl_8b_vllm_conditional_delta_crops_c24_top8_d005_dev_2026-07-30` | 49312488 | 112/140 (0.8000) | 44m42s |
+
+The fixed three-system majority scores `116/140` on the same dev keys, so
+delta-gated crops regress by four answers. Among the 37 disagreement rows, the
+crop answer changed the majority decision 18 times, producing seven fixes and
+eleven regressions. Crops were admitted on 34/37 rows, with a mean of 4.95
+admitted crops and the maximum eight crops used on fifteen rows. The `0.05`
+entropy-reduction threshold therefore behaves as a permissive crop selector,
+not a reliable indication that the crop-supported answer should replace the
+majority. This branch should not be promoted to full validation.
+
+The Slurm stderr contains a subset-length warning from an auxiliary evaluator,
+but key-aligned manual evaluation independently confirms `112/140`; the warning
+does not invalidate the result. At this checkpoint, conditional uncertainty
+TCoT job `49312487` and confidence-scoring job `49312287` were still active and
+their working outputs were retained.
+
 ## Dev140 Fair Comparison
 
 The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full-validation prediction files were re-scored by matching stable `video_path||question` keys, so these numbers are directly comparable to the new dev-only runs.
 
 | Run ID | Dev140 accuracy | Correct | Temporal acc. | Non-C acc. |
 | --- | ---: | ---: | ---: | ---: |
+| `offline_majority_qwen35_pivot_qwen35_uniform_qwen3_verifier_2026-07-30` | **0.8286** | **116/140** | n/a | n/a |
+| `qwen3_vl_8b_vllm_conditional_delta_crops_c24_top8_d005_dev_2026-07-30` | **0.8000** | **112/140** | **0.8120** | **0.8163** |
+| `qwen35_9b_vllm_uniform64_px451584_full_2026-07-30` | **0.8071** | **113/140** | n/a | n/a |
+| `offline_majority_ug_router_qwen35_pivot_qwen35_uniform_2026-07-29` | **0.8429** | **118/140** | **0.8571** | **0.9388** |
+| `qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29` | **0.8214** | **115/140** | **0.8271** | 0.7959 |
+| `qwen35_9b_vllm_router_pivot_candidate_pair_verifier_px451584_dev_2026-07-29` | **0.8214** | **115/140** | **0.8346** | **0.8776** |
+| `qwen35_9b_vllm_pivot_uniform_disagreement_verifier_px451584_dev_2026-07-30` | **0.8071** | **113/140** | **0.8120** | **0.7959** |
+| `qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_dev_2026-07-29` | **0.8071** | **113/140** | 0.8195 | **0.8776** |
+| `qwen35_9b_vllm_uniform64_px451584_dev_2026-07-29` | **0.8000** | **112/140** | 0.8120 | **0.9184** |
 | `qwen3_vl_8b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_dev_2026-07-11` | **0.7929** | **111/140** | 0.7970 | 0.7551 |
 | `qwen3_vl_8b_vllm_support_contradiction_verifier_global_after_before_last_px451584_dev_2026-07-13` | **0.7929** | **111/140** | 0.7970 | 0.7551 |
 | `qwen3_vl_8b_vllm_uniform64_px451584_dev_2026-07-11` | **0.7857** | **110/140** | **0.8045** | **0.7959** |
@@ -461,6 +755,7 @@ The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full
 | `qwen3_vl_8b_vllm_siglip2_temporal_pivot_covfill_anc32_tgt6_final64_px451584_dev_2026-07-11` | 0.7714 | 108/140 | 0.7820 | 0.7755 |
 | `qwen3_vl_8b_vllm_candidate_logp_verifier_blindwm01_px451584_dev_2026-07-15` | 0.7643 | 107/140 | 0.7669 | 0.7347 |
 | `qwen3_vl_8b_vllm_object_panels_f56_p8_px451584_dev_2026-07-26` | 0.7643 | 107/140 | 0.7744 | 0.7347 |
+| `qwen3_vl_8b_vllm_ug_object_crops_c24_top8_f56_px451584_dev_2026-07-29` | 0.7571 | 106/140 | 0.7744 | 0.7755 |
 | `qwen3_vl_8b_vllm_uniform32_px451584_dev_2026-07-11` | 0.7571 | 106/140 | 0.7594 | 0.6939 |
 | `qwen3_vl_8b_vllm_uniform64_px200704_2026-07-07` | 0.7429 | 104/140 | 0.7444 | 0.7551 |
 | `qwen3_vl_8b_vllm_siglip2_eventlet8x3_anc32_bnd8_final64_px200704_dev_2026-07-11` | 0.7429 | 104/140 | 0.7519 | 0.7347 |

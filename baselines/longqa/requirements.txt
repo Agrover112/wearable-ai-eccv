@@ -23,6 +23,7 @@ qwen-vl-utils==0.0.14
 # Numerics (transitively pulled by torch/transformers; pinned to avoid drift)
 numpy==2.2.6
 scipy==1.15.3
+psutil==7.0.0
 
 # Evaluation: BLEU + LLM-judge text scoring
 nltk==3.9.4
