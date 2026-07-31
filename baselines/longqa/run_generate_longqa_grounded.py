@@ -156,6 +156,7 @@ def extract_frames_by_indices(video_path: str, frame_indices: list[int]) -> list
             image = Image.fromarray(frame_rgb)
             image.info["source_frame_index"] = frame_idx
             image.info["source_fps"] = fps
+            image.info["source_total_frames"] = total_frames
             frames.append(image)
         return frames
     finally:

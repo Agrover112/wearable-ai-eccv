@@ -57,6 +57,21 @@ def test_support_contradiction_prompt_requests_all_three_checks():
     assert "temporal order" in prompt
 
 
+def test_qwen35_verifier_prompt_uses_json_answer_contract():
+    row = {
+        "question": "What happened after payment?",
+        "mcq_options": "A. Sat B. Left C. Ordered D. Ate",
+    }
+    prompt = build_verifier_prompt(
+        row,
+        "B",
+        "D",
+        answer_prompt_variant="qwen3_5",
+    )
+    assert 'JSON object in exactly this format: {"answer":"C"}' in prompt
+    assert "Return only the final option letter" not in prompt
+
+
 def test_pairwise_prompt_exposes_only_candidate_semantics():
     row = {
         "question": "What happened after payment?",

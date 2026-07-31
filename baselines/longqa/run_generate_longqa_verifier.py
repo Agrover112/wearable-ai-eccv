@@ -11,6 +11,7 @@ import os
 from typing import Any
 
 from longqa_utils import (
+    PROMPT_VARIANTS,
     apply_subset,
     build_longqa_prompt,
     build_prediction_row,
@@ -103,8 +104,17 @@ def build_verifier_frame_indices(
 
 
 def build_verifier_prompt(
-    row: dict[str, Any], first: str, second: str, variant: str = "baseline"
+    row: dict[str, Any],
+    first: str,
+    second: str,
+    variant: str = "baseline",
+    answer_prompt_variant: str = "baseline",
 ) -> str:
+    answer_instruction = (
+        "Use the JSON answer format requested below."
+        if answer_prompt_variant == "qwen3_5"
+        else "Return only the final option letter."
+    )
     if variant == "support_contradiction":
         instruction = (
             "Two independent visual evidence passes disagreed and proposed options "
@@ -112,7 +122,7 @@ def build_verifier_prompt(
             "visible supporting evidence, visible contradictory evidence, and whether "
             "the required temporal order is satisfied. Prefer an option only when its "
             "support survives the contradiction and order checks. Do not assume either "
-            "proposed option is correct. Return only the final option letter."
+            f"proposed option is correct. {answer_instruction}"
         )
     else:
         instruction = (
@@ -120,10 +130,12 @@ def build_verifier_prompt(
             f"{first} and {second}. Re-evaluate the complete question using the supplied "
             "chronological evidence. Compare all four options, verify temporal order, "
             "and reject visually unsupported alternatives. Do not assume either proposed "
-            "option is correct. Return only the final option letter."
+            f"option is correct. {answer_instruction}"
         )
     return instruction + "\n\n" + build_longqa_prompt(
-        row["question"], row["mcq_options"], prompt_variant="baseline"
+        row["question"],
+        row["mcq_options"],
+        prompt_variant=answer_prompt_variant,
     )
 
 
@@ -211,12 +223,18 @@ def _fingerprint(args: argparse.Namespace) -> str:
         "verify_operators": sorted(args.verify_operators or []),
         "verifier_prompt": args.verifier_prompt,
         "blind_weight": args.blind_weight,
+        "model_type": args.model_type,
+        "prompt_variant": args.prompt_variant,
+        "longqa_max_new_tokens": args.longqa_max_new_tokens,
+        "max_disagreements": args.max_disagreements,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode()).hexdigest()[:12]
 
 
 def parse_args() -> argparse.Namespace:
+    from model import MODEL_TYPES
+
     parser = argparse.ArgumentParser(description="Verify LongQA candidate disagreements.")
     parser.add_argument(
         "--input", default="../egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl"
@@ -230,6 +248,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-output", default=None)
     parser.add_argument("--max-frames", type=int, default=64)
     parser.add_argument("--proofpack-quota", type=int, default=32)
+    parser.add_argument(
+        "--max-disagreements",
+        type=int,
+        default=None,
+        help="Stop the smoke run after this many verifier calls.",
+    )
     parser.add_argument(
         "--verify-operators",
         nargs="+",
@@ -255,9 +279,16 @@ def parse_args() -> argparse.Namespace:
         help="Blind-language score weight used by candidate_likelihood.",
     )
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
+    parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=1)
+    parser.add_argument(
+        "--prompt-variant",
+        choices=PROMPT_VARIANTS,
+        default="baseline",
+    )
+    parser.add_argument("--longqa-max-new-tokens", type=int, default=16)
     parser.add_argument("--no-resume-predictions", action="store_true")
     parser.add_argument("--no-eval", action="store_true")
     return parser.parse_args()
@@ -293,6 +324,17 @@ def main() -> None:
     if missing:
         raise RuntimeError(f"Candidate predictions missing {len(missing)} required rows")
 
+    if args.max_disagreements is not None:
+        disagreement_count = 0
+        end = len(rows)
+        for idx, row in enumerate(rows):
+            key = sample_key(row)
+            disagreement_count += _answer(primary[key]) != _answer(secondary[key])
+            if disagreement_count == args.max_disagreements:
+                end = idx + 1
+                break
+        rows = rows[:end]
+
     disagreements = [
         row for row in rows if _answer(primary[sample_key(row)]) != _answer(secondary[sample_key(row)])
     ]
@@ -322,7 +364,7 @@ def main() -> None:
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     mode = "a" if start else "w"
     model = create_model(
-        "qwen",
+        args.model_type,
         args.llm_model,
         backend=args.backend,
         tp_size=args.tp,
@@ -478,15 +520,22 @@ def main() -> None:
                             {
                                 "role": "user",
                                 "content": build_verifier_prompt(
-                                    row, first, second, args.verifier_prompt
+                                    row,
+                                    first,
+                                    second,
+                                    args.verifier_prompt,
+                                    args.prompt_variant,
                                 ),
                             }
                         ],
-                        max_new_tokens=16,
+                        max_new_tokens=args.longqa_max_new_tokens,
                     )
                     pred = build_prediction_row(
-                        row, response, prompt_variant="disagreement_verifier"
+                        row,
+                        response,
+                        prompt_variant=args.prompt_variant,
                     )
+                    pred["longqa_max_new_tokens"] = args.longqa_max_new_tokens
                 pred["verifier_applied"] = True
                 pred["verifier_frames"] = (
                     args.max_frames * 2

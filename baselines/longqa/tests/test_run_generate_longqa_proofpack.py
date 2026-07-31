@@ -6,6 +6,7 @@ from run_generate_longqa_proofpack import (
     baseline_uniform_indices,
     build_multi_event_queries,
     build_option_hypotheses,
+    build_proofpack_target_queries,
     build_structured_evidence_prompt,
     compile_temporal_program,
     select_adaq_pack,
@@ -58,6 +59,52 @@ def test_first_questions_preserve_multiple_events():
 def test_baseline_uniform_indices_match_single_interval_sampling():
     assert baseline_uniform_indices(101, 4) == [0, 25, 50, 75]
     assert baseline_uniform_indices(3, 8) == [0, 1]
+
+
+def test_proofpack_question_query_excludes_answer_options():
+    row = {
+        "question": "What happened after payment?",
+        "mcq_options": "A. Sat B. Left C. Ordered D. Ate",
+    }
+    query = build_proofpack_target_queries(row, "question")[0]
+    assert query.label == "question"
+    assert row["question"] in query.text
+    assert row["mcq_options"] not in query.text
+
+
+def test_proofpack_option_mean_queries_keep_letters_separate():
+    row = {
+        "question": "What happened after payment?",
+        "mcq_options": "A. Sat B. Left C. Ordered D. Ate",
+    }
+    queries = build_proofpack_target_queries(row, "question_option_mean")
+    assert [query.label for query in queries] == [
+        "question",
+        "option_A",
+        "option_B",
+        "option_C",
+        "option_D",
+    ]
+    assert "A. Sat" not in queries[0].text
+    assert queries[1].text == "Candidate answer: Sat"
+
+
+def test_proofpack_temporal_target_queries_use_compiled_target_clause():
+    row = {
+        "question": "After paying for coffee, what did I pick up?",
+        "mcq_options": "A. Cup B. Bag C. Phone D. Keys",
+    }
+    program = compile_temporal_program(row["question"])
+    combined = build_proofpack_target_queries(
+        row, "temporal_target_options", program
+    )[0]
+    balanced = build_proofpack_target_queries(
+        row, "temporal_target_option_mean", program
+    )
+    assert "paying for coffee" not in combined.text
+    assert program.target in combined.text
+    assert program.target in balanced[0].text
+    assert balanced[1].text == "Candidate answer: Cup"
 
 
 def test_multi_event_queries_split_temporally_distinct_clauses():
@@ -208,6 +255,98 @@ def test_temporal_pivot_before_constrains_target_centers_backward():
         temporal_nms_seconds=5.0,
     )
     assert all(index < 100 for index in meta["target_centers"])
+
+
+def test_temporal_pivot_per_pivot_mask_keeps_both_directional_hypotheses():
+    candidates = _candidates()
+    count = len(candidates)
+    # The highest-scoring pivot is late, while the second pivot leaves room for
+    # a distinct target that the primary-only mask would discard
+    pivot_scores = [0.0] * count
+    pivot_scores[20] = 2.0
+    pivot_scores[10] = 1.0
+    target_scores = [0.0] * count
+    target_scores[12] = 2.0
+    target_scores[22] = 1.0
+    _, primary_meta = select_temporal_pivot_pack(
+        candidates,
+        pivot_scores,
+        target_scores,
+        _features(),
+        TemporalProgram("AFTER", "event", "forward", "next activity"),
+        pivot_centers=2,
+        target_centers=2,
+        eventlet_radius=1,
+        anchor_k=4,
+        bridge_k=4,
+        final_max_frames=20,
+        temporal_nms_seconds=5.0,
+    )
+    _, per_pivot_meta = select_temporal_pivot_pack(
+        candidates,
+        pivot_scores,
+        target_scores,
+        _features(),
+        TemporalProgram("AFTER", "event", "forward", "next activity"),
+        pivot_centers=2,
+        target_centers=2,
+        eventlet_radius=1,
+        anchor_k=4,
+        bridge_k=4,
+        final_max_frames=20,
+        temporal_nms_seconds=5.0,
+        pivot_mask_mode="per_pivot",
+    )
+    assert all(index > 200 for index in primary_meta["target_centers"])
+    assert 120 in per_pivot_meta["target_centers"]
+    assert set(per_pivot_meta["target_centers_by_pivot"]) == {"100", "200"}
+
+
+def test_temporal_pivot_primary_mode_bridges_legacy_first_two_targets():
+    candidates = _candidates(30)
+    pivot_scores = [-(idx - 5) ** 2 for idx in range(30)]
+    target_scores = [0.0] * 30
+    target_scores[15] = 3.0
+    target_scores[25] = 2.0
+    selected, _ = select_temporal_pivot_pack(
+        candidates,
+        pivot_scores,
+        target_scores,
+        _features(30),
+        TemporalProgram("AFTER", "event", "forward", "next activity"),
+        pivot_centers=1,
+        target_centers=2,
+        eventlet_radius=1,
+        anchor_k=0,
+        bridge_k=6,
+        final_max_frames=30,
+        temporal_nms_seconds=5.0,
+    )
+    sources = {frame.candidate.index: frame.source for frame in selected}
+    assert sources[70] == "bridge"
+    assert sources[200] == "bridge"
+
+
+def test_temporal_pivot_can_exclude_pivot_eventlets_from_target_quota():
+    candidates = _candidates()
+    count = len(candidates)
+    shared_scores = [-(idx - 10) ** 2 for idx in range(count)]
+    _, meta = select_temporal_pivot_pack(
+        candidates,
+        shared_scores,
+        shared_scores,
+        _features(),
+        TemporalProgram("FIRST", "event", "multi_event", "event"),
+        pivot_centers=1,
+        target_centers=2,
+        eventlet_radius=1,
+        anchor_k=4,
+        bridge_k=4,
+        final_max_frames=20,
+        temporal_nms_seconds=5.0,
+        exclude_pivot_target_overlap=True,
+    )
+    assert set(meta["target_centers"]).isdisjoint({90, 100, 110})
 
 
 def test_temporal_pivot_uniform_coverage_fill_avoids_boundary_frames():

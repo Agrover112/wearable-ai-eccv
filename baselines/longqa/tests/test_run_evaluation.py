@@ -173,6 +173,7 @@ class TestNormalizeAnswer:
             ("I think the answer is C.", "C"),
             ("  A  ", "A"),
             ("\nB\n", "B"),
+            ('{"answer":"C"}', "C"),
         ],
     )
     def test_formatted_answers(self, raw, expected):
@@ -188,8 +189,12 @@ class TestNormalizeAnswer:
     def test_embedded_letter(self):
         assert ev.normalize_answer("I choose B as my answer") == "B"
 
-    def test_first_char_fallback(self):
-        assert ev.normalize_answer("Definitely") == "D"
+    def test_does_not_parse_first_letter_of_prose(self):
+        assert ev.normalize_answer("Definitely") == ""
+
+    def test_does_not_parse_option_letters_from_unfinished_reasoning(self):
+        raw = "A. first possibility\nB. second possibility\nLet's look more closely"
+        assert ev.normalize_answer(raw) == ""
 
 
 # ---------------------------------------------------------------------------
@@ -728,6 +733,13 @@ class TestCLIParsing:
             ]
         )
         assert args.output == "/tmp/results.json"
+
+    def test_longqa_max_new_tokens(self):
+        parser = ev._build_parser()
+        args = parser.parse_args(
+            ["--task", "longqa", "--longqa-max-new-tokens", "1024"]
+        )
+        assert args.longqa_max_new_tokens == 1024
 
     def test_judge_batch_size(self):
         parser = ev._build_parser()
@@ -1796,9 +1808,45 @@ class TestCreateModelBackend:
             model = mdl.create_model("internvideo3", backend="hf")
             assert isinstance(model, mdl.InternVideo3Model)
 
+    def test_create_model_hf_dispatches_qwen3_5(self):
+        with unittest.mock.patch.object(
+            mdl.Qwen35Model, "__init__", return_value=None
+        ):
+            model = mdl.create_model("qwen3_5", backend="hf")
+            assert isinstance(model, mdl.Qwen35Model)
+
+    def test_create_model_hf_dispatches_qwen3_5_images(self):
+        with unittest.mock.patch.object(
+            mdl.Qwen35ImageModel, "__init__", return_value=None
+        ):
+            model = mdl.create_model("qwen3_5_images", backend="hf")
+            assert isinstance(model, mdl.Qwen35ImageModel)
+
+    def test_create_model_hf_dispatches_lfm2_5_vl(self):
+        with unittest.mock.patch.object(
+            mdl.LFM25VLModel, "__init__", return_value=None
+        ):
+            model = mdl.create_model("lfm2_5_vl", backend="hf")
+            assert isinstance(model, mdl.LFM25VLModel)
+
+    def test_create_model_hf_dispatches_fastvlm(self):
+        with unittest.mock.patch.object(
+            mdl.FastVLMModel, "__init__", return_value=None
+        ):
+            model = mdl.create_model("fastvlm", backend="hf")
+            assert isinstance(model, mdl.FastVLMModel)
+
     def test_create_model_rejects_internvideo3_vllm(self):
         with pytest.raises(ValueError, match="vLLM does not support"):
             mdl.create_model("internvideo3", backend="vllm")
+
+    def test_create_model_rejects_qwen3_5_vllm(self):
+        with pytest.raises(ValueError, match="vLLM does not support"):
+            mdl.create_model("qwen3_5", backend="vllm")
+
+    def test_create_model_rejects_qwen3_5_images_vllm(self):
+        with pytest.raises(ValueError, match="vLLM does not support"):
+            mdl.create_model("qwen3_5_images", backend="vllm")
 
     def test_create_model_default_backend_is_hf(self):
         """Without backend param, create_model should return HF model instance."""

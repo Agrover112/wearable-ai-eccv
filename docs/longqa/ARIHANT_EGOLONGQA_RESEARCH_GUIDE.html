@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arihant's EgoLongQA experiment guide</title>
+<style>
+  :root {
+    --paper: #fbfbf8;
+    --panel: #ffffff;
+    --ink: #17191e;
+    --soft: #4d515b;
+    --faint: #858a94;
+    --line: #d9dad5;
+    --method: #087c72;
+    --method-bg: #e9f6f3;
+    --data: #52751c;
+    --data-bg: #f0f6e6;
+    --train: #8b326a;
+    --train-bg: #faedf5;
+    --run: #ad640c;
+    --run-bg: #fcf2e3;
+    --artifact: #4a50bd;
+    --artifact-bg: #eef0fb;
+    --warn: #9a3c2c;
+    --warn-bg: #fff0eb;
+    --code-bg: #15171d;
+    --code-ink: #d9dce4;
+    --code-key: #78d2c6;
+    --code-str: #edb46c;
+    --code-comment: #7b8190;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15.5px;
+    line-height: 1.65;
+  }
+  a { color: var(--artifact); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  a:focus-visible { outline: 2px solid var(--artifact); outline-offset: 2px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 276px minmax(0, 1fr);
+    max-width: 1360px;
+    margin: 0 auto;
+  }
+  nav {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 22px 56px 28px;
+    border-right: 1px solid var(--line);
+    font-size: 13px;
+  }
+  nav .brand {
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .12em;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+  }
+  nav ul { list-style: none; }
+  nav li { margin: 2px 0; }
+  nav a {
+    border-radius: 5px;
+    color: var(--soft);
+    display: block;
+    padding: 4px 8px;
+  }
+  nav a:hover { background: #f0f0ec; color: var(--ink); text-decoration: none; }
+  nav .sub { font-size: 12px; padding-left: 19px; }
+  nav .group {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    margin-top: 15px;
+    padding: 0 8px 4px;
+    text-transform: uppercase;
+  }
+  .g-method { color: var(--method); }
+  .g-data { color: var(--data); }
+  .g-train { color: var(--train); }
+  .g-run { color: var(--run); }
+  .g-artifact { color: var(--artifact); }
+  .g-warn { color: var(--warn); }
+
+  main { min-width: 0; padding: 42px 56px 110px; }
+  header { margin-bottom: 48px; }
+  header .path {
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-bottom: 13px;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-size: 38px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.18;
+  }
+  h1 span { color: var(--faint); font-weight: 400; }
+  .lede { color: var(--soft); font-size: 16px; margin-top: 16px; max-width: 84ch; }
+  .legend { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 22px; }
+  .legend span {
+    border: 1px solid;
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+  .method { background: var(--method-bg); border-color: var(--method); color: var(--method); }
+  .data { background: var(--data-bg); border-color: var(--data); color: var(--data); }
+  .train { background: var(--train-bg); border-color: var(--train); color: var(--train); }
+  .run { background: var(--run-bg); border-color: var(--run); color: var(--run); }
+  .artifact { background: var(--artifact-bg); border-color: var(--artifact); color: var(--artifact); }
+  .warn { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+
+  section { margin-bottom: 66px; }
+  section > h2 {
+    align-items: baseline;
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    gap: 12px;
+    letter-spacing: 0;
+    margin-bottom: 22px;
+    padding-bottom: 10px;
+  }
+  .tag {
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    padding: 3px 8px;
+    text-transform: uppercase;
+  }
+  h3 { font-family: var(--mono); font-size: 16px; margin: 32px 0 11px; }
+  h4 { color: var(--soft); font-family: var(--mono); font-size: 13.5px; margin: 22px 0 7px; }
+  p { margin: 10px 0; max-width: 86ch; }
+  ul, ol { margin: 10px 0 10px 23px; max-width: 86ch; }
+  li { margin: 5px 0; }
+  code {
+    background: #eeeeea;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: .88em;
+    overflow-wrap: anywhere;
+    padding: 1px 5px;
+  }
+  pre {
+    background: var(--code-bg);
+    border-radius: 8px;
+    color: var(--code-ink);
+    font-size: 12.5px;
+    line-height: 1.62;
+    margin: 14px 0;
+    overflow-x: auto;
+    padding: 16px 18px;
+  }
+  pre code { background: none; color: inherit; font-size: inherit; padding: 0; white-space: pre; }
+  pre .key { color: var(--code-key); }
+  pre .str { color: var(--code-str); }
+  pre .comment { color: var(--code-comment); font-style: italic; }
+
+  .entry-grid, .stat-grid {
+    display: grid;
+    gap: 15px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 18px 0;
+  }
+  .entry, .stat {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 17px;
+  }
+  .entry.method-entry { border-top: 4px solid var(--method); }
+  .entry.infer-entry { border-top: 4px solid var(--run); }
+  .entry.invert-entry { border-top: 4px solid var(--artifact); }
+  .entry.entropy-entry { border-top: 4px solid var(--warn); }
+  .entry h3 { font-size: 15px; margin: 0 0 8px; }
+  .entry p { color: var(--soft); font-size: 13.5px; margin: 7px 0; }
+  .entry .command { color: var(--ink); font-family: var(--mono); font-size: 11.5px; overflow-wrap: anywhere; }
+  .stat { border-left: 4px solid var(--artifact); }
+  .stat strong { display: block; font-family: var(--mono); font-size: 28px; line-height: 1.2; }
+  .stat span { color: var(--soft); display: block; font-size: 13px; margin-top: 5px; }
+
+  .tree {
+    display: grid;
+    gap: 13px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 18px 0;
+  }
+  .band {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--artifact);
+    border-radius: 7px;
+    padding: 13px 16px;
+  }
+  .band.method-band { border-left-color: var(--method); }
+  .band.data-band { border-left-color: var(--data); }
+  .band.run-band { border-left-color: var(--run); }
+  .band.warn-band { border-left-color: var(--warn); }
+  .band h4 { color: var(--ink); margin: 0 0 5px; }
+  .band p { color: var(--soft); font-size: 13.5px; margin: 0; }
+
+  .flow {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 20px 0;
+    overflow: hidden;
+    padding: 20px 24px;
+  }
+  .stage {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: minmax(180px, 245px) 1fr;
+    padding: 13px 0;
+  }
+  .stage + .stage { border-top: 1px dashed var(--line); }
+  .stage .box {
+    align-self: start;
+    background: var(--method-bg);
+    border: 1px solid #b9ded8;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+    padding: 9px 11px;
+  }
+  .stage.data-stage .box { background: var(--data-bg); border-color: #ccdda9; }
+  .stage.run-stage .box { background: var(--run-bg); border-color: #ead1ac; }
+  .stage.artifact-stage .box { background: var(--artifact-bg); border-color: #cbd0ef; }
+  .stage.warn-stage .box { background: var(--warn-bg); border-color: #edc1b6; }
+  .stage .box small { color: var(--faint); display: block; font-size: 10px; font-weight: 400; margin-top: 3px; }
+  .stage .desc { color: var(--soft); font-size: 13.5px; min-width: 0; }
+  .stage .loc { color: var(--faint); display: block; font-family: var(--mono); font-size: 10.8px; margin-top: 5px; }
+  .shape { background: #eeeeea; border-radius: 4px; color: var(--ink); font-family: var(--mono); font-size: 11.5px; padding: 1px 5px; }
+
+  table { border-collapse: collapse; font-size: 13.2px; margin: 14px 0; width: 100%; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th {
+    background: #f1f1ed;
+    color: var(--soft);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .source-row td { background: #f7f7f3; }
+  .target-row td { background: var(--method-bg); }
+  .winner-row td { background: var(--run-bg); }
+  .entropy-row td { background: var(--warn-bg); }
+  .nowrap { white-space: nowrap; }
+  .small { color: var(--soft); font-size: 12.5px; }
+
+  .note {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--artifact);
+    border-radius: 7px;
+    color: var(--soft);
+    font-size: 13.8px;
+    margin: 16px 0;
+    max-width: 90ch;
+    padding: 13px 16px;
+  }
+  .note strong { color: var(--ink); }
+  .note.method-note { border-left-color: var(--method); }
+  .note.data-note { border-left-color: var(--data); }
+  .note.run-note { border-left-color: var(--run); }
+  .note.warn-note { border-left-color: var(--warn); }
+
+  .reading-path { counter-reset: read; list-style: none; margin-left: 0; }
+  .reading-path li {
+    align-items: baseline;
+    counter-increment: read;
+    display: grid;
+    gap: 11px;
+    grid-template-columns: 28px 1fr;
+    margin: 8px 0;
+  }
+  .reading-path li::before {
+    background: var(--artifact-bg);
+    border-radius: 50%;
+    color: var(--artifact);
+    content: counter(read);
+    font-family: var(--mono);
+    font-size: 11px;
+    height: 25px;
+    line-height: 25px;
+    text-align: center;
+    width: 25px;
+  }
+  .formula {
+    border-left: 3px solid var(--warn);
+    font-family: var(--mono);
+    font-size: 14px;
+    margin: 15px 0;
+    padding: 7px 14px;
+  }
+  .source-list { font-size: 13px; }
+  .source-list li { margin: 7px 0; }
+  footer {
+    border-top: 1px solid var(--line);
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-top: 70px;
+    padding-top: 18px;
+  }
+
+  @media (max-width: 980px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { border-bottom: 1px solid var(--line); border-right: none; height: auto; position: static; }
+    main { padding: 30px 22px 90px; }
+    .entry-grid, .stat-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    h1 { font-size: 29px; }
+    .tree, .stage { grid-template-columns: 1fr; }
+    table { display: block; overflow-x: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav aria-label="Guide contents">
+  <div class="brand">EgoLongQA / research guide</div>
+  <ul>
+    <li><a href="#start">0. Start here</a></li>
+    <li><a href="#scope">1. Scope and repository map</a></li>
+    <li class="group g-data">Inputs</li>
+    <li><a href="#task">2. Task and evaluation</a></li>
+    <li><a href="#shared">3. Shared inference path</a></li>
+    <li class="group g-method">Top approaches</li>
+    <li><a href="#ranking">4. Full-validation ranking</a></li>
+    <li><a href="#verifier">5. Disagreement verifier</a></li>
+    <li><a href="#coverage">6. Coverage-filled pivot</a></li>
+    <li><a href="#router">7. Exact operator router</a></li>
+    <li><a href="#pivot">8. Original temporal pivot</a></li>
+    <li><a href="#uniform">9. Uniform64 baseline</a></li>
+    <li class="group g-warn">Requested follow-up</li>
+    <li><a href="#entropy">10. Shannon-entropy probe</a></li>
+    <li class="group g-run">Experiment history</li>
+    <li><a href="#predecessors">11. Predecessors and dead ends</a></li>
+    <li><a href="#artifacts">12. Artifacts and provenance</a></li>
+    <li><a href="#modify">13. Where to read or modify</a></li>
+  </ul>
+</nav>
+
+<main>
+<header>
+  <div class="path">wearable-ai-eccv / baselines / longqa</div>
+  <h1>Arihant's EgoLongQA<br><span>approaches, prompts, settings, and evidence</span></h1>
+  <p class="lede">
+    A code-reading guide to the most consequential EgoLongQA experiments in the
+    original branch. The central story is not a new trained model: it is an
+    inference-time search over <em>which frames to show Qwen3-VL</em>, followed by a
+    small amount of arbitration when two evidence views disagree.
+  </p>
+  <div class="legend">
+    <span class="method">selection and scoring</span>
+    <span class="data">video and dataset</span>
+    <span class="run">model and inference</span>
+    <span class="artifact">logs and outputs</span>
+    <span class="warn">entropy experiment</span>
+  </div>
+</header>
+
+<section id="start">
+<h2>0. Start here <span class="tag run">the short answer</span></h2>
+<p>
+  The best completed local validation run is a <strong>pivot/uniform disagreement
+  verifier</strong>: a temporal proof-pack answerer is compared with a uniform64
+  answerer, and Qwen3-VL is called again only for the 122 disagreements. It reaches
+  <strong>539/700 = 77.00%</strong>. The best evidence-selection-only variants sit at
+  528–529/700; the high-resolution uniform baseline reaches 514/700.
+</p>
+
+<div class="stat-grid">
+  <div class="stat"><strong>539 / 700</strong><span>disagreement verifier; strongest completed full validation</span></div>
+  <div class="stat"><strong>529 / 700</strong><span>coverage-filled pivot and exact operator router; tied</span></div>
+  <div class="stat"><strong>16 / 20</strong><span>best entropy probe on a tiny dev20 smoke split; not a promoted full run</span></div>
+</div>
+
+<div class="note">
+  <strong>How to use this page.</strong> Read sections 3–5 first if you want the
+  method in one sitting. Then jump to section 10 for the Shannon-entropy idea. Code
+  links point to the current committed source surface; result links point to the
+  experiment ledger. The page intentionally uses pseudocode instead of reproducing
+  the implementation.
+</div>
+
+<h3>Recommended reading path</h3>
+<ol class="reading-path">
+  <li><span><a href="#task">Task and evaluation</a> — what one score means, and why C-heavy shortcuts matter.</span></li>
+  <li><span><a href="#shared">Shared inference path</a> — the common Qwen3-VL call every approach eventually uses.</span></li>
+  <li><span><a href="#ranking">Ranking</a> — the five full-validation rows and the split caveat.</span></li>
+  <li><span><a href="#verifier">Verifier</a> — the actual winning idea: evidence selection plus arbitration.</span></li>
+  <li><span><a href="#entropy">Entropy</a> — yes, he tried it; here is exactly what it measured and why it did not win.</span></li>
+</ol>
+</section>
+
+<section id="scope">
+<h2>1. Scope and repository map <span class="tag artifact">evidence boundary</span></h2>
+<p>
+  Arihant is not named consistently in the repository metadata. This guide treats
+  commits authored as <code>agaur</code> and <code>Agrover112</code> as his work,
+  matching the branch history and the long-QA experiment records. The current branch
+  also contains later uncommitted Qwen3.5 scripts and edits; those are deliberately
+  excluded from the ranking below.
+</p>
+
+<div class="tree">
+  <div class="band method-band">
+    <h4><a href="../../baselines/longqa/run_generate_longqa.py"><code>run_generate_longqa.py</code></a></h4>
+    <p>The direct, uniform-frame baseline. It is the control used to measure whether a selector is helping.</p>
+  </div>
+  <div class="band method-band">
+    <h4><a href="../../baselines/longqa/run_generate_longqa_grounded.py"><code>run_generate_longqa_grounded.py</code></a></h4>
+    <p>SigLIP/SigLIP2 frame relevance scoring, anchors, eventlets, and early retrieval hybrids.</p>
+  </div>
+  <div class="band method-band">
+    <h4><a href="../../baselines/longqa/run_generate_longqa_proofpack.py"><code>run_generate_longqa_proofpack.py</code></a></h4>
+    <p>Question-language parsing and temporal proof packs: pivot, coverage fill, routers, QCA, and multi-event probes.</p>
+  </div>
+  <div class="band method-band">
+    <h4><a href="../../baselines/longqa/run_generate_longqa_verifier.py"><code>run_generate_longqa_verifier.py</code></a></h4>
+    <p>Primary/secondary prediction comparison and disagreement-only Qwen re-evaluation.</p>
+  </div>
+  <div class="band warn-band">
+    <h4><a href="../../baselines/longqa/run_generate_longqa_uncertainty.py"><code>run_generate_longqa_uncertainty.py</code></a></h4>
+    <p>The late Shannon-entropy probe: one-token top-logprob uncertainty used as a frame-selection signal.</p>
+  </div>
+  <div class="band data-band">
+    <h4><a href="../../baselines/longqa/model.py"><code>model.py</code> + <code>longqa_utils.py</code></a></h4>
+    <p>Video decoding, PIL frame packaging, vLLM request construction, token parsing, prompts, and metrics.</p>
+  </div>
+</div>
+
+<pre><code>baselines/longqa/
+  run_generate_longqa.py              <span class="comment"># uniform/direct baseline</span>
+  run_generate_longqa_grounded.py     <span class="comment"># SigLIP retrieval and hybrids</span>
+  run_generate_longqa_proofpack.py    <span class="comment"># temporal programs and proof packs</span>
+  run_generate_longqa_verifier.py     <span class="comment"># disagreement arbitration</span>
+  run_generate_longqa_uncertainty.py  <span class="comment"># Shannon-entropy selection</span>
+  model.py                             <span class="comment"># vLLM + frame extraction + scoring</span>
+  longqa_utils.py                      <span class="comment"># prompts, parsing, evaluation</span>
+docs/longqa/
+  RUN_LOG.md                           <span class="comment"># run ledger and full details</span>
+  LONGQA_PROOFPACK_EXPERIMENTS.md      <span class="comment"># proof-pack design notes</span>
+  LONGQA_EVIDENCE_AUDIT_2026-07-14.md  <span class="comment"># verifier/QCA audit</span>
+  LONGQA_MEETING_BRIEF_2026-07-17.md   <span class="comment"># consolidated interpretation</span></code></pre>
+</section>
+
+<section id="task">
+<h2>2. Task and evaluation <span class="tag data">700 video questions</span></h2>
+<p>
+  Each EgoLongQA row contains a long egocentric video, one multiple-choice question,
+  four answer options, and the gold field <code>mcq_answer</code>. The model must
+  return one of <code>A</code>, <code>B</code>, <code>C</code>, or <code>D</code>.
+  The canonical validation split has 700 rows; the dev140 and dev20 subsets are
+  iteration tools, not independent leaderboard claims.
+</p>
+
+<table>
+  <thead><tr><th>Fact</th><th>Why it changes the experiment</th></tr></thead>
+  <tbody>
+    <tr><td>Videos are roughly ten minutes; source capture is about 15 fps</td><td>Showing every frame is impossible, so frame selection is the main scientific bottleneck.</td></tr>
+    <tr><td>Four options, A–D</td><td>Prompts can be strict one-letter MCQ prompts; likelihood and verifier variants must still map back to option letters.</td></tr>
+    <tr><td>Gold option C appears in 444/700 rows (63.4%)</td><td>Raw accuracy can be inflated by always-C or other answer-format shortcuts.</td></tr>
+    <tr><td>About 79.1% of questions have temporal cues</td><td>Words such as <code>before</code>, <code>after</code>, <code>first</code>, and <code>last</code> justify a temporal selector.</td></tr>
+    <tr><td>Reported metric is raw accuracy, with shortcut-aware diagnostics</td><td>Use temporal/non-C/macro breakdowns to decide whether a gain is visual reasoning or label bias.</td></tr>
+  </tbody>
+</table>
+
+<div class="note data-note">
+  <strong>Local evidence only.</strong> The numbers in this guide are completed
+  validation runs recorded in <a href="RUN_LOG.md">the repository ledger</a>. They
+  are not organizer test-set or public competition leaderboard results.
+</div>
+
+<h3>Stable data and evaluation contract</h3>
+<pre><code><span class="comment"># one conceptual record</span>
+row = {
+    "id": "...",                         <span class="comment"># stable sample key when present</span>
+    "video_path": "...",
+    "question": "...",
+    "options": ["...", "...", "...", "..."],
+    "mcq_answer": "A"                    <span class="comment"># gold label</span>
+}
+
+prediction = {
+    "sample_key": row["id"] or row["video_path"] + "||" + row["question"],
+    "answer": "C",
+    "frame_indices": [...],
+    "timestamps": [...],
+    "prompt": "...",
+    "model": "Qwen/Qwen3-VL-8B-Instruct"
+}</code></pre>
+</section>
+
+<section id="shared">
+<h2>3. Shared inference path <span class="tag method">selection → answer</span></h2>
+<p>
+  Every winning recipe is an inference-time wrapper around the same answer model.
+  Some recipes use SigLIP2 or a second Qwen call to decide which images to show, but
+  the final answer is generally produced by Qwen3-VL-8B-Instruct with the same
+  concise MCQ prompt and deterministic decoding.
+</p>
+
+<div class="flow">
+  <div class="stage data-stage">
+    <div class="box">decode video<small><code>model.py::extract_frames()</code></small></div>
+    <div class="desc">Read FPS and frame count with OpenCV. Uniformly sample a candidate set, convert BGR to RGB PIL images, and preserve the original frame index and timestamp.</div>
+  </div>
+  <div class="stage method-stage">
+    <div class="box">select evidence<small>uniform, SigLIP2, pivot, or entropy</small></div>
+    <div class="desc">Choose at most 64 chronological frames. A selector may start with 128 candidates, but Qwen receives the final pack only.</div>
+  </div>
+  <div class="stage run-stage">
+    <div class="box">build multimodal request<small><code>model.py::VLLMModel.generate()</code></small></div>
+    <div class="desc">Encode each selected PIL image as a JPEG data URL and insert image content before the question text in one OpenAI-compatible user message.</div>
+  </div>
+  <div class="stage run-stage">
+    <div class="box">answer once<small>Qwen3-VL / vLLM</small></div>
+    <div class="desc">Temperature 0, usually <code>max_new_tokens=16</code>, and strict letter extraction. The selector is not a separately trained head.</div>
+  </div>
+  <div class="stage artifact-stage">
+    <div class="box">record evidence<small><code>predictions.jsonl</code> + results</small></div>
+    <div class="desc">Write the answer, selected indices/timestamps, prompt/settings, cache fingerprints, evaluation result, and diagnostics so a run can be audited without rerunning the model.</div>
+  </div>
+</div>
+
+<h3>The direct answer prompt</h3>
+<pre><code>Watch the video and answer the following multiple-choice question.
+
+Question: {question}
+
+Options:
+{mcq_options}
+
+Answer with ONLY the single letter of the correct option (A, B, C, or D). Do not include any other text.</code></pre>
+
+<div class="note method-note">
+  <strong>Important implementation detail.</strong> <code>--max-frames</code> is a
+  cap, not the sampling request. The baseline sets both
+  <code>--frames-per-interval 64</code> and <code>--max-frames 64</code>. Changing
+  only the cap can leave fewer candidate frames than intended.
+</div>
+</section>
+
+<section id="ranking">
+<h2>4. Full-validation ranking <span class="tag run">top five completed rows</span></h2>
+<p>
+  This is the cleanest answer to “what were the top five winning approaches?”:
+  exact completed 700-row runs, sorted by raw accuracy. The tied rows are kept
+  separate because they implement different policies even when they land on the
+  same count.
+</p>
+
+<table>
+  <thead><tr><th>Rank</th><th>Approach / run family</th><th>Full val</th><th>Core change</th><th>Cost / notes</th></tr></thead>
+  <tbody>
+    <tr class="winner-row">
+      <td class="nowrap"><strong>1</strong></td>
+      <td><a href="#verifier"><strong>Pivot + uniform disagreement verifier</strong></a><br><span class="small">2026-07-12</span></td>
+      <td class="nowrap"><strong>539/700<br>77.00%</strong></td>
+      <td>Answer with both evidence views; re-call Qwen only on disagreement.</td>
+      <td>122 verifier calls; +11 over the 528/700 pivot.</td>
+    </tr>
+    <tr>
+      <td class="nowrap"><strong>2</strong></td>
+      <td><a href="#coverage"><strong>Coverage-filled temporal pivot</strong></a><br><span class="small">anc32, tgt6</span></td>
+      <td class="nowrap"><strong>529/700<br>75.57%</strong></td>
+      <td>Temporal proof pack plus greedy largest-uncovered-gap fill.</td>
+      <td>64 frames from 128 candidates; only +1 over original pivot.</td>
+    </tr>
+    <tr>
+      <td class="nowrap"><strong>3</strong></td>
+      <td><a href="#router"><strong>Exact operator router</strong></a><br><span class="small">pivot24 / global uniform64</span></td>
+      <td class="nowrap"><strong>529/700<br>75.57%</strong></td>
+      <td>Use uniform64 for <code>GLOBAL</code>; use temporal pivot for explicit operators.</td>
+      <td>493 pivot routes + 207 global routes; tied with coverage fill.</td>
+    </tr>
+    <tr>
+      <td class="nowrap"><strong>4</strong></td>
+      <td><a href="#pivot"><strong>Original temporal-pivot proof pack</strong></a><br><span class="small">anc24, tgt8</span></td>
+      <td class="nowrap"><strong>528/700<br>75.43%</strong></td>
+      <td>Parse temporal language, find a pivot, gather directional targets, bridges, and anchors.</td>
+      <td>64 frames from 128 candidates; 111/140 on dev140.</td>
+    </tr>
+    <tr>
+      <td class="nowrap"><strong>5</strong></td>
+      <td><a href="#uniform"><strong>Uniform64 high-resolution baseline</strong></a><br><span class="small">451,584 pixels</span></td>
+      <td class="nowrap"><strong>514/700<br>73.43%</strong></td>
+      <td>64 frames spread across the whole video; no learned selector.</td>
+      <td>Simple control; about 27.9K prompt tokens per sample.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note run-note">
+  <strong>How to interpret “top five.”</strong> Rows 2–4 are closely related
+  temporal-selection variants, not five independent model families. The
+  de-duplicated story is: broad coverage matters, temporal language helps, and
+  arbitration between complementary evidence packs helps more than another prompt
+  rewrite.
+</div>
+
+<h3>Fair comparison caveat</h3>
+<table>
+  <thead><tr><th>Split</th><th>Best local rows</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td>Full val700</td><td>Verifier 539; coverage/router 529; pivot 528; uniform 514</td><td>Final ranking of completed local experiments.</td></tr>
+    <tr><td>Dev140</td><td>Pivot and support/contradiction verifier 111; uniform and multi-event 110; coverage fill 108</td><td>Fast iteration diagnostics; noisy enough to change the order.</td></tr>
+    <tr><td>Dev20</td><td>Entropy pivot 16/20</td><td>Smoke testing a new selector; far too small for promotion.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="verifier">
+<h2>5. Winner: disagreement verifier <span class="tag run">539/700</span></h2>
+<p>
+  The winning recipe separates two problems. First, obtain two independently useful
+  views of the video: a temporal-pivot proof pack and a uniform64 pack. Second, let
+  Qwen arbitrate only when those views produce different letters. Agreements do not
+  spend another model call.
+</p>
+
+<div class="flow">
+  <div class="stage method-stage">
+    <div class="box">primary prediction<small>temporal pivot</small></div>
+    <div class="desc">Use the question-conditioned proof pack and store its answer, selected frames, operator, and evidence roles.</div>
+  </div>
+  <div class="stage method-stage">
+    <div class="box">secondary prediction<small>uniform64</small></div>
+    <div class="desc">Run the same final Qwen answer prompt on a broad, evenly spaced 64-frame view.</div>
+  </div>
+  <div class="stage run-stage">
+    <div class="box">agreement gate<small>stable sample key</small></div>
+    <div class="desc">If letters agree, copy the primary answer. If they differ, form one union pack with proof-pack frames plus the missing uniform coverage.</div>
+  </div>
+  <div class="stage run-stage">
+    <div class="box">verifier call<small>122 samples only</small></div>
+    <div class="desc">Ask Qwen to compare all four options, check visible support and temporal order, and return one final letter.</div>
+  </div>
+</div>
+
+<h3>Verifier frame union</h3>
+<p>
+  <a href="../../baselines/longqa/run_generate_longqa_verifier.py"><code>build_verifier_frame_indices()</code></a>
+  prioritizes frames already identified as evidence, then restores broad time
+  coverage. The default quota takes up to 32 proof-pack frames and fills the rest
+  from the exact uniform64 grid, deduplicating and sorting chronologically.
+</p>
+
+<table>
+  <thead><tr><th>Priority</th><th>Frame sources</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td>0</td><td>Pivot and directional target frames</td><td>Most question-specific evidence.</td></tr>
+    <tr><td>1</td><td>Bridge/context frames</td><td>Preserve transitions and temporal order.</td></tr>
+    <tr><td>2</td><td>Eventlet centers</td><td>Keep a small neighborhood around high-similarity events.</td></tr>
+    <tr><td>3</td><td>Uniform anchors</td><td>Prevent a selector from collapsing onto one moment.</td></tr>
+    <tr><td>4–5</td><td>Coverage fill and semantic-boundary frames</td><td>Use only after the higher-value evidence slots.</td></tr>
+  </tbody>
+</table>
+
+<h3>Verifier prompt</h3>
+<pre><code>Two independent visual evidence passes disagreed and proposed options {first}
+and {second}. Re-evaluate the complete question using the supplied chronological
+evidence. Compare all four options, verify temporal order, and reject visually
+unsupported alternatives. Do not assume either proposed option is correct. Return
+only the final option letter.
+
+Watch the video and answer the following multiple-choice question.
+
+Question: {question}
+
+Options:
+{mcq_options}
+
+Answer with ONLY the single letter of the correct option (A, B, C, or D). Do not include any other text.</code></pre>
+
+<h3>What the audit says</h3>
+<ul>
+  <li>Full validation: <strong>539/700</strong>, with 122 verifier calls.</li>
+  <li>Relative to the pivot primary: <strong>24 fixes and 13 regressions</strong>, a net +11.</li>
+  <li>On disagreements it selected the pivot 76 times, uniform 38 times, and a third answer 8 times.</li>
+  <li>The third answer was correct only once, so unconstrained “think again” behavior is not automatically useful.</li>
+  <li>An oracle that always picked the better of the two candidates would reach 575/700: the remaining gap is arbitration quality, not just frame visibility.</li>
+</ul>
+
+<h3>Third-option counterfactual</h3>
+<p>
+  The eight third-option rows can be audited directly. The temporal-pivot candidate
+  already contained the gold answer on <strong>2/8</strong> rows; the uniform64
+  candidate contained it on <strong>4/8</strong>. The two candidates disagree, so
+  these counts do not overlap. The third answer itself was correct on only one row.
+</p>
+
+<table>
+  <thead><tr><th>Forced policy on those 8 rows</th><th>Correct</th><th>Retrospective full-val score</th></tr></thead>
+  <tbody>
+    <tr><td>Always fall back to temporal pivot</td><td>2/8</td><td>540/700</td></tr>
+    <tr><td>Always fall back to uniform64</td><td>4/8</td><td><strong>542/700</strong></td></tr>
+    <tr><td>Hindsight candidate oracle</td><td>6/8</td><td>Not deployable; this is an upper bound for these rows</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Answer to the counterfactual.</strong> Yes: forcing the verifier to pick
+  one of the two candidates would have been better than allowing a third answer on
+  these rows, especially if it defaulted to uniform64. But it would not guarantee
+  correctness: in two of the eight rows both candidates were wrong. Also, a later
+  candidate-constrained order-swap verifier reached 109/140 on dev140, below the
+  111/140 pivot, so removing third answers is safer but does not by itself solve
+  arbitration.
+</div>
+
+<div class="note method-note">
+  <strong>Why this won.</strong> It made the extra model call conditional on measurable
+  disagreement, and the two packs have complementary failure modes. The verifier is
+  best understood as a cheap candidate arbitration layer, not as a new visual
+  backbone.
+</div>
+</section>
+
+<section id="coverage">
+<h2>6. Coverage-filled temporal pivot <span class="tag method">529/700</span></h2>
+<p>
+  This is the revised temporal proof pack. It keeps the semantic event selection of
+  the original pivot but changes how the remaining frame slots are filled. Instead
+  of trusting a hand-written “semantic boundary” filler, it greedily covers the
+  largest temporal gap left by the frames already selected.
+</p>
+
+<table>
+  <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Answer model</td><td>Qwen/Qwen3-VL-8B-Instruct through vLLM; temperature 0; max output 16 tokens.</td></tr>
+    <tr><td>Grounder</td><td><code>google/siglip2-so400m-patch14-384</code>, bfloat16, batch size 16.</td></tr>
+    <tr><td>Candidate pool</td><td>128 uniformly sampled frames.</td></tr>
+    <tr><td>Temporal slots</td><td>2 pivot centers, 6 directional target centers, eventlet radius 1, up to 8 bridges.</td></tr>
+    <tr><td>Global anchors</td><td>32 uniform anchors.</td></tr>
+    <tr><td>Fill rule</td><td><code>uniform_coverage</code>: add the candidate farthest from its nearest selected frame, i.e. the largest uncovered gap.</td></tr>
+    <tr><td>Final pack</td><td>At most 64 frames, sorted chronologically, shown at 451,584 pixels/frame.</td></tr>
+  </tbody>
+</table>
+
+<pre><code>program = compile_temporal_program(question)
+candidates = uniform_sample(video, n=128)
+
+pivot_scores = siglip2_score(candidates, pivot_query(program))
+pivots = temporal_nms(top(pivot_scores), count=2, radius_seconds=10)
+
+targets = directional_targets(
+    candidates,
+    query=base_question_query(question, options),
+    direction=program.direction,
+    count=6,
+)
+
+selected = eventlets(pivots, radius=1) + eventlets(targets, radius=1)
+selected += bridges_between(pivots, targets, max_count=8)
+selected += uniform_anchors(candidates, count=32)
+selected = fill_largest_uncovered_gaps(selected, candidates, target_count=64)
+return chronological(selected)</code></pre>
+
+<h3>Question-language program</h3>
+<p>
+  <a href="../../baselines/longqa/run_generate_longqa_proofpack.py"><code>compile_temporal_program()</code></a>
+  is deliberately deterministic. It recognizes the first strong operator rather
+  than asking another model to write a plan.
+</p>
+
+<table>
+  <thead><tr><th>Question cue</th><th>Operator</th><th>Frame direction</th></tr></thead>
+  <tbody>
+    <tr><td><code>after</code> / <code>before</code></td><td>AFTER / BEFORE</td><td>Search target frames on the required side of the pivot.</td></tr>
+    <tr><td><code>first</code> / <code>earliest</code> / <code>beginning</code></td><td>FIRST</td><td>Prefer the earliest relevant occurrence.</td></tr>
+    <tr><td><code>last</code> / <code>latest</code> / <code>finally</code></td><td>LAST</td><td>Prefer the latest relevant occurrence.</td></tr>
+    <tr><td><code>change</code> / <code>different</code> / <code>between</code></td><td>STATE_CHANGE</td><td>Keep evidence on both sides of a possible change.</td></tr>
+    <tr><td>none of the above</td><td>GLOBAL</td><td>Fall back to broad eventlet/uniform coverage.</td></tr>
+  </tbody>
+</table>
+
+<h3>Grounding text</h3>
+<pre><code>Find video evidence needed to answer this multiple-choice question.
+Question: {question}
+Options:
+{mcq_options}
+
+Find the temporal pivot event in the video.
+Pivot event: {program.pivot}</code></pre>
+
+<p>
+  Full validation was <strong>529/700</strong>. The gain over the original pivot was
+  only one answer on 700 rows, and the dev140 run was lower (108/140 versus 111/140),
+  so the fill rule is a useful implementation variant rather than a decisive new
+  scientific result.
+</p>
+</section>
+
+<section id="router">
+<h2>7. Exact operator router <span class="tag method">529/700</span></h2>
+<p>
+  The router asks whether the question actually contains a temporal operation. If
+  the parser returns <code>GLOBAL</code>, it uses the known strong uniform64 policy.
+  Otherwise it uses the temporal-pivot pack. This is a policy-level mixture of two
+  already-tested experts, not a learned gating network.
+</p>
+
+<pre><code>program = compile_temporal_program(question)
+
+if program.operator == "GLOBAL":
+    frames = uniform_sample(video, n=64)
+else:
+    frames = select_temporal_pivot_pack(
+        candidates=uniform_sample(video, n=128),
+        program=program,
+        anchors=24,
+        target_centers=8,
+        fill_mode="semantic_boundary",
+    )
+
+answer = qwen3_vl(frames, direct_mcq_prompt(question, options))</code></pre>
+
+<table>
+  <thead><tr><th>Route</th><th>Rows</th><th>Correct</th><th>Accuracy</th></tr></thead>
+  <tbody>
+    <tr><td>Temporal-pivot route</td><td>493</td><td>372</td><td>75.46%</td></tr>
+    <tr><td>Exact uniform GLOBAL route</td><td>207</td><td>157</td><td>75.85%</td></tr>
+    <tr class="target-row"><td><strong>Total</strong></td><td><strong>700</strong></td><td><strong>529</strong></td><td><strong>75.57%</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Interpretation.</strong> The router’s full-val tie with coverage fill is
+  real, but its route counts show why the gain is modest: global questions were
+  already close to the pivot route. It is useful as a compact recipe and as an
+  analysis of where the two policies differ, not evidence of a learned question
+  classifier.
+</div>
+</section>
+
+<section id="pivot">
+<h2>8. Original temporal-pivot proof pack <span class="tag method">528/700</span></h2>
+<p>
+  This is the key evidence-selection idea that preceded the winner. A long video is
+  not treated as a bag of equally useful frames. The question is compiled into a
+  small temporal program, SigLIP2 finds a pivot event and target evidence, and the
+  selector adds enough context to make the sequence interpretable.
+</p>
+
+<table>
+  <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Candidate frames</td><td>128 uniform frames.</td></tr>
+    <tr><td>Pivot query</td><td>Question-derived temporal pivot phrase; 2 pivot centers after 10-second temporal NMS.</td></tr>
+    <tr><td>Target query</td><td>Question + options; up to 8 target centers filtered by direction.</td></tr>
+    <tr><td>Local context</td><td>Eventlet radius 1 around pivot and target centers.</td></tr>
+    <tr><td>Bridges</td><td>Up to 8 frames between primary pivot and first target centers.</td></tr>
+    <tr><td>Anchors/fill</td><td>24 global uniform anchors; <code>semantic_boundary</code> fill to 64.</td></tr>
+    <tr><td>Answer model</td><td>Qwen3-VL-8B-Instruct, vLLM, temperature 0, 451,584 pixels/frame.</td></tr>
+  </tbody>
+</table>
+
+<pre><code>program = parse(question)
+
+if program.operator == "GLOBAL":
+    return eventlet_hybrid_fallback(question, candidates)
+
+pivot = temporal_nms(
+    siglip2_score(candidates, pivot_query(program)),
+    count=2,
+    radius_seconds=10,
+)
+
+target = rank_and_filter(
+    siglip2_score(candidates, question_options_query(question)),
+    side=program.direction,
+    count=8,
+)
+
+pack = eventlets(pivot + target, radius=1)
+pack += bridge_frames(pivot, target, max_count=8)
+pack += uniform_anchors(candidates, count=24)
+pack = semantic_boundary_fill(pack, target_count=64)
+return chronological(pack)</code></pre>
+
+<p>
+  The original pivot reached <strong>528/700 = 75.43%</strong> on full validation
+  and <strong>111/140 = 79.29%</strong> on dev140. The dev score is high but should
+  not be treated as a promise about the 700-row result; the full run is the ranking
+  anchor.
+</p>
+
+<h3>Why it was better than generic SigLIP retrieval</h3>
+<p>
+  Earlier retrieval selected frames with high image/text similarity to the whole
+  question and options. The pivot program adds an explicit ordering constraint:
+  “find the event that makes <em>after</em> or <em>before</em> meaningful, then inspect
+  the required side.” It preserves global anchors so a mistaken pivot does not erase
+  the rest of the video.
+</p>
+</section>
+
+<section id="uniform">
+<h2>9. Uniform64 high-resolution baseline <span class="tag run">514/700</span></h2>
+<p>
+  Uniform64 is the control that makes the selector results interpretable. It samples
+  64 positions over the entire video, sends them in chronological order, and uses no
+  SigLIP, temporal parser, or second answer call.
+</p>
+
+<table>
+  <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Video sampling</td><td><code>frames_per_interval=64</code>, <code>max_frames=64</code>.</td></tr>
+    <tr><td>Model</td><td>Qwen/Qwen3-VL-8B-Instruct served by vLLM.</td></tr>
+    <tr><td>Decoding</td><td>Temperature 0; <code>max_new_tokens=16</code>; batch size 1; concurrency 1 in the recorded full run.</td></tr>
+    <tr><td>Image budget</td><td><code>QWEN_MAX_PIXELS=451584</code>, approximately 672 × 672 per frame.</td></tr>
+    <tr><td>Context</td><td>Recorded vLLM context budget about 49K tokens; mean prompt about 27,884 tokens/sample.</td></tr>
+    <tr><td>Result</td><td><strong>514/700 = 73.43%</strong>; 7h58m21s in the archived full run.</td></tr>
+  </tbody>
+</table>
+
+<div class="note run-note">
+  <strong>Baseline lesson.</strong> Moving from the old 448-pixel budget to
+  451,584-pixel frames was a substantial improvement over the earlier 64-frame
+  low-resolution control. The top methods therefore compare selection policies at a
+  large visual budget; they are not merely benefiting from more frames.
+</div>
+</section>
+
+<section id="entropy">
+<h2>10. Shannon-entropy probe <span class="tag warn">yes, but not promoted</span></h2>
+<p>
+  <strong>Yes.</strong> Arihant did try a Shannon-entropy-based idea. It was added in
+  the committed <a href="../../baselines/longqa/run_generate_longqa_uncertainty.py"><code>run_generate_longqa_uncertainty.py</code></a>
+  surface and tested late in the experiment sequence. The idea was to use Qwen’s
+  next-token uncertainty as a frame-selection signal: frames that make the answer
+  distribution confident (low entropy) might be more useful evidence.
+</p>
+
+<div class="note warn-note">
+  <strong>Bottom line.</strong> The temporal-pivot entropy mode reached 16/20 on
+  dev20, versus 17/20 for its uniform reference and 15/20 for the comparable
+  SigLIP pivot. It was promising enough to test, but there is no completed dev140
+  or full700 entropy run in the ledger, so it does not belong in the top-five
+  ranking.
+</div>
+
+<h3>What entropy was actually computed</h3>
+<p>
+  The scorer makes a one-token vLLM call with <code>logprobs=True</code> and
+  <code>top_logprobs=100</code>. For each returned token probability
+  <code>p_i = exp(logprob_i)</code>, it adds the unobserved probability mass as one
+  aggregate tail bucket. This gives a lower-bound approximation to the full
+  vocabulary Shannon entropy rather than pretending the top-100 distribution sums
+  to one.
+</p>
+
+<div class="formula">
+  m = min(1, Σ p<sub>i</sub>) &nbsp;&nbsp; q = max(0, 1 − m)<br>
+  H<sub>lower</sub> = −Σ p<sub>i</sub> log p<sub>i</sub> − q log q
+</div>
+
+<pre><code>def score_token_uncertainty(frame, prompt):
+    top = vllm_one_token(
+        frame=frame,
+        prompt=prompt,
+        temperature=0,
+        max_tokens=1,
+        top_logprobs=100,
+    )
+    p = [exp(item.logprob) for item in top]
+    observed_mass = min(1.0, sum(p))
+    tail_mass = max(0.0, 1.0 - observed_mass)
+    entropy = -sum(pi * log(pi) for pi in p if pi > 0)
+    if tail_mass > 0:
+        entropy -= tail_mass * log(tail_mass)
+    return entropy, observed_mass, tail_mass, top</code></pre>
+
+<p>
+  The recorded top-100 tail mass was tiny: mean about <code>7e-8</code>, maximum
+  about <code>6.2e-7</code>. Therefore the approximation was close to full-vocabulary
+  entropy; the lack of a clear gain was not caused by a large omitted tail.
+</p>
+
+<h3>Prompts used by the scorer</h3>
+<pre><code>Use only the supplied chronological visual evidence. Answer the multiple-choice question.
+Return only A, B, C, or D.
+
+Question: {question}
+Options:
+{mcq_options}</code></pre>
+
+<pre><code>Decide whether the supplied visual evidence visibly contains the specified event.
+Do not infer it from general plausibility.
+
+Event: {event}
+
+A. Yes
+B. No
+
+Return only A or B.</code></pre>
+
+<h3>Three entropy selection modes</h3>
+<table>
+  <thead><tr><th>Mode</th><th>Selection recipe</th><th>Observed result</th></tr></thead>
+  <tbody>
+    <tr class="entropy-row">
+      <td><strong>Segmented UG</strong></td>
+      <td>64 candidates → 16 temporal segments → choose the 2 lowest-entropy frames per segment → fill to 64 with a 32-frame uniform quota.</td>
+      <td>15/20; same as SigLIP2 pivot; 0 fixes versus uniform and 2 regressions.</td>
+    </tr>
+    <tr class="entropy-row">
+      <td><strong>Entropy temporal pivot</strong></td>
+      <td>128 candidates; negative answer entropy ranks target relevance, while a Yes/No presence prompt supplies pivot scores; then use 2 pivots, 8 targets, radius 1, 24 anchors, bridges, and uniform coverage fill.</td>
+      <td><strong>16/20</strong>; uniform 17/20; SigLIP2 pivot 15/20.</td>
+    </tr>
+    <tr class="entropy-row">
+      <td><strong>Dynamic TCoT seed</strong></td>
+      <td>128 candidates → 16 segments × 4 uncertainty shortlist → Qwen temporal selector; final packs varied from 21–54 selected frames plus 16 uniform frames.</td>
+      <td>15/20; exactly the same 20 answers as the existing SigLIP pivot.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Entropy pseudocode</h3>
+<pre><code>candidates = uniform_sample(video, n=128)
+
+for frame in candidates:
+    answer_entropy[frame] = H(
+        qwen_one_token(frame, entropy_mcq_prompt(question, options))
+    )
+    target_score[frame] = -answer_entropy[frame]
+
+pivot_presence[frame] = P("Yes") - P("No")(
+    qwen_one_token(frame, presence_prompt(program.pivot))
+)
+
+pack = temporal_pivot_selector(
+    target_scores=target_score,
+    pivot_scores=pivot_presence,
+    pivot_centers=2,
+    target_centers=8,
+    anchors=24,
+    bridges=8,
+    fill_mode="uniform_coverage",
+    final_max_frames=64,
+)
+
+answer = qwen3_vl(pack, direct_mcq_prompt(question, options))</code></pre>
+
+<div class="note warn-note">
+  <strong>Why the idea is plausible but fragile.</strong> Low answer entropy means
+  “the model is confident after seeing this frame,” not “this frame is relevant and
+  correct.” A visually misleading frame can be confidently wrong; a genuinely useful
+  frame can leave the model uncertain until it sees surrounding context. The entropy
+  probe was therefore a sensible selector experiment, but not a replacement for
+  broad temporal coverage.
+</div>
+</section>
+
+<section id="predecessors">
+<h2>11. Predecessors and dead ends <span class="tag artifact">what changed next</span></h2>
+<p>
+  The top five make more sense as a progression. These experiments are important
+  because they explain why the branch moved from generic retrieval to temporal
+  programs and finally to arbitration.
+</p>
+
+<table>
+  <thead><tr><th>Experiment</th><th>What it tried</th><th>Evidence</th><th>Lesson</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>SigLIP hybrid predecessor</strong></td>
+      <td>128 candidates; top 16 question/option-retrieved frames plus 64 uniform anchors; final 64 at 448².</td>
+      <td>498/700</td>
+      <td>Relevance retrieval helped, but similarity to the whole question does not encode before/after order.</td>
+    </tr>
+    <tr>
+      <td><strong>Structured evidence prompt</strong></td>
+      <td>Ask Qwen for evidence/reasoning structure while keeping the same selected frames.</td>
+      <td>104/140 versus 109/140 for concise pivot on dev140</td>
+      <td>Prompt verbosity consumed context and did not repair missing evidence.</td>
+    </tr>
+    <tr>
+      <td><strong>Timeline summary</strong></td>
+      <td>One Qwen timeline call, then a second answer call.</td>
+      <td>465/700</td>
+      <td>Compressing a long video into a generated timeline discarded useful visual detail.</td>
+    </tr>
+    <tr>
+      <td><strong>Candidate likelihood / blind likelihood</strong></td>
+      <td>Score option letters from token probabilities, sometimes with a video-blind branch.</td>
+      <td>107/140 candidate verifier; 90/140 blind-weight dev run</td>
+      <td>Language priors and option-position bias contaminate the score.</td>
+    </tr>
+    <tr>
+      <td><strong>QCA / multi-event routing</strong></td>
+      <td>Allocate frame quotas to answer options or parse multiple events.</td>
+      <td>QCA 104/140; QCA router 109/140; multi-event 110/140</td>
+      <td>Dynamic allocation collapsed to near-uniform quotas; multi-event parsing lacked robust entity linking.</td>
+    </tr>
+    <tr>
+      <td><strong>Support/contradiction verifier</strong></td>
+      <td>Ask the verifier to assess support, contradiction, and temporal order internally.</td>
+      <td>111/140, tied with original pivot</td>
+      <td>A useful prompt refinement, but not a full-val improvement over the unconstrained winner.</td>
+    </tr>
+    <tr>
+      <td><strong>Object crops and panels</strong></td>
+      <td>Detect or crop objects and show targeted panels alongside video frames.</td>
+      <td>109/140 crops; 107/140 panels</td>
+      <td>Complementary evidence, not a stronger standalone route in the recorded dev comparison.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Research pattern.</strong> The branch repeatedly tested whether a second
+  textual representation or a more elaborate scorer could rescue bad evidence. The
+  strongest result instead came from preserving two concrete visual views and
+  arbitrating their disagreements.
+</div>
+</section>
+
+<section id="artifacts">
+<h2>12. Artifacts and provenance <span class="tag artifact">how to audit a run</span></h2>
+<p>
+  The source code is only half the record. Each serious run leaves artifacts that
+  make the selector and its evidence visible.
+</p>
+
+<table>
+  <thead><tr><th>Artifact</th><th>What it tells you</th><th>Where to start</th></tr></thead>
+  <tbody>
+    <tr><td><code>predictions.jsonl</code></td><td>One answer per stable sample key, including prompt/model and selected frame metadata.</td><td>Every direct, proof-pack, and verifier run.</td></tr>
+    <tr><td><code>proofpack.jsonl</code></td><td>Candidate indices, timestamps, similarity scores, evidence roles, query hashes, and cache fingerprints.</td><td>Temporal pivot and router runs.</td></tr>
+    <tr><td><code>selection.jsonl</code></td><td>Entropy scores, mode, final indices, and selection cache identity.</td><td>Uncertainty runs.</td></tr>
+    <tr><td><code>results.json</code> / <code>results_summary.json</code></td><td>Accuracy and per-subset diagnostics.</td><td>Run directory and <a href="RUN_LOG.md">ledger summary</a>.</td></tr>
+    <tr><td><code>diagnostics.json</code></td><td>Operator, temporal/non-C breakdowns, answer distributions, fixes/regressions, and verifier choices.</td><td><a href="LONGQA_EVIDENCE_AUDIT_2026-07-14.md">evidence audit</a>.</td></tr>
+    <tr><td>vLLM / Slurm logs</td><td>Context usage, call counts, runtime, cache reuse, and failures.</td><td>Each run folder under <code>runs/egolongqa/</code>.</td></tr>
+  </tbody>
+</table>
+
+<h3>What “same evidence” means here</h3>
+<p>
+  A frame pack is a set of original video indices. The final images may be resized
+  by the Qwen image processor, but the selector records the pre-resize index and
+  timestamp. This is why proof-pack JSONL is more useful than looking only at the
+  final letter: it lets you ask whether a mistake came from missing the event,
+  misunderstanding its order, or choosing the wrong answer among visible candidates.
+</p>
+
+<div class="note data-note">
+  <strong>Cache identity matters.</strong> Grounding and entropy caches fingerprint
+  the selector model/revision, video size and modification time, scoring resolution,
+  prompt/descriptors, and relevant settings. Reusing a cache is safe only when the
+  fingerprint matches.
+</div>
+</section>
+
+<section id="modify">
+<h2>13. Where to read or modify <span class="tag method">researcher map</span></h2>
+<table>
+  <thead><tr><th>Question</th><th>Read/edit here</th><th>Conceptual change</th></tr></thead>
+  <tbody>
+    <tr><td>How are video frames sampled?</td><td><a href="../../baselines/longqa/model.py"><code>model.py::extract_frames()</code></a></td><td>Uniform interval, frame cap, FPS/timestamp handling.</td></tr>
+    <tr><td>What does the answer model see?</td><td><a href="../../baselines/longqa/longqa_utils.py"><code>longqa_utils.py</code></a> and <code>model.py::VLLMModel.generate()</code></td><td>Prompt wording, image ordering, resolution, output parsing.</td></tr>
+    <tr><td>How does SigLIP2 score evidence?</td><td><a href="../../baselines/longqa/run_generate_longqa_grounded.py"><code>TextImageGrounder</code></a></td><td>Normalized image/text embeddings and cosine/dot-product ranking.</td></tr>
+    <tr><td>How is temporal language parsed?</td><td><a href="../../baselines/longqa/run_generate_longqa_proofpack.py"><code>compile_temporal_program()</code></a></td><td>Operator, pivot phrase, direction, and fallback policy.</td></tr>
+    <tr><td>How are proof packs assembled?</td><td><a href="../../baselines/longqa/run_generate_longqa_proofpack.py"><code>select_temporal_pivot_pack()</code></a></td><td>Pivot/target counts, eventlets, bridges, anchors, and fill rule.</td></tr>
+    <tr><td>How are disagreements handled?</td><td><a href="../../baselines/longqa/run_generate_longqa_verifier.py"><code>build_verifier_frame_indices()</code></a> and main loop</td><td>Candidate union, verifier prompt, call gate, and third-answer policy.</td></tr>
+    <tr><td>How is entropy measured?</td><td><a href="../../baselines/longqa/run_generate_longqa_uncertainty.py"><code>run_generate_longqa_uncertainty.py</code></a> and <a href="../../baselines/longqa/model.py"><code>score_token_uncertainty()</code></a></td><td>Top-K logprob collection, tail bucket, low-entropy selection, and pivot presence score.</td></tr>
+  </tbody>
+</table>
+
+<h3>Minimal command shapes</h3>
+<pre><code><span class="comment"># Direct uniform baseline</span>
+python run_evaluation.py --task longqa --model-type qwen \
+  --llm-model Qwen/Qwen3-VL-8B-Instruct --backend vllm \
+  --max-frames 64 --frames-per-interval 64 --batch-size 1
+
+<span class="comment"># Temporal proof pack</span>
+python run_generate_longqa_proofpack.py --strategy temporal_pivot \
+  --candidate-frames 128 --anchor-k 24 --target-centers 8 \
+  --final-max-frames 64 --fill-mode semantic_boundary
+
+<span class="comment"># Disagreement-only arbitration</span>
+python run_generate_longqa_verifier.py --proofpack-quota 32 \
+  --verifier-prompt baseline --max-frames 64
+
+<span class="comment"># Entropy probe family</span>
+python run_generate_longqa_uncertainty.py --mode temporal_pivot \
+  --candidate-frames 128 --anchor-k 24 --max-frames 64 \
+  --top-logprobs 100</code></pre>
+
+<div class="note run-note">
+  <strong>Do not copy current uncommitted Qwen3.5 launch scripts into this history.</strong>
+  They belong to later work on the dirty branch and use a different model/backend
+  surface. For Arihant’s EgoLongQA story, start with the committed Qwen3-VL scripts
+  and the archived run directories.
+</div>
+
+<h3>Primary sources</h3>
+<ul class="source-list">
+  <li><a href="RUN_LOG.md"><code>docs/longqa/RUN_LOG.md</code></a> — full run table, commands, settings, and completed results.</li>
+  <li><a href="LONGQA_PROOFPACK_EXPERIMENTS.md"><code>docs/longqa/LONGQA_PROOFPACK_EXPERIMENTS.md</code></a> — proof-pack rationale and launch order.</li>
+  <li><a href="LONGQA_EVIDENCE_AUDIT_2026-07-14.md"><code>docs/longqa/LONGQA_EVIDENCE_AUDIT_2026-07-14.md</code></a> — verifier fixes/regressions and arbitration audit.</li>
+  <li><a href="LONGQA_MEETING_BRIEF_2026-07-17.md"><code>docs/longqa/LONGQA_MEETING_BRIEF_2026-07-17.md</code></a> — consolidated mental model and later prompt/selector probes.</li>
+  <li><a href="CODEX_LONGQA_IMPLEMENTATION_BRIEF.md"><code>docs/longqa/CODEX_LONGQA_IMPLEMENTATION_BRIEF.md</code></a> — implementation surface and experiment flags.</li>
+</ul>
+
+<footer>
+  Standalone guide generated from the committed EgoLongQA source, git history, and
+  archived experiment records. It intentionally avoids line-number citations so the
+  code links remain useful after small refactors.
+</footer>
+</section>
+</main>
+</div>
+</body>
+</html>

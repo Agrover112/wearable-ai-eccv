@@ -227,6 +227,7 @@ def extract_frames(
                 image = Image.fromarray(frame_rgb)
                 image.info["source_frame_index"] = idx
                 image.info["source_fps"] = fps
+                image.info["source_total_frames"] = total_frames
                 frames.append(image)
 
         return frames
@@ -600,6 +601,506 @@ class Qwen2VLModel(VideoQAModel):
                         "max_pixels": self.max_pixels,
                     }
                     for frame in frames
+                ]
+                content.append({"type": "text", "text": text})
+                mm_messages.append({"role": "user", "content": content})
+                images_inserted = True
+            else:
+                mm_messages.append({"role": role, "content": text})
+
+        return mm_messages
+
+
+class LFM25VLModel(VideoQAModel):
+    """LFM2.5-VL inference over an ordered sequence of sampled frames."""
+
+    def __init__(
+        self,
+        model_id: str = "LiquidAI/LFM2.5-VL-1.6B",
+    ) -> None:
+        import torch
+        from transformers import AutoModelForImageTextToText, AutoProcessor
+
+        logger.info("Loading model: %s ...", model_id)
+        self.min_image_tokens = _env_int("LFM_MIN_IMAGE_TOKENS", 64)
+        self.max_image_tokens = _env_int("LFM_MAX_IMAGE_TOKENS", 256)
+        self.processor = AutoProcessor.from_pretrained(model_id)
+        self.processor.tokenizer.padding_side = "left"
+        self.model = AutoModelForImageTextToText.from_pretrained(
+            model_id,
+            dtype=torch.bfloat16,
+            attn_implementation="sdpa",
+            device_map="auto",
+        )
+        logger.info("Model loaded.")
+
+    def generate(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        max_new_tokens: int = 256,
+    ) -> str:
+        import torch
+
+        mm_messages = self._to_multimodal_messages(frames, messages)
+
+        # Tiling is disabled so every frame stays within the configured token cap
+        inputs = self.processor.apply_chat_template(
+            mm_messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+            processor_kwargs={
+                "do_image_splitting": False,
+                "use_thumbnail": False,
+                "min_image_tokens": self.min_image_tokens,
+                "max_image_tokens": self.max_image_tokens,
+            },
+        )
+        record_prompt_token_counts(
+            _attention_lengths(inputs),
+            _infer_context_window_from_model(self.model, self.processor),
+        )
+        inputs = inputs.to(self.model.device)
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                use_cache=True,
+            )
+
+        new_tokens = output_ids[0][inputs["input_ids"].shape[1] :]
+        return self.processor.decode(new_tokens, skip_special_tokens=True).strip()
+
+    def _to_multimodal_messages(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+    ) -> list[dict[str, object]]:
+        """Insert ordered frames as separate images in the first user turn."""
+        mm_messages: list[dict[str, object]] = []
+        images_inserted = False
+
+        for msg in messages:
+            role = msg["role"]
+            text = msg["content"]
+            if role == "user" and not images_inserted and frames:
+                content: list[dict[str, object]] = [
+                    {"type": "image", "image": frame} for frame in frames
+                ]
+                content.append({"type": "text", "text": text})
+                mm_messages.append({"role": "user", "content": content})
+                images_inserted = True
+            else:
+                mm_messages.append({"role": role, "content": text})
+
+        return mm_messages
+
+
+class FastVLMModel(VideoQAModel):
+    """FastVLM inference over separate ordered frame images."""
+
+    IMAGE_TOKEN_INDEX = -200
+    IMAGE_TOKEN = "<image>"
+    VISION_PATCH_SIZE = 64
+    CONTEXT_WINDOW = 32768
+
+    def __init__(
+        self,
+        model_id: str = "apple/FastVLM-1.5B",
+    ) -> None:
+        import types
+
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        logger.info("Loading model: %s ...", model_id)
+        self.vision_batch_size = _env_int("FASTVLM_VISION_BATCH_SIZE", 4)
+        self.image_size = _env_int("FASTVLM_IMAGE_SIZE", 1024)
+        self.image_tokens_per_frame = (
+            self.image_size // self.VISION_PATCH_SIZE
+        ) ** 2
+        attn_implementation = os.environ.get(
+            "FASTVLM_ATTN_IMPLEMENTATION",
+            "flash_attention_2",
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+        )
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            dtype=torch.bfloat16,
+            attn_implementation=attn_implementation,
+            device_map="auto",
+            trust_remote_code=True,
+        )
+
+        # The checkpoint defaults to 8192 and otherwise truncates the question
+        self.model.config.tokenizer_model_max_length = self.CONTEXT_WINDOW
+
+        # FastVLM is trained with square inputs and accepts smaller patch grids
+        image_processor = self.model.get_vision_tower().image_processor
+        image_processor.crop_size = {
+            "height": self.image_size,
+            "width": self.image_size,
+        }
+        image_processor.size = {"shortest_edge": self.image_size}
+
+        # Encode frame batches sequentially so 64 images do not spike vision VRAM
+        vision_batch_size = self.vision_batch_size
+
+        def encode_images_in_chunks(model: object, images: object) -> object:
+            image_features = []
+            for chunk in images.split(vision_batch_size):
+                features = model.get_model().get_vision_tower()(chunk)
+                image_features.append(model.get_model().mm_projector(features))
+            return torch.cat(image_features, dim=0)
+
+        self.model.encode_images = types.MethodType(
+            encode_images_in_chunks,
+            self.model,
+        )
+        logger.info("Model loaded.")
+
+    def generate(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        max_new_tokens: int = 256,
+    ) -> str:
+        import torch
+
+        rendered = self.tokenizer.apply_chat_template(
+            self._to_multimodal_messages(frames, messages),
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        input_ids = self._tokenize_with_image_placeholders(rendered).to(
+            self.model.device
+        )
+        attention_mask = torch.ones_like(input_ids)
+
+        expanded_length = (
+            input_ids.shape[1]
+            - len(frames)
+            + len(frames) * self.image_tokens_per_frame
+        )
+        record_prompt_token_counts([expanded_length], self.CONTEXT_WINDOW)
+
+        generation_kwargs = {
+            "inputs": input_ids,
+            "attention_mask": attention_mask,
+            "max_new_tokens": max_new_tokens,
+            "do_sample": False,
+            "use_cache": True,
+        }
+        if frames:
+            image_processor = self.model.get_vision_tower().image_processor
+            square_frames = self._pad_frames_to_square(frames)
+            pixel_values = image_processor(
+                images=square_frames,
+                return_tensors="pt",
+            )["pixel_values"]
+            generation_kwargs["images"] = pixel_values.to(
+                self.model.device,
+                dtype=self.model.dtype,
+            )
+
+        with torch.no_grad():
+            output_ids = self.model.generate(**generation_kwargs)
+
+        return self.tokenizer.decode(
+            output_ids[0],
+            skip_special_tokens=True,
+        ).strip()
+
+    def generate_final_answer_batch(
+        self,
+        batch_frames: list[list[object]],
+        batch_messages: list[list[dict[str, str]]],
+        max_new_tokens: int = 64,
+    ) -> list[str]:
+        """Format visual conclusions as answer letters without re-encoding frames."""
+        return [
+            f"Final Answer: {self._generate_choice_letter(messages)}"
+            for messages in batch_messages
+        ]
+
+    def _generate_choice_letter(
+        self,
+        messages: list[dict[str, str]],
+    ) -> str:
+        """Constrain the text-only formatting turn to one answer-letter token."""
+        import torch
+
+        rendered = self.tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=False,
+        )
+        input_ids = self._tokenize_with_image_placeholders(rendered).to(
+            self.model.device
+        )
+        attention_mask = torch.ones_like(input_ids)
+        choice_token_ids = [
+            self.tokenizer(
+                letter,
+                add_special_tokens=False,
+            ).input_ids[0]
+            for letter in "ABCD"
+        ]
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                inputs=input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=1,
+                do_sample=False,
+                prefix_allowed_tokens_fn=lambda batch_id, generated_ids: choice_token_ids,
+                use_cache=True,
+            )
+
+        return self.tokenizer.decode(
+            output_ids[0],
+            skip_special_tokens=True,
+        ).strip()
+
+    def _tokenize_with_image_placeholders(self, text: str) -> object:
+        """Tokenize text while preserving FastVLM's negative image token ID."""
+        import torch
+
+        parts = text.split(self.IMAGE_TOKEN)
+        token_ids: list[int] = []
+        for index, part in enumerate(parts):
+            token_ids.extend(
+                self.tokenizer(
+                    part,
+                    add_special_tokens=False,
+                ).input_ids
+            )
+            if index < len(parts) - 1:
+                token_ids.append(self.IMAGE_TOKEN_INDEX)
+        return torch.tensor([token_ids], dtype=torch.long)
+
+    def _pad_frames_to_square(self, frames: list[object]) -> list[object]:
+        """Pad frames to square inputs without cropping the source view."""
+        from PIL import Image
+
+        image_mean = self.model.get_vision_tower().image_processor.image_mean
+        background = tuple(round(channel * 255) for channel in image_mean)
+        square_frames = []
+        for frame in frames:
+            side = max(frame.size)
+            square = Image.new("RGB", (side, side), background)
+            offset = ((side - frame.width) // 2, (side - frame.height) // 2)
+            square.paste(frame, offset)
+            square_frames.append(square)
+        return square_frames
+
+    def _to_multimodal_messages(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+    ) -> list[dict[str, str]]:
+        """Insert one FastVLM image placeholder per ordered frame."""
+        mm_messages: list[dict[str, str]] = []
+        images_inserted = False
+
+        for msg in messages:
+            role = msg["role"]
+            text = msg["content"]
+            if role == "user" and not images_inserted and frames:
+                placeholders = "\n".join(self.IMAGE_TOKEN for _ in frames)
+                mm_messages.append(
+                    {
+                        "role": "user",
+                        "content": f"{placeholders}\n{text}",
+                    }
+                )
+                images_inserted = True
+            else:
+                mm_messages.append({"role": role, "content": text})
+
+        return mm_messages
+
+
+class Qwen35Model(VideoQAModel):
+    """Qwen3.5 inference with sampled frames represented as one native video."""
+
+    def __init__(
+        self,
+        model_id: str = "Qwen/Qwen3.5-0.8B",
+    ) -> None:
+        import torch
+        from transformers import AutoProcessor, Qwen3_5ForConditionalGeneration
+
+        logger.info("Loading model: %s ...", model_id)
+        self.processor = AutoProcessor.from_pretrained(model_id)
+        self.processor.tokenizer.padding_side = "left"
+        self.enable_thinking = os.environ.get("QWEN35_ENABLE_THINKING", "0") == "1"
+        self.processor.video_processor.size["longest_edge"] = _env_int(
+            "QWEN35_VIDEO_TOTAL_PIXELS",
+            int(self.processor.video_processor.size["longest_edge"]),
+        )
+        self.model = Qwen3_5ForConditionalGeneration.from_pretrained(
+            model_id,
+            dtype=torch.bfloat16,
+            attn_implementation=os.environ.get(
+                "QWEN35_ATTN_IMPLEMENTATION", "flash_attention_2"
+            ),
+            device_map="auto",
+        )
+        torch.manual_seed(_env_int("QWEN35_SEED", 0))
+        torch.cuda.manual_seed_all(_env_int("QWEN35_SEED", 0))
+        logger.info("Model loaded.")
+
+    def generate(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        max_new_tokens: int = 256,
+    ) -> str:
+        import torch
+        from transformers.video_utils import VideoMetadata
+
+        mm_messages = self._to_multimodal_messages(frames, messages)
+        text = self.processor.apply_chat_template(
+            mm_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=self.enable_thinking,
+        )
+
+        # Frame extraction preserves source timing for Qwen's native video tokens
+        metadata = VideoMetadata(
+            total_num_frames=int(frames[0].info["source_total_frames"]),
+            fps=float(frames[0].info["source_fps"]),
+            frames_indices=[
+                int(frame.info["source_frame_index"]) for frame in frames
+            ],
+        )
+        inputs = self.processor(
+            text=[text],
+            videos=[frames],
+            video_metadata=[metadata],
+            do_sample_frames=False,
+            padding=True,
+            return_tensors="pt",
+        )
+        return self._generate_from_inputs(inputs, max_new_tokens)
+
+    def _generate_from_inputs(
+        self,
+        inputs: object,
+        max_new_tokens: int,
+    ) -> str:
+        """Generate one response from already processed multimodal inputs."""
+        import torch
+
+        record_prompt_token_counts(
+            _attention_lengths(inputs),
+            _infer_context_window_from_model(self.model, self.processor),
+        )
+        inputs = inputs.to(self.model.device)
+
+        temperature = 1.0 if self.enable_thinking else 0.7
+        top_p = 0.95 if self.enable_thinking else 0.8
+        with torch.inference_mode():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=True,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=20,
+                stop_strings=["}"],
+                tokenizer=self.processor.tokenizer,
+                use_cache=True,
+            )
+
+        new_tokens = output_ids[0][inputs["input_ids"].shape[1] :]
+        return self.processor.decode(new_tokens, skip_special_tokens=True).strip()
+
+    def _to_multimodal_messages(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+    ) -> list[dict[str, object]]:
+        """Insert sampled frames as one timestamped video in the first user turn."""
+        mm_messages: list[dict[str, object]] = []
+        video_inserted = False
+
+        for msg in messages:
+            role = msg["role"]
+            text = msg["content"]
+            if role == "user" and not video_inserted and frames:
+                content = [
+                    {"type": "video", "video": frames},
+                    {"type": "text", "text": text},
+                ]
+                mm_messages.append({"role": "user", "content": content})
+                video_inserted = True
+            else:
+                mm_messages.append({"role": role, "content": text})
+
+        return mm_messages
+
+
+class Qwen35ImageModel(Qwen35Model):
+    """Qwen3.5 inference over separate chronological frame images."""
+
+    def __init__(
+        self,
+        model_id: str = "Qwen/Qwen3.5-0.8B",
+    ) -> None:
+        super().__init__(model_id)
+        self.processor.image_processor.size["shortest_edge"] = _env_int(
+            "QWEN35_IMAGE_MIN_PIXELS", 784
+        )
+        self.processor.image_processor.size["longest_edge"] = _env_int(
+            "QWEN35_IMAGE_MAX_PIXELS", 451584
+        )
+
+    def generate(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        max_new_tokens: int = 256,
+    ) -> str:
+        mm_messages = self._to_multimodal_messages(frames, messages)
+        text = self.processor.apply_chat_template(
+            mm_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=self.enable_thinking,
+        )
+        inputs = self.processor(
+            text=[text],
+            images=frames,
+            padding=True,
+            return_tensors="pt",
+        )
+        return self._generate_from_inputs(inputs, max_new_tokens)
+
+    def _to_multimodal_messages(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+    ) -> list[dict[str, object]]:
+        """Insert sampled frames as separate ordered images in the first user turn."""
+        mm_messages: list[dict[str, object]] = []
+        images_inserted = False
+
+        for msg in messages:
+            role = msg["role"]
+            text = msg["content"]
+            if role == "user" and not images_inserted and frames:
+                content = [
+                    {"type": "image", "image": frame} for frame in frames
                 ]
                 content.append({"type": "text", "text": text})
                 mm_messages.append({"role": "user", "content": content})
@@ -1688,12 +2189,20 @@ class VLLMModel(VideoQAModel):
 MODEL_REGISTRY: dict[str, type[VideoQAModel]] = {
     "llama4": Llama4ScoutModel,
     "qwen": Qwen2VLModel,
+    "qwen3_5": Qwen35Model,
+    "qwen3_5_images": Qwen35ImageModel,
+    "lfm2_5_vl": LFM25VLModel,
+    "fastvlm": FastVLMModel,
     "internvideo3": InternVideo3Model,
 }
 
 DEFAULT_MODEL_IDS: dict[str, str] = {
     "llama4": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
     "qwen": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "qwen3_5": "Qwen/Qwen3.5-0.8B",
+    "qwen3_5_images": "Qwen/Qwen3.5-0.8B",
+    "lfm2_5_vl": "LiquidAI/LFM2.5-VL-1.6B",
+    "fastvlm": "apple/FastVLM-1.5B",
     "internvideo3": "yanziang/InternVideo3-8B-Instruct",
 }
 
@@ -1703,18 +2212,30 @@ VLLM_MODEL_TYPES = ("llama4", "qwen")
 DEFAULT_BATCH_SIZES: dict[str, int] = {
     "llama4": 4,
     "qwen": 8,
+    "qwen3_5": 1,
+    "qwen3_5_images": 1,
+    "lfm2_5_vl": 1,
+    "fastvlm": 1,
     "internvideo3": 1,
 }
 
 DEFAULT_GPU_COUNTS: dict[str, int] = {
     "llama4": 8,
     "qwen": 1,
+    "qwen3_5": 1,
+    "qwen3_5_images": 1,
+    "lfm2_5_vl": 1,
+    "fastvlm": 1,
     "internvideo3": 1,
 }
 
 DEFAULT_TP_SIZES: dict[str, int] = {
     "llama4": 8,
     "qwen": 1,
+    "qwen3_5": 1,
+    "qwen3_5_images": 1,
+    "lfm2_5_vl": 1,
+    "fastvlm": 1,
     "internvideo3": 1,
 }
 
@@ -1812,7 +2333,8 @@ def create_model(
     """Factory to create a model by type name.
 
     Args:
-        model_type: One of "llama4", "qwen", "internvideo3".
+        model_type: One of "llama4", "qwen", "qwen3_5",
+            "qwen3_5_images", "lfm2_5_vl", "fastvlm", "internvideo3".
         model_id: HuggingFace model ID override. If None, uses the default
             for the given model_type.
         backend: "hf" for HuggingFace, "vllm" for vLLM server backend.

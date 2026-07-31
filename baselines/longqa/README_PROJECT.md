@@ -65,3 +65,40 @@ VISION_MAX_PIXELS=451584 python baselines/longqa/run_generate_longqa.py \
 
 Remove `--max-samples 2` and choose a new output directory for the later 140-sample run.
 InternVideo3 is not supported by the installed vLLM release, so its backend is `hf`.
+
+## Qwen3.5-0.8B inference
+
+The `qwen3_5` adapter represents uniformly sampled frames as one native video. It passes the
+original frame indices, source FPS, and total frame count to the processor, so Qwen3.5 receives
+timestamped video tokens rather than the separate untimestamped images used by the older `qwen`
+adapter. The default checkpoint is `Qwen/Qwen3.5-0.8B`.
+
+Run a two-sample, non-thinking smoke test from the repository root with:
+
+```bash
+source scripts/activate_local_env.sh
+
+python baselines/longqa/run_generate_longqa.py \
+  --input /CT/RGCAHead3/nobackup/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl \
+  --video-folder /scratch/inf0/user/kkumar/val \
+  --subset-file configs/egolongqa_dev140_seed20260709.json \
+  --max-samples 2 \
+  --model-type qwen3_5 \
+  --backend hf \
+  --num-gpus 1 \
+  --max-frames 64 \
+  --frames-per-interval 64 \
+  --batch-size 1 \
+  --prompt-variant qwen3_5 \
+  --longqa-max-new-tokens 1024 \
+  --output runs/egolongqa/qwen3_5_0_8b_uniform64_smoke/predictions.jsonl \
+  --eval-output runs/egolongqa/qwen3_5_0_8b_uniform64_smoke/results.json \
+  --no-resume-predictions
+```
+
+The adapter uses FlashAttention 2 by default and disables Qwen thinking so the response is a
+single `{"answer":"X"}` object. Set `QWEN35_ENABLE_THINKING=1` for the thinking ablation, or
+`QWEN35_ATTN_IMPLEMENTATION=sdpa` on a GPU not supported by the installed FlashAttention wheel.
+`QWEN35_VIDEO_TOTAL_PIXELS` overrides the processor's default total video-pixel budget of
+25,165,824, and `QWEN35_SEED` controls sampling with a default of 0. The current vLLM request
+path sends separate images and is therefore not used for this native-video adapter.

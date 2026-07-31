@@ -22,6 +22,7 @@ from longqa_utils import (
     apply_subset,
     build_longqa_prompt,
     build_prediction_row,
+    exclude_subset,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,12 @@ def main() -> None:
         type=str,
         default=None,
         help="Optional JSON subset file containing sample keys to run.",
+    )
+    parser.add_argument(
+        "--exclude-subset-file",
+        type=str,
+        default=None,
+        help="Optional JSON subset file containing sample keys to skip.",
     )
     parser.add_argument(
         "--prompt-variant",
@@ -225,6 +232,8 @@ def _submit_slurm(
         extra.append("--require-final-answer-marker")
     if args.subset_file:
         extra.extend(["--subset-file", args.subset_file])
+    if args.exclude_subset_file:
+        extra.extend(["--exclude-subset-file", args.exclude_subset_file])
     if args.llm_model:
         extra.extend(["--llm-model", args.llm_model])
     if args.max_samples:
@@ -264,6 +273,10 @@ def _run_local(
 
     all_data = load_jsonl(input_path)
     all_data = apply_subset(all_data, getattr(args, "subset_file", None))
+    all_data = exclude_subset(
+        all_data,
+        getattr(args, "exclude_subset_file", None),
+    )
     if args.max_samples is not None:
         all_data = all_data[: args.max_samples]
 

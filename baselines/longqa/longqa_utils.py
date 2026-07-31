@@ -18,6 +18,7 @@ PROMPT_VARIANTS = (
     "anti_shortcut",
     "combined",
     "thinking",
+    "qwen3_5",
 )
 
 RETRIEVAL_QUERY_MODES = (
@@ -89,6 +90,15 @@ THINKING_PROMPT_TEMPLATE = (
     "Reason before answering, then end exactly with `Final Answer: X`, where X "
     "is the single letter A, B, C, or D."
 )
+QWEN35_PROMPT_TEMPLATE = (
+    "Watch the timestamped video and answer the following multiple-choice "
+    "question.\n\n"
+    "Question: {question}\n\n"
+    "Options:\n{mcq_options}\n\n"
+    "Use the chronological video evidence to choose the correct option. Return "
+    'only a JSON object in exactly this format: {{"answer":"C"}}. Replace C '
+    "with the correct option letter and do not write anything else."
+)
 
 _VARIANT_INSTRUCTIONS = {
     "baseline": "",
@@ -137,6 +147,7 @@ _VARIANT_INSTRUCTIONS = {
         "compare all answer options. You may show your reasoning. End the "
         "response exactly with `Final Answer: X`, where X is A, B, C, or D."
     ),
+    "qwen3_5": "",
 }
 
 
@@ -148,11 +159,12 @@ def build_longqa_prompt(
     """Build a LongQA prompt while preserving baseline text by default."""
     if prompt_variant not in PROMPT_VARIANTS:
         raise ValueError(f"Unknown prompt variant: {prompt_variant}")
-    template = (
-        THINKING_PROMPT_TEMPLATE
-        if prompt_variant == "thinking"
-        else BASELINE_PROMPT_TEMPLATE
-    )
+    if prompt_variant == "thinking":
+        template = THINKING_PROMPT_TEMPLATE
+    elif prompt_variant == "qwen3_5":
+        template = QWEN35_PROMPT_TEMPLATE
+    else:
+        template = BASELINE_PROMPT_TEMPLATE
     base = template.format(
         question=question,
         mcq_options=mcq_options,
@@ -172,10 +184,21 @@ def normalize_answer(raw: object) -> str:
     if len(upper) == 1 and upper in "ABCD":
         return upper
 
+    json_matches = list(
+        re.finditer(
+            r"""["']answer["']\s*:\s*["']([A-Da-d])["']""",
+            text,
+            re.IGNORECASE,
+        )
+    )
+    if json_matches:
+        return json_matches[-1].group(1).upper()
+
     # Prefer final/answer-like declarations, especially the last such mention.
     final_matches = list(
         re.finditer(
-            r"\b(?:final\s+answer|answer|option|choice)\s*[:.]?\s*\(?([A-Da-d])\)?\b",
+            r"\b(?:final\s+answer|answer|option|choice|choose)\s*(?:is\s+)?"
+            r"[:.]?\s*\(?([A-Da-d])\)?\b",
             text,
             re.IGNORECASE,
         )
@@ -183,15 +206,16 @@ def normalize_answer(raw: object) -> str:
     if final_matches:
         return final_matches[-1].group(1).upper()
 
-    leading = re.match(r"^\s*\(?([A-Da-d])\)?\s*[\.\:\)]?\s*$", text)
-    if leading:
+    leading = re.match(r"^\s*\(?([A-Da-d])\)?(?:\s*[\.\:\)]|\s*$)", text)
+    if leading and "\n" not in text:
         return leading.group(1).upper()
 
-    standalone = list(re.finditer(r"\b([A-Da-d])\b", text))
+    last_line = text.splitlines()[-1].strip()
+    standalone = re.fullmatch(r"\(?([A-Da-d])\)?[\.\:\)]?", last_line)
     if standalone:
-        return standalone[-1].group(1).upper()
+        return standalone.group(1).upper()
 
-    return upper[0] if upper[:1] in "ABCD" else ""
+    return ""
 
 
 def parse_mcq_options(mcq_options: object) -> dict[str, str]:
@@ -260,6 +284,15 @@ def apply_subset(rows: list[dict[str, Any]], subset_file: str | None) -> list[di
     if keys is None:
         return rows
     return [row for row in rows if sample_key(row) in keys]
+
+
+def exclude_subset(
+    rows: list[dict[str, Any]], subset_file: str | None
+) -> list[dict[str, Any]]:
+    keys = load_subset_keys(subset_file)
+    if keys is None:
+        return rows
+    return [row for row in rows if sample_key(row) not in keys]
 
 
 def index_row_aligned_metadata(

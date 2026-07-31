@@ -926,6 +926,7 @@ def _generate_longqa_preds(
     max_samples: int | None,
     subset_file: str | None = None,
     prompt_variant: str = "baseline",
+    longqa_max_new_tokens: int = 16,
     no_resume_predictions: bool = False,
     backend: str = "hf",
     tp: int | None = None,
@@ -955,6 +956,7 @@ def _generate_longqa_preds(
         tp=tp,
         concurrency=concurrency,
         prompt_variant=prompt_variant,
+        longqa_max_new_tokens=longqa_max_new_tokens,
         subset_file=subset_file,
         no_resume_predictions=no_resume_predictions,
     )
@@ -1307,6 +1309,12 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=PROMPT_VARIANTS,
         default="baseline",
         help="LongQA only: prompt variant to use for generation.",
+    )
+    parser.add_argument(
+        "--longqa-max-new-tokens",
+        type=int,
+        default=16,
+        help="LongQA only: maximum generated tokens per answer (default: 16).",
     )
     parser.add_argument(
         "--no-resume-predictions",
@@ -1767,6 +1775,10 @@ def _build_slurm_extra_args(
             extra.extend(["--subset-file", args.subset_file])
         if args.prompt_variant != "baseline":
             extra.extend(["--prompt-variant", args.prompt_variant])
+        if args.longqa_max_new_tokens != 16:
+            extra.extend(
+                ["--longqa-max-new-tokens", str(args.longqa_max_new_tokens)]
+            )
         if args.no_resume_predictions:
             extra.append("--no-resume-predictions")
     if args.num_gpus is not None:
@@ -1961,6 +1973,7 @@ def _run_task(
             args.max_samples,
             args.subset_file,
             args.prompt_variant,
+            args.longqa_max_new_tokens,
             args.no_resume_predictions,
             backend=args.backend,
             tp=args.tp,

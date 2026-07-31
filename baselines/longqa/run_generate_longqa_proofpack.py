@@ -26,9 +26,12 @@ from typing import Any
 import numpy as np
 
 from longqa_utils import (
+    PROMPT_VARIANTS,
+    RETRIEVAL_QUERY_MODES,
     apply_subset,
     build_longqa_prompt,
     build_prediction_row,
+    exclude_subset,
     parse_mcq_options,
     query_hash,
     sample_key,
@@ -40,10 +43,12 @@ from run_generate_longqa_grounded import (
     TextImageGrounder,
     _run_eval,
     _uniform_positions,
+    build_grounding_queries,
     extract_frames_by_indices,
     load_jsonl,
     load_jsonl_if_exists,
     load_or_encode_grounder_features,
+    score_queries,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,6 +67,11 @@ STRATEGIES = (
     "multi_event_router",
 )
 PROOFPACK_SCHEMA = 2
+PROOFPACK_RETRIEVAL_QUERY_MODES = RETRIEVAL_QUERY_MODES + (
+    "question_option_mean",
+    "temporal_target_options",
+    "temporal_target_option_mean",
+)
 
 
 @dataclass(frozen=True)
@@ -117,6 +127,41 @@ def _question_options_query(row: dict[str, Any]) -> str:
         "Find video evidence needed to answer this multiple-choice question.\n"
         f"Question: {row['question']}\nOptions:\n{row['mcq_options']}"
     )
+
+
+def build_proofpack_target_queries(
+    row: dict[str, Any],
+    retrieval_query_mode: str,
+    program: TemporalProgram | None = None,
+) -> list[GroundingQuery]:
+    """Build target queries while preserving the original default text."""
+    if retrieval_query_mode == "question_options":
+        return [GroundingQuery("question_options", _question_options_query(row))]
+    if retrieval_query_mode == "temporal_target_options":
+        return [
+            GroundingQuery(
+                "temporal_target_options",
+                f"Question: {program.target}\nOptions:\n{row['mcq_options']}",
+            )
+        ]
+    if retrieval_query_mode in {
+        "question_option_mean",
+        "temporal_target_option_mean",
+    }:
+        options = parse_mcq_options(row["mcq_options"])
+        question = (
+            program.target
+            if retrieval_query_mode == "temporal_target_option_mean"
+            else row["question"]
+        )
+        return [
+            GroundingQuery("question", f"Question: {question}"),
+            *[
+                GroundingQuery(f"option_{letter}", f"Candidate answer: {option}")
+                for letter, option in sorted(options.items())
+            ],
+        ]
+    return build_grounding_queries(row, retrieval_query_mode)
 
 
 def build_option_hypotheses(row: dict[str, Any]) -> list[GroundingQuery]:
@@ -425,6 +470,37 @@ def _zscore(values: list[float]) -> np.ndarray:
     if std < 1e-6:
         return np.zeros_like(array)
     return (array - float(array.mean())) / std
+
+
+def score_proofpack_target_queries(
+    grounder: TextImageGrounder,
+    queries: list[GroundingQuery],
+    candidates: list[CandidateFrame],
+    image_features: np.ndarray,
+    retrieval_query_mode: str,
+) -> tuple[list[float], list[dict[str, object]]]:
+    if retrieval_query_mode not in {
+        "question_option_mean",
+        "temporal_target_option_mean",
+    }:
+        scores, _, query_meta = score_queries(
+            grounder,
+            queries,
+            candidates,
+            image_features=image_features,
+        )
+        return scores, query_meta
+
+    per_query_scores = [
+        grounder.score_embeddings(query.text, image_features) for query in queries
+    ]
+    normalized = np.stack([_zscore(scores) for scores in per_query_scores])
+    # Give the question and the option set equal influence without privileging a letter
+    merged = 0.5 * normalized[0] + 0.5 * normalized[1:].mean(axis=0)
+    query_meta = [
+        {"label": query.label, "hash": query_hash(query.text)} for query in queries
+    ]
+    return merged.astype(float).tolist(), query_meta
 
 
 def _minmax(values: list[float] | np.ndarray) -> np.ndarray:
@@ -904,6 +980,8 @@ def select_temporal_pivot_pack(
     final_max_frames: int,
     temporal_nms_seconds: float,
     fill_mode: str = "semantic_boundary",
+    pivot_mask_mode: str = "primary",
+    exclude_pivot_target_overlap: bool = False,
 ) -> tuple[list[SelectedFrame], dict[str, Any]]:
     if program.operator == "GLOBAL":
         return select_eventlet_hybrid(
@@ -928,6 +1006,14 @@ def select_temporal_pivot_pack(
         temporal_nms_seconds,
     )
     primary_pivot = pivots[0] if pivots else len(candidates) // 2
+    pivot_eventlet_positions = {
+        idx
+        for center in pivots
+        for idx in range(
+            max(0, center - eventlet_radius),
+            min(len(candidates), center + eventlet_radius + 1),
+        )
+    }
     for center in pivots:
         _add_eventlet(
             selected,
@@ -941,30 +1027,102 @@ def select_temporal_pivot_pack(
         )
 
     allowed: set[int] | None = None
-    if program.direction == "forward":
-        allowed = set(range(min(primary_pivot + 1, len(candidates)), len(candidates)))
-    elif program.direction == "backward":
-        allowed = set(range(0, max(primary_pivot, 0)))
-    elif program.direction == "earliest":
-        relevant = _rank_with_temporal_nms(
-            target_scores, candidates, max(target_centers * 4, target_centers), temporal_nms_seconds
-        )
-        relevant.sort()
-        allowed = set(relevant[: max(target_centers * 2, target_centers)])
-    elif program.direction == "latest":
-        relevant = _rank_with_temporal_nms(
-            target_scores, candidates, max(target_centers * 4, target_centers), temporal_nms_seconds
-        )
-        relevant.sort(reverse=True)
-        allowed = set(relevant[: max(target_centers * 2, target_centers)])
+    targets_by_pivot: list[tuple[int, list[int]]] = []
+    if pivot_mask_mode == "per_pivot" and program.direction in {"forward", "backward"}:
+        # Hedge repeated or ambiguous pivot matches without increasing the target budget
+        quotient, remainder = divmod(target_centers, max(len(pivots), 1))
+        targets: list[int] = []
+        directional_union: set[int] = set()
+        for pivot_rank, pivot in enumerate(pivots or [primary_pivot]):
+            count = quotient + int(pivot_rank < remainder)
+            if program.direction == "forward":
+                pivot_allowed = set(
+                    range(min(pivot + 1, len(candidates)), len(candidates))
+                )
+            else:
+                pivot_allowed = set(range(0, max(pivot, 0)))
+            if exclude_pivot_target_overlap:
+                pivot_allowed -= pivot_eventlet_positions
+            directional_union.update(pivot_allowed)
+            pivot_allowed = {
+                idx
+                for idx in pivot_allowed
+                if all(
+                    abs(candidates[idx].timestamp - candidates[target].timestamp)
+                    >= temporal_nms_seconds
+                    for target in targets
+                )
+            }
+            pivot_targets = _rank_with_temporal_nms(
+                target_scores,
+                candidates,
+                count,
+                temporal_nms_seconds,
+                allowed=pivot_allowed,
+            )
+            targets.extend(pivot_targets)
+            targets_by_pivot.append((pivot, pivot_targets))
+        if len(targets) < target_centers:
+            backfill_allowed = directional_union - set(targets)
+            backfill = _rank_with_temporal_nms(
+                target_scores,
+                candidates,
+                target_centers - len(targets),
+                temporal_nms_seconds,
+                allowed=backfill_allowed,
+            )
+            targets.extend(backfill)
+            for target in backfill:
+                eligible_pivots = [
+                    (pivot, pivot_targets)
+                    for pivot, pivot_targets in targets_by_pivot
+                    if (program.direction == "forward" and pivot < target)
+                    or (program.direction == "backward" and pivot > target)
+                ]
+                _, closest_targets = min(
+                    eligible_pivots,
+                    key=lambda item: abs(item[0] - target),
+                )
+                closest_targets.append(target)
+    else:
+        if program.direction == "forward":
+            allowed = set(
+                range(min(primary_pivot + 1, len(candidates)), len(candidates))
+            )
+        elif program.direction == "backward":
+            allowed = set(range(0, max(primary_pivot, 0)))
+        elif program.direction == "earliest":
+            relevant = _rank_with_temporal_nms(
+                target_scores,
+                candidates,
+                max(target_centers * 4, target_centers),
+                temporal_nms_seconds,
+            )
+            relevant.sort()
+            allowed = set(relevant[: max(target_centers * 2, target_centers)])
+        elif program.direction == "latest":
+            relevant = _rank_with_temporal_nms(
+                target_scores,
+                candidates,
+                max(target_centers * 4, target_centers),
+                temporal_nms_seconds,
+            )
+            relevant.sort(reverse=True)
+            allowed = set(relevant[: max(target_centers * 2, target_centers)])
 
-    targets = _rank_with_temporal_nms(
-        target_scores,
-        candidates,
-        target_centers,
-        temporal_nms_seconds,
-        allowed=allowed,
-    )
+        if exclude_pivot_target_overlap:
+            allowed = (
+                set(range(len(candidates))) if allowed is None else allowed
+            ) - pivot_eventlet_positions
+
+        targets = _rank_with_temporal_nms(
+            target_scores,
+            candidates,
+            target_centers,
+            temporal_nms_seconds,
+            allowed=allowed,
+        )
+        targets_by_pivot = [(primary_pivot, targets)]
     for center in targets:
         _add_eventlet(
             selected,
@@ -978,8 +1136,18 @@ def select_temporal_pivot_pack(
         )
 
     bridge_positions: list[int] = []
-    for target in targets[:2]:
-        bridge_positions.extend(_bridge_positions(primary_pivot, target, bridge_k // 2))
+    if pivot_mask_mode == "per_pivot" and program.direction in {"forward", "backward"}:
+        bridge_pairs = [
+            (pivot, pivot_targets[0])
+            for pivot, pivot_targets in targets_by_pivot
+            if pivot_targets
+        ][:2]
+    else:
+        bridge_pairs = [(primary_pivot, target) for target in targets[:2]]
+    for pair_rank, (pivot, target) in enumerate(bridge_pairs):
+        pair_quota = bridge_k // max(len(bridge_pairs), 1)
+        pair_quota += int(pair_rank < bridge_k % max(len(bridge_pairs), 1))
+        bridge_positions.extend(_bridge_positions(pivot, target, pair_quota))
     for idx in bridge_positions[:bridge_k]:
         _add_frame(selected, candidates, idx, target_scores[idx], "bridge", 2, priorities)
     for idx in _uniform_positions(len(candidates), anchor_k):
@@ -998,6 +1166,12 @@ def select_temporal_pivot_pack(
         },
         "pivot_centers": [candidates[idx].index for idx in pivots],
         "target_centers": [candidates[idx].index for idx in targets],
+        "target_centers_by_pivot": {
+            str(candidates[pivot].index): [candidates[idx].index for idx in pivot_targets]
+            for pivot, pivot_targets in targets_by_pivot
+        },
+        "pivot_mask_mode": pivot_mask_mode,
+        "exclude_pivot_target_overlap": exclude_pivot_target_overlap,
         "bridge_frames": len(bridge_positions[:bridge_k]),
         "fill_mode": fill_mode,
     }
@@ -1043,7 +1217,7 @@ def proofpack_fingerprint(args: argparse.Namespace) -> str:
         "candidate_frames": args.candidate_frames,
         "grounder_model": args.grounder_model,
         "grounder_revision": args.grounder_revision,
-        "retrieval_query_mode": "question_options",
+        "retrieval_query_mode": args.retrieval_query_mode,
         "event_centers": args.event_centers,
         "centers_per_option": args.centers_per_option,
         "pivot_centers": args.pivot_centers,
@@ -1079,6 +1253,10 @@ def proofpack_fingerprint(args: argparse.Namespace) -> str:
         "mixed_low_pixels": args.mixed_low_pixels,
         "qframe_temperature": args.qframe_temperature,
     }
+    if args.pivot_mask_mode != "primary":
+        payload["pivot_mask_mode"] = args.pivot_mask_mode
+    if args.exclude_pivot_target_overlap:
+        payload["exclude_pivot_target_overlap"] = True
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:12]
 
@@ -1090,6 +1268,8 @@ def inference_fingerprint(args: argparse.Namespace, proofpack_hash: str) -> str:
         "model_type": args.model_type,
         "llm_model": args.llm_model,
         "backend": args.backend,
+        "prompt_variant": getattr(args, "prompt_variant", "baseline"),
+        "longqa_max_new_tokens": getattr(args, "longqa_max_new_tokens", 16),
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:12]
@@ -1104,6 +1284,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--video-folder", default="../egolongqa/val")
     parser.add_argument("--subset-file", default=None)
+    parser.add_argument("--exclude-subset-file", default=None)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--output", required=True)
     parser.add_argument("--eval-output", default=None)
@@ -1117,6 +1298,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--event-centers", type=int, default=8)
     parser.add_argument("--centers-per-option", type=int, default=4)
     parser.add_argument("--pivot-centers", type=int, default=2)
+    parser.add_argument(
+        "--pivot-mask-mode",
+        choices=["primary", "per_pivot"],
+        default="primary",
+    )
+    parser.add_argument("--exclude-pivot-target-overlap", action="store_true")
     parser.add_argument("--target-centers", type=int, default=8)
     parser.add_argument("--eventlet-radius", type=int, default=1)
     parser.add_argument("--anchor-k", type=int, default=32)
@@ -1160,12 +1347,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grounder-dtype", default="bfloat16")
     parser.add_argument("--grounder-revision", default=None)
     parser.add_argument("--grounder-cache-dir", default=None)
+    parser.add_argument(
+        "--retrieval-query-mode",
+        choices=PROOFPACK_RETRIEVAL_QUERY_MODES,
+        default="question_options",
+    )
 
     parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)
     parser.add_argument("--concurrency", type=int, default=1)
+    parser.add_argument(
+        "--prompt-variant",
+        choices=PROMPT_VARIANTS,
+        default="baseline",
+    )
+    parser.add_argument("--longqa-max-new-tokens", type=int, default=16)
     return parser.parse_args()
 
 
@@ -1190,6 +1388,7 @@ def main() -> None:
     generation_fingerprint = inference_fingerprint(args, fingerprint)
 
     rows = apply_subset(load_jsonl(input_path), args.subset_file)
+    rows = exclude_subset(rows, args.exclude_subset_file)
     if args.max_samples is not None:
         rows = rows[: args.max_samples]
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -1234,9 +1433,18 @@ def main() -> None:
                 candidates, image_features, cache_hit = load_or_encode_grounder_features(
                     video_path, args.candidate_frames, grounder, cache_dir
                 )
-                base_query = _question_options_query(row)
-                base_scores = grounder.score_embeddings(base_query, image_features)
-                queries = [{"label": "question_options", "hash": query_hash(base_query)}]
+                query_program = compile_temporal_program(row["question"])
+                target_queries = build_proofpack_target_queries(
+                    row, args.retrieval_query_mode, query_program
+                )
+                base_scores, target_query_meta = score_proofpack_target_queries(
+                    grounder,
+                    target_queries,
+                    candidates,
+                    image_features,
+                    args.retrieval_query_mode,
+                )
+                queries = target_query_meta
                 program: TemporalProgram | None = None
                 rng = np.random.default_rng(args.selection_seed + row_idx)
 
@@ -1360,7 +1568,10 @@ def main() -> None:
                         )
                         queries = [
                             {"label": "pivot", "hash": query_hash(pivot_query)},
-                            {"label": "target", "hash": query_hash(base_query)},
+                            *[
+                                {**item, "label": f"target_{item['label']}"}
+                                for item in target_query_meta
+                            ],
                         ]
                         selected, selection_meta = select_temporal_pivot_pack(
                             candidates,
@@ -1376,6 +1587,8 @@ def main() -> None:
                             args.final_max_frames,
                             args.temporal_nms_seconds,
                             args.fill_mode,
+                            args.pivot_mask_mode,
+                            args.exclude_pivot_target_overlap,
                         )
                         selection_meta["route"] = "temporal_pivot"
                     selection_meta["temporal_program"] = {
@@ -1393,7 +1606,10 @@ def main() -> None:
                     pivot_scores = grounder.score_embeddings(pivot_query, image_features)
                     queries = [
                         {"label": "pivot", "hash": query_hash(pivot_query)},
-                        {"label": "target", "hash": query_hash(base_query)},
+                        *[
+                            {**item, "label": f"target_{item['label']}"}
+                            for item in target_query_meta
+                        ],
                     ]
                     if args.strategy == "operator_router" and program.operator == "GLOBAL":
                         selected, selection_meta = select_baseline_uniform_frames(
@@ -1440,6 +1656,8 @@ def main() -> None:
                             args.final_max_frames,
                             args.temporal_nms_seconds,
                             args.fill_mode,
+                            args.pivot_mask_mode,
+                            args.exclude_pivot_target_overlap,
                         )
                         selection_meta["route"] = "temporal_pivot"
 
@@ -1524,13 +1742,25 @@ def main() -> None:
                 build_structured_evidence_prompt(row, selected_meta, temporal_program)
                 if args.structured_evidence
                 else build_longqa_prompt(
-                    row["question"], row["mcq_options"], prompt_variant="baseline"
+                    row["question"],
+                    row["mcq_options"],
+                    prompt_variant=args.prompt_variant,
                 )
             )
             response = model.generate(
-                frames, [{"role": "user", "content": prompt}], max_new_tokens=16
+                frames,
+                [{"role": "user", "content": prompt}],
+                max_new_tokens=args.longqa_max_new_tokens,
             )
-            pred = build_prediction_row(row, response, prompt_variant=prompt_variant)
+            effective_prompt_variant = (
+                prompt_variant if args.structured_evidence else args.prompt_variant
+            )
+            pred = build_prediction_row(
+                row,
+                response,
+                prompt_variant=effective_prompt_variant,
+            )
+            pred["longqa_max_new_tokens"] = args.longqa_max_new_tokens
             pred["proofpack_strategy"] = args.strategy
             pred["proofpack_fingerprint"] = fingerprint
             pred["proofpack_inference_fingerprint"] = generation_fingerprint
