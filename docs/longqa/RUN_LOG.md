@@ -1,5 +1,23 @@
 # Wearable AI LongQA Run Log
 
+## Current Primary Pipeline
+
+The current primary submission pipeline is
+`qwen35_rotation_averaged_temporal_pivot`, recorded in
+`configs/egolongqa_primary_pipeline.json`. It scores **565/700 (80.71%)** and
+uses the fixed three-run majority except on disagreements, where candidate
+answers are rescored on temporal-pivot frames under four cyclic option
+rotations. This rule was selected on dev140 and independently confirmed on the
+disjoint val560 split before promotion.
+
+The temporal-pivot proof pack has a newly identified retrieval limitation:
+SigLIP2 accepts only 64 text positions, while the original selector supplied a
+single question-and-options string. On the 700 validation questions, 642
+retrieval strings are truncated; option D is completely absent in 608, option C
+in 540, and option B in 372. This affects frame retrieval only, not the final
+Qwen prompt. Future proof packs must use independently encoded, length-safe
+queries before they can replace the current validated primary output.
+
 ## Summary Table
 
 | Run ID | Date | Task | Model | Backend | GPU | Samples | Frames sampled | Image budget | Runtime | Accuracy | Correct | Context fill | Output |
@@ -700,10 +718,248 @@ This is a genuine held-out improvement over the fixed majority, but the small
 and unstable fix/regression balance supports retaining the arbiter as an
 ensemble candidate rather than replacing the majority unconditionally.
 
-The confidence-scoring job `49312287` was still active at this checkpoint. Its
-launcher now uses a stable run name for cross-date resume and a 14-hour limit
-for future submissions; the active job keeps its originally assigned Slurm
-limit.
+The confidence-scoring job `49312287` reached `188/213` disagreement rows before
+its original time limit expired at `2026-07-31 03:15:36`. Resume job `49315037`
+completed the remaining 25 rows in `1h09m50s`, including evaluation. The final
+feature file contains all 213 fixed-majority disagreements.
+
+Nested five-fold grouped evaluation initially selected the correct candidate on
+`147/213` disagreements and implied `586/700` (`0.8371`) when combined with
+majority decisions elsewhere. This number is not a deployable model score. The
+router included candidate option identity, and the validation labels are
+strongly skewed toward option C (`444/700`). A trivial choose-C-when-available
+rule already implies `580/700`.
+
+Removing option identity reduces the fixed-split estimate to `563/700`.
+Changing the number of grouped folds gives `554/700`, `563/700`, and `561/700`
+for three, five, and seven folds. Across ten alternative five-fold hash
+assignments, the option-invariant router averages `557.1/700` and ranges from
+`554` to `560`. On the original split, visual confidence alone implies
+`555/700`, blind question-and-options confidence implies `562/700`, and their
+combination implies `563/700`. The apparent gain is therefore dominated by
+answer-language and option-distribution priors rather than visual confidence.
+The confidence features remain useful for research, but `586/700` must not be
+reported as the accuracy of a completed inference pipeline.
+
+### Strict confidence-router audit and follow-up jobs (2026-07-31)
+
+The option-invariant router was trained only on the 37 fixed-ensemble
+disagreements inside dev140 and evaluated on the 176 disagreements in the
+disjoint val560 remainder. It improves the val560 majority from `436/560`
+(`0.7786`) to `443/560` (`0.7911`), a held-out gain of seven answers. Applying
+that dev140-fitted router to the complete validation file gives `560/700`
+(`0.8000`) for analysis, but only the val560 score is uncontaminated by router
+training.
+
+Ten repeated option-invariant grouped-CV assignments imply `556` to `565`
+correct answers, with a mean of `560.5/700` and standard deviation `3.63`
+answers. These checks are stored under
+`runs/egolongqa/qwen35_confidence_router_strict_audits_2026-07-31/`.
+
+Two GPU diagnostics are prepared:
+
+| Launcher | Scope | Purpose |
+| --- | --- | --- |
+| `slurm_longqa_qwen35_confidence_option_permutation_dev.sh` | 37 dev140 disagreements; four cyclic option placements | Measure and average away option-position sensitivity |
+| `slurm_longqa_qwen35_candidate_text_likelihood_dev.sh` | 37 dev140 disagreements | Score complete candidate answer text under pivot, uniform, mixed, and blind contexts |
+
+The option-permutation job should run first. Candidate-text likelihood is the
+fallback and complementary test if cyclic placement remains unstable or the
+permutation-averaged router does not exceed `116/140`.
+
+Candidate-text job `49316362` failed before producing its first row. The vLLM
+server exhausted GPU memory while computing full-vocabulary prompt
+log-probabilities for a 64-frame, 672px prompt; this scoring path requires much
+more temporary memory than option-letter scoring. The launcher now retains 64
+frames at 448px, uses a 32K context window, lowers vLLM's GPU-memory reservation
+to `0.80`, and fingerprints the pixel/context settings. The failed artifacts
+are archived separately under
+`runs/egolongqa/qwen35_9b_candidate_text_likelihood_disagreements_dev_2026-07-31_failed_job49316362/`.
+
+### Option-permutation confidence result (2026-07-31)
+
+| Run | Slurm ID | Result | Runtime |
+| --- | ---: | ---: | ---: |
+| `qwen35_9b_vllm_confidence_option_permutation_dev_2026-07-31` | 49316361 | 117/140 (0.8357) OOF router | 1h50m25s |
+
+Four cyclic option placements were scored for each of the 37 fixed-ensemble
+disagreements and mapped back to the original answer meanings. The learned OOF
+router changes nine majority answers, with five fixes and four regressions.
+Only 43.24% of pivot and blind decisions, 56.76% of uniform decisions, and
+54.05% of mixed-view decisions are identical across all four placements, which
+confirms substantial option-order sensitivity.
+
+The strongest label-free rule is simpler than the router: choose the proposed
+candidate with the highest rotation-averaged pivot-view probability. It gets
+`24/37` disagreements correct versus `20/37` for majority, yielding `120/140`
+(`0.8571`) on dev140. Its eleven interventions contain seven fixes, three
+regressions, and one change where both answers are wrong. The same rule without
+cyclic averaging scores only `19/37`, so the gain specifically comes from
+removing option-position bias. A disjoint val560 evaluation is required before
+promotion.
+
+### Candidate-text likelihood result (2026-07-31)
+
+| Run | Slurm ID | Result | Runtime |
+| --- | ---: | ---: | ---: |
+| `qwen35_9b_candidate_text_likelihood_disagreements_dev_2026-07-31` | 49318318 | best visual 114/140; blind 117/140 | 1h46m15s |
+
+The rerun completed all 37 disagreements at 64 frames and 448px without memory
+errors. Pivot and uniform complete-answer likelihood each imply `114/140`,
+mixed implies `113/140`, and the three-view visual mean implies `112/140`.
+Blind answer-text likelihood is the strongest tested rule at `117/140`, but its
+gain is linguistic rather than visual and remains below the rotation-averaged
+pivot rule's `120/140`. Candidate-text visual scoring should not be expanded to
+val560.
+
+The disjoint validation launcher
+`slurm_longqa_qwen35_rotation_pivot_val560.sh` evaluates the promoted rule on
+the 560-question complement of dev140. It scores only the pivot context for the
+176 ensemble disagreements under four cyclic option placements, reducing work
+from sixteen to four scoring calls per disagreement. The rule contains no
+fitted parameters and the evaluator was smoke-tested to reproduce the dev140
+result exactly. Promotion requires at least `441/560`, five answers above the
+val560 majority baseline of `436/560`.
+
+### Rotation-averaged pivot val560 and full result (2026-07-31)
+
+| Run | Slurm ID | Result | Runtime |
+| --- | ---: | ---: | ---: |
+| `qwen35_9b_vllm_rotation_avg_pivot_val560_2026-07-31` | 49320345 | **445/560 (0.7946)** | 2h46m09s |
+| `qwen35_9b_vllm_rotation_avg_pivot_full_2026-07-31` | offline merge | **565/700 (0.8071)** | n/a |
+
+The strict held-out experiment passes its promotion gate by four answers and
+improves the val560 majority by nine. On 176 held-out disagreements, the rule
+changes 50 majority decisions, producing 27 fixes, 18 regressions, and five
+both-wrong changes. Combined with the independently computed `120/140` dev
+partition, the same label-free rule reaches `565/700`, twelve answers above the
+previous `553/700` candidate arbiter and thirteen above fixed majority.
+
+The merged 700-row prediction file was reconstructed in original annotation
+order and independently evaluated. A margin threshold selected only on dev140
+does not improve held-out accuracy: the dev-optimal `0.16` threshold also gives
+`445/560`. The unconditional rotation-averaged pivot rule is therefore the
+preferred pipeline.
+
+The follow-up error audit separates the remaining 135 errors into 64 cases
+where the correct candidate was available but not selected, ten where only an
+additional base run proposed it, and 61 missed by all six strong runs.
+Cross-time ordering is the largest weak slice at `153/205` (`0.7463`). Detailed
+category, question-type, and temporal-operator results are documented in
+`documentation/LONGQA_ROTATION_ERROR_ANALYSIS_2026-07-31.md`.
+
+### Matched shortcut controls and hypothesis-verification results (2026-08-01)
+
+| Run | Slurm ID | Scope | Result | Runtime |
+| --- | ---: | --- | ---: | ---: |
+| `qwen35_9b_vllm_text_only_full_2026-07-31` | 49332216 | val700 | 452/700 (0.6457) | not recorded |
+| `qwen35_9b_vllm_central_frame_px451584_full_2026-07-31` | 49332222 | val700 | 382/700 (0.5457) | not recorded |
+| `qwen35_9b_hypothesis_existing_primary565_dev_2026-07-31` | 49332359 | dev140 | **119/140 (0.8500)** | 47m09s |
+| `qwen35_9b_hypothesis_fresh_singlepass_primary565_dev_2026-08-01` | 49337951 | dev140 | 118/140 (0.8429) | 30m12s |
+| `qwen35_9b_hypothesis_fresh_refine1_primary565_dev_2026-08-01` | 49337952 | dev140 | 117/140 (0.8357) | 46m59s |
+
+The matched controls confirm substantial language and answer-position signal:
+Qwen3.5 text-only is only eight answers above always-C, while one central frame
+is ten percentage points worse than text-only. The 64-frame primary reaches
+`120/140` on the same dev split, a 30-answer visual gain over text-only.
+
+All three hypothesis runs completed 140 predictions and 37 aligned disagreement
+audits. Relative to the `120/140` primary fallback, existing-evidence judging
+made three fixes and four regressions; fresh candidate-balanced retrieval made
+three fixes and five regressions; enabling refinement made three fixes and six
+regressions. Their paired-bootstrap differences from primary all include zero.
+
+The refinement-enabled run did not execute a second evidence round. Only 17 of
+37 first reports passed strict validation, and none requested refinement; 16
+reports inconsistently marked a candidate `SUPPORTED` while leaving an
+applicable temporal, identity, or coverage check unresolved, three generations
+ended at the output-token limit, and one cited an invalid frame ID. Strict
+fallback was beneficial: accepting the 16 structurally inconsistent decisive
+reports would have selected only six correct answers, versus 12 correct primary
+fallbacks. Fresh SigLIP2 evidence therefore does not justify promotion, while
+the bounded-refinement mechanism remains untested rather than disproven.
+
+The aligned stratified-bootstrap report is stored at
+`analysis/egolongqa/hypothesis_judge_uncertainty_dev140_2026-08-01.json`.
+
+### Retrieval-text and embedding ablations (2026-08-01)
+
+| Run | Slurm ID | Scope | Result | Runtime |
+| --- | ---: | --- | ---: | ---: |
+| `qwen35_9b_vllm_siglip2_tokensafe_temporal_pivot_anc24_final64_px451584_dev_2026-08-01` | 49338356 | dev140 | 109/140 (0.7786) | 1h41m04s |
+| `qwen35_9b_vllm_qwen3vl_embed2b_temporal_pivot_anc24_final64_px451584_dev_2026-08-01` | 49339169 | dev140 | **114/140 (0.8143)** | 2h34m29s |
+| `qwen35_9b_pairwise_candidate_tournament_dev_2026-08-01` | 49344682 | dev140 | failed before inference | n/a |
+
+The token-safe SigLIP2 variant encoded the question and each option separately,
+ensuring no option was lost to the text encoder's context limit. It regressed
+four answers from the original Qwen3.5 SigLIP2 pivot (`113/140`), so truncation
+was a real implementation risk but was not the cause of the remaining accuracy
+gap.
+
+Replacing SigLIP2 with the 2B Qwen3-VL embedding model reached `114/140`: four
+fixes and three regressions relative to the original pivot, and seven fixes and
+five regressions relative to uniform64. Its two-run oracles are `117/140` with
+the original pivot and `119/140` with uniform64. It is therefore modestly useful
+as a diverse evidence proposal, but it is slower and remains below the promoted
+rotation-averaged rule (`120/140`). The embedding run used 64 final frames at
+672px; mean/p95/max context fill was `56.88%/57.12%/57.44%` of 49,152 tokens.
+
+The first pairwise-tournament attempt never loaded Qwen: the standalone wrapper
+did not add the environment's user-site packages, and vLLM failed to import
+`psutil`. The launcher now exports the same user-site path used by the other
+Qwen jobs and passes an explicit `import psutil, vllm` preflight. Job `49344682`
+is archived as a failed attempt; the corrected rerun is job `49344838` below.
+
+### Corrected retrieval, prompting, and endpoint ablations (2026-08-01)
+
+| Run | Slurm ID | Result | Runtime |
+| --- | ---: | ---: | ---: |
+| `qwen35_9b_pairwise_candidate_tournament_dev_2026-08-01` | 49344838 | 116/140 (0.8286) | 34m03s |
+| `qwen35_9b_vllm_siglip2_temporal_pivot_v2_anc24_final64_px451584_dev_2026-08-01` | 49344866 | 112/140 (0.8000) | 58m37s |
+| `qwen35_9b_vllm_siglip2_option_quota_pivot_anc24_final64_px451584_dev_2026-08-01` | 49344867 | **117/140 (0.8357)** | 57m24s |
+| `qwen35_9b_vllm_fixed_pivot_operator_adaptive_px451584_dev_2026-08-01` | 49344868 | 114/140 (0.8143) | 56m28s |
+| `qwen35_9b_vllm_fixed_pivot_option_verify_px451584_dev_2026-08-01` | 49344871 | 116/140 (0.8286) | 1h40m45s |
+| `qwen35_9b_vllm_uniform64_endpoint_px451584_dev_2026-08-01` | 49344873 | 116/140 (0.8286) | 1h39m53s |
+
+The order-balanced tournament successfully evaluated all 39 candidate
+disagreements, including two three-way disagreements, with no failed pair
+scores. Against the promoted `120/140` fallback it made three fixes and seven
+regressions; pairwise answer-text scoring is therefore rejected as a routing
+rule.
+
+Temporal pivot v2 separated requested targets from `AFTER`/`BEFORE` anchors,
+used both retrieved pivot occurrences, and routed 30 compound questions through
+separate temporal-clause queries. The 110 single-operator rows gained three and
+lost two relative to the old pivot, but the compound route gained none and lost
+two. The combined run finished one answer below the old pivot (`112` versus
+`113`) and should not be promoted in its current form.
+
+Option-quota retrieval was the strongest new ablation. For each of the 113
+temporally structured questions, SigLIP2 reserved a target center for every
+answer option and used the remaining target budget for the question. This
+subgroup improved from `93/113` under the old pivot to `98/113` (six fixes, one
+regression); the 27 global questions decreased from `20/27` to `19/27`. Overall
+it made seven fixes and three regressions over the matched old pivot, reaching
+`117/140`, but remained three answers below the promoted rule.
+
+With the original pivot frames held fixed, the operator-adaptive prompt reached
+`114/140` and the option-verification prompt reached `116/140`. The latter made
+five fixes and two regressions relative to the baseline pivot prompt, showing a
+real prompt effect, but it still made two fixes and six regressions relative to
+the promoted pipeline.
+
+Including both video endpoints raised uniform64 from `112/140` to `116/140`
+(nine fixes, five regressions). It is particularly interesting on the 18
+`FIRST` questions, where it scored `18/18` versus `16/18` for the promoted rule;
+substituting endpoint-uniform predictions only for this predefined slice would
+give `122/140` with two changed answers, both fixes. This is a dev observation,
+not yet a promoted router, and requires a disjoint val560 test.
+
+Simple majorities of the promoted rule, option-quota, endpoint uniform,
+option-verification, and Qwen embeddings score only `117–119/140`. Their joint
+oracle with the promoted rule is `127/140`, confirming useful diversity but no
+reliable general routing signal yet. The promoted rotation-averaged rule remains
+the primary pipeline at `120/140` dev and `565/700` full validation.
 
 ### Conditional delta-crop result (2026-07-30)
 
@@ -726,6 +982,27 @@ does not invalidate the result. At this checkpoint, conditional uncertainty
 TCoT job `49312487` and confidence-scoring job `49312287` were still active and
 their working outputs were retained.
 
+### Conditional uncertainty-TCoT results (2026-07-30)
+
+| Run | Slurm ID | Result | Runtime |
+| --- | ---: | ---: | ---: |
+| `qwen3_vl_8b_vllm_conditional_ug_c128_dynamic_tcot_sel48_u16_dev_2026-07-30` | 49312487 | 112/140 (0.8000) | 2h02m38s |
+| `qwen3_vl_8b_vllm_conditional_ug_c128_dynamic_tcot_s8x3_sel48_u16_dev_2026-07-30` | 49312930 | 110/140 (0.7857) | 2h07m28s |
+
+Both runs intervene only on the 37 dev140 questions where the fixed
+three-system ensemble disagrees. The four-section policy changes 16 majority
+answers, producing five fixes, nine regressions, and two changes where both
+answers are wrong. The eight-section policy changes 19 answers, producing six
+fixes, twelve regressions, and one both-wrong change. Splitting the timeline
+more finely therefore does not improve routing: it adds one recovery but three
+additional regressions.
+
+The fixed majority plus the two TCoT policies and conditional crops has an
+oracle score of `124/140`. Their distinct corrections are useful for studying a
+router, but none should be promoted to a full-validation answering pipeline.
+Both Slurm stderr files contain only the known subset-length warning; key-aligned
+evaluation confirms the reported results.
+
 ## Dev140 Fair Comparison
 
 The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full-validation prediction files were re-scored by matching stable `video_path||question` keys, so these numbers are directly comparable to the new dev-only runs.
@@ -733,7 +1010,9 @@ The dev140 subset is `configs/egolongqa_dev140_seed20260709.json`. Previous full
 | Run ID | Dev140 accuracy | Correct | Temporal acc. | Non-C acc. |
 | --- | ---: | ---: | ---: | ---: |
 | `offline_majority_qwen35_pivot_qwen35_uniform_qwen3_verifier_2026-07-30` | **0.8286** | **116/140** | n/a | n/a |
+| `qwen3_vl_8b_vllm_conditional_ug_c128_dynamic_tcot_sel48_u16_dev_2026-07-30` | **0.8000** | **112/140** | **0.8120** | **0.8367** |
 | `qwen3_vl_8b_vllm_conditional_delta_crops_c24_top8_d005_dev_2026-07-30` | **0.8000** | **112/140** | **0.8120** | **0.8163** |
+| `qwen3_vl_8b_vllm_conditional_ug_c128_dynamic_tcot_s8x3_sel48_u16_dev_2026-07-30` | **0.7857** | **110/140** | **0.7970** | **0.7959** |
 | `qwen35_9b_vllm_uniform64_px451584_full_2026-07-30` | **0.8071** | **113/140** | n/a | n/a |
 | `offline_majority_ug_router_qwen35_pivot_qwen35_uniform_2026-07-29` | **0.8429** | **118/140** | **0.8571** | **0.9388** |
 | `qwen3_vl_8b_vllm_ug_pivot_uniform_crop_router_px451584_dev_2026-07-29` | **0.8214** | **115/140** | **0.8271** | 0.7959 |

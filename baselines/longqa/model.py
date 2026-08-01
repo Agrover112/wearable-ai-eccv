@@ -178,6 +178,7 @@ def extract_frames(
     intervals: list[tuple[float, float]] | None = None,
     frames_per_interval: int = 4,
     max_frames: int = 32,
+    sampling_mode: str = "legacy",
 ) -> list[object]:
     """Extract frames from a video file as PIL Images.
 
@@ -221,9 +222,18 @@ def extract_frames(
             if end_frame <= start_frame:
                 continue
             n = min(frames_per_interval, end_frame - start_frame + 1)
-            step = (end_frame - start_frame) / n
-            for i in range(n):
-                frame_indices.append(int(start_frame + i * step))
+            if sampling_mode == "endpoint_inclusive" and n > 1:
+                step = (end_frame - start_frame) / (n - 1)
+                frame_indices.extend(
+                    round(start_frame + i * step) for i in range(n)
+                )
+            elif sampling_mode == "endpoint_inclusive":
+                frame_indices.append(round((start_frame + end_frame) / 2))
+            elif sampling_mode == "legacy":
+                step = (end_frame - start_frame) / n
+                frame_indices.extend(int(start_frame + i * step) for i in range(n))
+            else:
+                raise ValueError(f"Unknown frame sampling mode: {sampling_mode}")
 
         frame_indices = sorted(set(frame_indices))
 

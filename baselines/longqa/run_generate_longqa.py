@@ -102,6 +102,12 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--uniform-sampling",
+        choices=["legacy", "endpoint_inclusive"],
+        default="legacy",
+        help="Uniform frame-position policy for full-video sampling.",
+    )
+    parser.add_argument(
         "--max-samples",
         type=int,
         default=None,
@@ -218,6 +224,8 @@ def _submit_slurm(
         str(args.frames_per_interval),
         "--prompt-variant",
         args.prompt_variant,
+        "--uniform-sampling",
+        args.uniform_sampling,
         "--longqa-max-new-tokens",
         str(getattr(args, "longqa_max_new_tokens", 16)),
     ]
@@ -392,6 +400,10 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
             break
         if not str(pred.get("mcq_answer", "")).strip():
             break
+        if str(pred.get("uniform_sampling", "legacy")) != str(
+            getattr(args, "uniform_sampling", "legacy")
+        ):
+            break
         resume_count += 1
     if resume_count:
         print(f"Resuming predictions from {resume_count}/{len(data)} cached rows")
@@ -411,6 +423,7 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                     video_path,
                     frames_per_interval=args.frames_per_interval,
                     max_frames=args.max_frames,
+                    sampling_mode=getattr(args, "uniform_sampling", "legacy"),
                 )
                 if not frames:
                     raise RuntimeError(
@@ -451,6 +464,9 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 )
                 pred["longqa_max_new_tokens"] = getattr(
                     args, "longqa_max_new_tokens", 16
+                )
+                pred["uniform_sampling"] = getattr(
+                    args, "uniform_sampling", "legacy"
                 )
                 out_f.write(json.dumps(pred) + "\n")
                 out_f.flush()
@@ -509,6 +525,7 @@ def _worker_fn(
                     os.path.join(video_folder, str(row["video_path"])),
                     frames_per_interval=args.frames_per_interval,
                     max_frames=args.max_frames,
+                    sampling_mode=getattr(args, "uniform_sampling", "legacy"),
                 )
                 for row in batch
             ]
@@ -545,6 +562,9 @@ def _worker_fn(
                 )
                 pred["longqa_max_new_tokens"] = getattr(
                     args, "longqa_max_new_tokens", 16
+                )
+                pred["uniform_sampling"] = getattr(
+                    args, "uniform_sampling", "legacy"
                 )
                 out_f.write(json.dumps(pred) + "\n")
                 out_f.flush()

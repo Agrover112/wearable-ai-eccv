@@ -19,7 +19,10 @@ from run_generate_longqa_proofpack import (
     compile_temporal_program,
 )
 from run_generate_longqa_uncertainty import _index_jsonl, _video_metadata
-from run_generate_longqa_verifier import build_verifier_frame_indices
+from run_generate_longqa_verifier import (
+    build_verifier_frame_indices,
+    rotate_mcq_options,
+)
 
 
 def _resolve_path(path: str) -> str:
@@ -67,6 +70,8 @@ def _fingerprint(args: argparse.Namespace) -> str:
         "model": args.llm_model,
         "max_frames": args.max_frames,
         "proofpack_quota": args.proofpack_quota,
+        "option_rotations": args.option_rotations,
+        "score_views": sorted(args.score_views),
         "subset": os.path.abspath(args.subset_file) if args.subset_file else None,
     }
     return hashlib.sha1(
@@ -92,8 +97,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--proofpack-quota", type=int, default=32)
     parser.add_argument("--llm-model", default="Qwen/Qwen3.5-9B")
     parser.add_argument("--concurrency", type=int, default=1)
+    parser.add_argument(
+        "--option-rotations",
+        type=int,
+        choices=(1, 2, 3, 4),
+        default=1,
+        help="Cyclic option placements to score before mapping back and averaging.",
+    )
+    parser.add_argument(
+        "--score-views",
+        nargs="+",
+        choices=("pivot", "uniform", "mixed", "blind"),
+        default=["pivot", "uniform", "mixed", "blind"],
+        help="Contexts to score. Restricting this list avoids unused model calls.",
+    )
     parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args()
+
+
+def _map_displayed_scores(
+    scores: dict[str, float],
+    displayed_to_original: dict[str, str],
+) -> dict[str, float]:
+    return {
+        original: float(scores[displayed])
+        for displayed, original in displayed_to_original.items()
+    }
+
+
+def _average_scores(
+    score_rows: list[dict[str, float]],
+) -> dict[str, float]:
+    return {
+        letter: sum(row[letter] for row in score_rows) / len(score_rows)
+        for letter in "ABCD"
+    }
 
 
 def main() -> None:
@@ -163,6 +201,7 @@ def main() -> None:
     )
     reset_prompt_token_stats()
     begun = time.time()
+    requested_views = set(args.score_views)
     with model, open(output_path, "a" if start else "w") as handle:
         for index, row in enumerate(disagreement_rows[start:], start=start):
             key = sample_key(row)
@@ -170,34 +209,85 @@ def main() -> None:
             _fps, total_frames = _video_metadata(video_path)
             if total_frames <= 0:
                 raise RuntimeError(f"Could not read video metadata: {video_path}")
-            pivot_indices = sorted(
-                int(item["frame_index"])
-                for item in proofpacks[key]["selected"][: args.max_frames]
-            )
-            uniform_indices = baseline_uniform_indices(total_frames, args.max_frames)
-            mixed_indices, mixed_meta = build_verifier_frame_indices(
-                proofpacks[key]["selected"],
-                total_frames,
-                max_frames=args.max_frames,
-                proofpack_quota=args.proofpack_quota,
-            )
+            frame_indices: dict[str, list[int]] = {}
+            mixed_meta: dict[str, Any] | None = None
+            if "pivot" in requested_views:
+                frame_indices["pivot"] = sorted(
+                    int(item["frame_index"])
+                    for item in proofpacks[key]["selected"][: args.max_frames]
+                )
+            if "uniform" in requested_views:
+                frame_indices["uniform"] = baseline_uniform_indices(
+                    total_frames, args.max_frames
+                )
+            if "mixed" in requested_views:
+                mixed_indices, mixed_meta = build_verifier_frame_indices(
+                    proofpacks[key]["selected"],
+                    total_frames,
+                    max_frames=args.max_frames,
+                    proofpack_quota=args.proofpack_quota,
+                )
+                frame_indices["mixed"] = mixed_indices
             contexts = {
-                "pivot": extract_frames_by_indices(video_path, pivot_indices),
-                "uniform": extract_frames_by_indices(video_path, uniform_indices),
-                "mixed": extract_frames_by_indices(video_path, mixed_indices),
+                name: extract_frames_by_indices(video_path, indices)
+                for name, indices in frame_indices.items()
             }
-            prompt = [{"role": "user", "content": build_scoring_prompt(row, True)}]
+            rotation_records: list[dict[str, Any]] = []
+            mapped_context_scores: dict[str, list[dict[str, float]]] = {
+                name: [] for name in contexts
+            }
+            mapped_blind_scores: list[dict[str, float]] = []
+            for offset in range(args.option_rotations):
+                permuted_row, displayed_to_original = rotate_mcq_options(
+                    row, offset
+                )
+                visual_prompt = [
+                    {
+                        "role": "user",
+                        "content": build_scoring_prompt(permuted_row, True),
+                    }
+                ]
+                rotation_contexts = {}
+                for name, frames in contexts.items():
+                    mapped = _map_displayed_scores(
+                        model.score_choice_letters(frames, visual_prompt),
+                        displayed_to_original,
+                    )
+                    mapped_context_scores[name].append(mapped)
+                    rotation_contexts[name] = _normalized_choice_stats(mapped)
+                mapped_blind = None
+                if "blind" in requested_views:
+                    blind_prompt = [
+                        {
+                            "role": "user",
+                            "content": build_scoring_prompt(
+                                permuted_row, False
+                            ),
+                        }
+                    ]
+                    mapped_blind = _map_displayed_scores(
+                        model.score_choice_letters([], blind_prompt),
+                        displayed_to_original,
+                    )
+                    mapped_blind_scores.append(mapped_blind)
+                rotation_record = {
+                    "offset": offset,
+                    "displayed_to_original": displayed_to_original,
+                    "view_scores": rotation_contexts,
+                }
+                if mapped_blind is not None:
+                    rotation_record["blind_scores"] = (
+                        _normalized_choice_stats(mapped_blind)
+                    )
+                rotation_records.append(rotation_record)
             scored = {
-                name: _normalized_choice_stats(
-                    model.score_choice_letters(frames, prompt)
-                )
-                for name, frames in contexts.items()
+                name: _normalized_choice_stats(_average_scores(score_rows))
+                for name, score_rows in mapped_context_scores.items()
             }
-            blind = _normalized_choice_stats(
-                model.score_choice_letters(
-                    [],
-                    [{"role": "user", "content": build_scoring_prompt(row, False)}],
-                )
+            blind = (
+                _normalized_choice_stats(_average_scores(mapped_blind_scores))
+                if mapped_blind_scores
+                else None
             )
             answers = {
                 name: _answer(predictions[key])
@@ -222,13 +312,16 @@ def main() -> None:
                 "view_scores": scored,
                 "blind_scores": blind,
                 "frame_counts": {
-                    "pivot": len(pivot_indices),
-                    "uniform": len(uniform_indices),
-                    "mixed": len(mixed_indices),
+                    name: len(indices)
+                    for name, indices in frame_indices.items()
                 },
                 "mixed_frame_meta": mixed_meta,
+                "option_rotations": args.option_rotations,
+                "score_views": sorted(requested_views),
                 "score_fingerprint": fingerprint,
             }
+            if args.option_rotations > 1:
+                record["rotation_scores"] = rotation_records
             handle.write(json.dumps(record) + "\n")
             handle.flush()
             print(f"  Score progress: {index + 1}/{len(disagreement_rows)}")

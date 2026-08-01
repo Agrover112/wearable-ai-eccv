@@ -1,0 +1,27 @@
+{
+  "name": "qwen35_rotation_averaged_temporal_pivot",
+  "status": "primary",
+  "set_on": "2026-07-31",
+  "evaluation": {
+    "split": "wearable_ai_2026_egolongqa_val_700",
+    "correct": 565,
+    "total": 700,
+    "accuracy": 0.807143
+  },
+  "predictions": "runs/egolongqa/qwen35_9b_vllm_rotation_avg_pivot_full_2026-07-31/predictions.jsonl",
+  "result_summary": "runs/egolongqa/qwen35_9b_vllm_rotation_avg_pivot_full_2026-07-31/results_summary.json",
+  "policy": {
+    "base_predictions": [
+      "runs/egolongqa/qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_full_2026-07-29/predictions.jsonl",
+      "runs/egolongqa/qwen35_9b_vllm_uniform64_px451584_full_2026-07-30/predictions.jsonl",
+      "runs/egolongqa/qwen3_vl_8b_vllm_pivot_uniform_disagreement_verifier_px451584_full_2026-07-12/predictions.jsonl"
+    ],
+    "initial_decision": "majority vote",
+    "disagreement_decision": "Score only proposed candidate answers on the temporal-pivot frames under four cyclic option rotations, average probabilities by answer text, and select the highest mean probability.",
+    "uses_ground_truth_labels": false
+  },
+  "known_limitations": [
+    "The cached temporal-pivot evidence was selected with a SigLIP2 text encoder limited to 64 positions.",
+    "The original question-and-options retrieval query can truncate later answer options; Qwen answer generation still receives all options."
+  ]
+}

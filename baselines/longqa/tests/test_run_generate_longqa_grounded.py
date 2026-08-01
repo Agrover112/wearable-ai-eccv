@@ -4,11 +4,20 @@ from types import SimpleNamespace
 
 from run_generate_longqa_grounded import (
     CandidateFrame,
+    Qwen3VLEmbeddingGrounder,
     _pooled_features,
     load_grounder_feature_cache,
     save_grounder_feature_cache,
     select_per_option_union_frames,
 )
+
+
+def test_qwen_embedding_pooling_uses_last_attended_token():
+    hidden = torch.arange(2 * 4 * 3).reshape(2, 4, 3)
+    mask = torch.tensor([[1, 1, 0, 0], [1, 1, 1, 0]])
+    pooled = Qwen3VLEmbeddingGrounder._pool_last(hidden, mask)
+    assert torch.equal(pooled[0], hidden[0, 1])
+    assert torch.equal(pooled[1], hidden[1, 2])
 
 
 def test_pooled_features_accepts_legacy_tensor_output():

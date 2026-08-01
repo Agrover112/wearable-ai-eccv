@@ -2,13 +2,19 @@ import pytest
 
 from longqa_utils import index_row_aligned_metadata
 from run_generate_longqa_verifier import (
+    build_candidate_pair_prompt,
     build_pairwise_verifier_prompt,
     build_verifier_frame_indices,
     build_verifier_prompt,
     choose_candidate_from_scores,
     choose_candidate_from_votes,
     parse_pairwise_choice,
+    parse_candidate_pair_answer,
     rotate_mcq_options,
+)
+from run_score_longqa_disagreements import (
+    _average_scores,
+    _map_displayed_scores,
 )
 
 
@@ -71,6 +77,22 @@ def test_pairwise_prompt_exposes_only_candidate_semantics():
     assert parse_pairwise_choice("Candidate 1") == 1
 
 
+def test_candidate_pair_prompt_is_source_neutral_and_candidate_restricted():
+    row = {
+        "question": "What happened after payment?",
+        "mcq_options": "A. Sat B. Left C. Ordered D. Ate",
+    }
+    prompt = build_candidate_pair_prompt(row, "D", "B")
+    assert "B. Left" in prompt
+    assert "D. Ate" in prompt
+    assert prompt.index("B. Left") < prompt.index("D. Ate")
+    assert "primary" not in prompt.lower()
+    assert "secondary" not in prompt.lower()
+    assert "A. Sat" not in prompt
+    assert parse_candidate_pair_answer("D", "B", "D") == "D"
+    assert parse_candidate_pair_answer("Answer: A", "B", "D") is None
+
+
 def test_option_rotations_cover_each_display_position_once():
     row = {
         "question": "What happened?",
@@ -79,6 +101,22 @@ def test_option_rotations_cover_each_display_position_once():
     mappings = [rotate_mcq_options(row, offset)[1] for offset in range(4)]
     for original in "ABCD":
         assert {displayed for mapping in mappings for displayed, value in mapping.items() if value == original} == set("ABCD")
+
+
+def test_rotated_letter_scores_map_back_to_original_answer_meaning():
+    displayed_to_original = {"A": "B", "B": "C", "C": "D", "D": "A"}
+    mapped = _map_displayed_scores(
+        {"A": 1.0, "B": 2.0, "C": 3.0, "D": 4.0},
+        displayed_to_original,
+    )
+    assert mapped == {"A": 4.0, "B": 1.0, "C": 2.0, "D": 3.0}
+    averaged = _average_scores(
+        [
+            {"A": 4.0, "B": 1.0, "C": 2.0, "D": 3.0},
+            {"A": 2.0, "B": 3.0, "C": 4.0, "D": 1.0},
+        ]
+    )
+    assert averaged == {"A": 3.0, "B": 2.0, "C": 3.0, "D": 2.0}
 
 
 def test_vote_aggregation_is_candidate_restricted_and_ties_fall_back():

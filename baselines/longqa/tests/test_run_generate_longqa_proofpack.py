@@ -4,10 +4,12 @@ from run_generate_longqa_grounded import CandidateFrame
 from run_generate_longqa_proofpack import (
     TemporalProgram,
     baseline_uniform_indices,
+    build_token_safe_retrieval_queries,
     build_multi_event_queries,
     build_option_hypotheses,
     build_structured_evidence_prompt,
     compile_temporal_program,
+    combine_balanced_retrieval_scores,
     select_adaq_pack,
     select_eventlet_hybrid,
     select_focus_pack,
@@ -250,6 +252,45 @@ def test_option_hypotheses_are_separate_queries():
         "option_D",
     ]
     assert "Hypothesis A: Sat down" in queries[0].text
+
+
+def test_token_safe_queries_represent_every_option_separately():
+    row = {
+        "question": "After paying, what did I do?",
+        "mcq_options": "A. Sat down B. Left C. Paid D. Ate",
+    }
+    queries = build_token_safe_retrieval_queries(
+        row, TemporalProgram("AFTER", "paying", "forward", "what did I do")
+    )
+    assert [query.label for query in queries] == [
+        "target",
+        "option_A",
+        "option_B",
+        "option_C",
+        "option_D",
+    ]
+    assert all("Options:" not in query.text for query in queries)
+
+
+def test_balanced_retrieval_scores_do_not_favor_option_position():
+    scores = {
+        "target": [0.0, 1.0, 2.0],
+        "option_A": [3.0, 1.0, 0.0],
+        "option_B": [0.0, 3.0, 1.0],
+        "option_C": [1.0, 0.0, 3.0],
+        "option_D": [2.0, 2.0, 2.0],
+    }
+    first = combine_balanced_retrieval_scores(scores)
+    rotated = combine_balanced_retrieval_scores(
+        {
+            "target": scores["target"],
+            "option_A": scores["option_D"],
+            "option_B": scores["option_A"],
+            "option_C": scores["option_B"],
+            "option_D": scores["option_C"],
+        }
+    )
+    np.testing.assert_allclose(first, rotated)
 
 
 def test_adaq_pack_is_reproducible_and_exact_budget():

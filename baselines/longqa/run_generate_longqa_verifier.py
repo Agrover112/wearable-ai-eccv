@@ -145,6 +145,35 @@ def build_pairwise_verifier_prompt(
     )
 
 
+def build_candidate_pair_prompt(
+    row: dict[str, Any], first: str, second: str
+) -> str:
+    """Build a source-neutral prompt containing only the two proposed answers."""
+    options = parse_mcq_options(row["mcq_options"])
+    candidates = sorted({first, second})
+    if len(candidates) != 2 or any(letter not in options for letter in candidates):
+        raise ValueError("candidate-pair verifier requires two valid MCQ letters")
+    candidate_text = "\n".join(
+        f"{letter}. {options[letter]}" for letter in candidates
+    )
+    return (
+        "Two systems gave different answers to the question below. Use the "
+        "chronological video frames to choose between only the two listed answers. "
+        "Check what is visibly supported, what is contradicted, and whether events "
+        "occur in the order asked by the question. Do not choose an unlisted answer.\n\n"
+        f"Question: {row['question']}\n\n"
+        f"Candidate answers:\n{candidate_text}\n\n"
+        f"Return ONLY {candidates[0]} or {candidates[1]}."
+    )
+
+
+def parse_candidate_pair_answer(
+    response: object, first: str, second: str
+) -> str | None:
+    answer = normalize_answer(response)
+    return answer if answer in {first, second} else None
+
+
 def parse_pairwise_choice(response: object) -> int | None:
     text = str(response).strip()
     if text in {"1", "2"}:
@@ -242,6 +271,7 @@ def parse_args() -> argparse.Namespace:
         choices=[
             "baseline",
             "support_contradiction",
+            "candidate_pair",
             "pairwise_order_swap",
             "candidate_likelihood",
             "option_permutation",
@@ -471,6 +501,29 @@ def main() -> None:
                         forward_answer is not None and forward_answer == reverse_answer
                     )
                     pred["pairwise_fallback_primary"] = not pred["pairwise_consensus"]
+                elif args.verifier_prompt == "candidate_pair":
+                    response = model.generate(
+                        frames,
+                        [
+                            {
+                                "role": "user",
+                                "content": build_candidate_pair_prompt(
+                                    row, first, second
+                                ),
+                            }
+                        ],
+                        max_new_tokens=8,
+                    )
+                    parsed = parse_candidate_pair_answer(response, first, second)
+                    answer = parsed or first
+                    pred = build_prediction_row(
+                        row, answer, prompt_variant="candidate_pair_verifier"
+                    )
+                    pred["candidate_pair_raw_response"] = str(response)
+                    pred["candidate_pair_parsed"] = parsed
+                    pred["candidate_pair_fallback_primary"] = parsed is None
+                    pred["candidate_pair_source_neutral"] = True
+                    pred["verifier_frame_meta"] = frame_meta
                 else:
                     response = model.generate(
                         frames,

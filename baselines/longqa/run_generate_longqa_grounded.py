@@ -258,6 +258,165 @@ class TextImageGrounder:
         return self.score_embeddings(text, self.encode_images(frames))
 
 
+class Qwen3VLEmbeddingGrounder:
+    """Qwen3-VL multimodal embedder with the same interface as SigLIP."""
+
+    def __init__(
+        self,
+        model_id: str,
+        device: str = "cuda",
+        batch_size: int = 8,
+        dtype: str = "bfloat16",
+        revision: str | None = None,
+        max_pixels: int = 200704,
+    ) -> None:
+        import torch
+        from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
+
+        if device == "cuda" and not torch.cuda.is_available():
+            device = "cpu"
+        self.device = torch.device(device)
+        self.batch_size = batch_size
+        self.model_id = model_id
+        self.max_pixels = int(max_pixels)
+        self.cache_model_id = f"{model_id}|max_pixels={self.max_pixels}|patch=16"
+        self.model_revision = revision
+        self.dtype = dtype
+        self.processor = AutoProcessor.from_pretrained(model_id, revision=revision)
+        self.processor.tokenizer.padding_side = "right"
+        model_kwargs: dict[str, object] = {"revision": revision}
+        if dtype != "auto":
+            model_kwargs["dtype"] = getattr(torch, dtype)
+        self.model = Qwen3VLForConditionalGeneration.from_pretrained(
+            model_id, **model_kwargs
+        ).to(self.device)
+        self.model.eval()
+
+    @staticmethod
+    def _pool_last(hidden_state: object, attention_mask: object) -> object:
+        """Pool the final attended token, as in the official Qwen embedder."""
+        import torch
+
+        last_positions = attention_mask.long().sum(dim=1) - 1
+        rows = torch.arange(hidden_state.shape[0], device=hidden_state.device)
+        return hidden_state[rows, last_positions]
+
+    def _encode(self, payloads: list[dict[str, object]]) -> "np.ndarray":
+        import numpy as np
+        import torch
+        import torch.nn.functional as F
+        from qwen_vl_utils import process_vision_info
+
+        if not payloads:
+            return np.empty((0, 0), dtype=np.float32)
+        conversations = []
+        for payload in payloads:
+            content = []
+            if payload.get("image") is not None:
+                content.append(
+                    {
+                        "type": "image",
+                        "image": payload["image"],
+                        "min_pixels": 4096,
+                        "max_pixels": self.max_pixels,
+                    }
+                )
+            if payload.get("text") is not None:
+                content.append({"type": "text", "text": str(payload["text"])})
+            conversations.append(
+                [
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "Retrieve video frames relevant to the user's query."
+                                    if payload.get("text") is not None
+                                    else "Represent the user's input."
+                                ),
+                            }
+                        ],
+                    },
+                    {"role": "user", "content": content},
+                ]
+            )
+        texts = self.processor.apply_chat_template(
+            conversations, add_generation_prompt=True, tokenize=False
+        )
+        images, videos = process_vision_info(conversations, image_patch_size=16)
+        inputs = self.processor(
+            text=texts,
+            images=images,
+            videos=videos,
+            padding=True,
+            truncation=True,
+            max_length=8192,
+            return_tensors="pt",
+            do_resize=False,
+        )
+        inputs = {
+            key: value.to(self.device) if hasattr(value, "to") else value
+            for key, value in inputs.items()
+        }
+        with torch.no_grad():
+            outputs = self.model.model(**inputs)
+            embeddings = self._pool_last(outputs.last_hidden_state, inputs["attention_mask"])
+            embeddings = F.normalize(embeddings, p=2, dim=-1)
+        return embeddings.float().cpu().numpy()
+
+    def encode_images(self, frames: list[CandidateFrame]) -> "np.ndarray":
+        import numpy as np
+
+        batches = []
+        for start in range(0, len(frames), self.batch_size):
+            batch = frames[start : start + self.batch_size]
+            batches.append(self._encode([{"image": frame.image} for frame in batch]))
+        return (
+            np.concatenate(batches, axis=0)
+            if batches
+            else np.empty((0, 0), dtype=np.float32)
+        )
+
+    def encode_texts(self, texts: list[str]) -> "np.ndarray":
+        return self._encode([{"text": text} for text in texts])
+
+    def score_embeddings(self, text: str, image_features: "np.ndarray") -> list[float]:
+        text_features = self.encode_texts([text])
+        if image_features.shape[0] == 0:
+            return []
+        return [float(value) for value in (image_features @ text_features[0]).tolist()]
+
+    def score(self, text: str, frames: list[CandidateFrame]) -> list[float]:
+        return self.score_embeddings(text, self.encode_images(frames))
+
+
+def create_text_image_grounder(
+    model_id: str,
+    device: str = "cuda",
+    batch_size: int = 32,
+    dtype: str = "float32",
+    revision: str | None = None,
+    max_pixels: int = 200704,
+) -> TextImageGrounder | Qwen3VLEmbeddingGrounder:
+    if "Qwen3-VL-Embedding" in model_id:
+        return Qwen3VLEmbeddingGrounder(
+            model_id,
+            device=device,
+            batch_size=batch_size,
+            dtype=dtype,
+            revision=revision,
+            max_pixels=max_pixels,
+        )
+    return TextImageGrounder(
+        model_id,
+        device=device,
+        batch_size=batch_size,
+        dtype=dtype,
+        revision=revision,
+    )
+
+
 def _pooled_features(output: object, modality: str) -> object:
     """Handle tensor and structured outputs across Transformers versions."""
     if hasattr(output, "norm"):
@@ -336,7 +495,8 @@ def save_grounder_feature_cache(
     import numpy as np
 
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    # Parallel selectors may populate the same cache concurrently.
+    # Parallel selectors may populate the same cache concurrently. A per-process
+    # temporary avoids writers replacing one another's in-progress archive.
     tmp_path = f"{cache_path}.{os.getpid()}.tmp.npz"
     stat = os.stat(video_path) if video_path else None
     np.savez_compressed(
@@ -359,18 +519,19 @@ def load_or_encode_grounder_features(
     grounder: TextImageGrounder,
     cache_dir: str | None,
 ) -> tuple[list[CandidateFrame], "np.ndarray", bool]:
+    cache_model_id = getattr(grounder, "cache_model_id", grounder.model_id)
     cache_path = None
     if cache_dir:
         cache_path = _grounder_cache_path(
             cache_dir,
-            grounder.model_id,
+            cache_model_id,
             candidate_count,
             video_path,
             revision=grounder.model_revision,
         )
         cached = load_grounder_feature_cache(
             cache_path,
-            grounder.model_id,
+            cache_model_id,
             candidate_count,
             revision=grounder.model_revision,
             video_path=video_path,
@@ -382,7 +543,7 @@ def load_or_encode_grounder_features(
     if cache_path:
         save_grounder_feature_cache(
             cache_path,
-            grounder.model_id,
+            cache_model_id,
             candidate_count,
             candidates,
             features,

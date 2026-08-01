@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 STARTER_KIT = REPO_ROOT / "baselines" / "longqa"
 sys.path.insert(0, str(STARTER_KIT))
 
-from longqa_utils import load_jsonl, normalize_answer, sample_key
+from longqa_utils import apply_subset, load_jsonl, normalize_answer, sample_key
 
 
 SYSTEMS = ("q35_pivot", "q35_uniform", "q3_verifier")
@@ -31,10 +31,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--features", required=True)
     parser.add_argument("--annotations", required=True)
     parser.add_argument("--majority-predictions", required=True)
+    parser.add_argument("--subset-file", default=None)
     parser.add_argument("--output", required=True)
     parser.add_argument("--summary-output", required=True)
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--inner-folds", type=int, default=3)
+    parser.add_argument(
+        "--views",
+        nargs="+",
+        choices=VIEWS,
+        default=list(VIEWS),
+        help="Confidence views to expose to the router.",
+    )
+    parser.add_argument(
+        "--include-option-identity",
+        action="store_true",
+        help="Legacy diagnostic: include a candidate-is-C feature.",
+    )
+    parser.add_argument("--outer-salt", default="outer")
+    parser.add_argument("--inner-salt", default="inner")
     return parser.parse_args()
 
 
@@ -90,11 +105,16 @@ def standardized(
     )
 
 
-def candidate_features(record: dict[str, Any], candidate: str) -> list[float]:
+def candidate_features(
+    record: dict[str, Any],
+    candidate: str,
+    views: tuple[str, ...] = VIEWS,
+    include_option_identity: bool = False,
+) -> list[float]:
     view_scores = dict(record["view_scores"])
     view_scores["blind"] = record["blind_scores"]
     values: list[float] = []
-    for view in VIEWS:
+    for view in views:
         scores = view_scores[view]
         probabilities = scores["probabilities"]
         values.extend(
@@ -115,16 +135,19 @@ def candidate_features(record: dict[str, Any], candidate: str) -> list[float]:
     values.extend(
         [
             float(vote_counts.get(candidate, 0)),
-            float(candidate == "C"),
             float(record["agreement_pattern"] == "all_different"),
         ]
     )
+    if include_option_identity:
+        values.append(float(candidate == "C"))
     return values
 
 
 def build_examples(
     records: list[dict[str, Any]],
     gold_by_key: dict[str, str],
+    views: tuple[str, ...] = VIEWS,
+    include_option_identity: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, list[tuple[int, str]], list[str]]:
     features: list[list[float]] = []
     labels: list[float] = []
@@ -133,7 +156,14 @@ def build_examples(
     for row_index, record in enumerate(records):
         candidates = sorted(set(record["candidate_answers"].values()))
         for candidate in candidates:
-            features.append(candidate_features(record, candidate))
+            features.append(
+                candidate_features(
+                    record,
+                    candidate,
+                    views=views,
+                    include_option_identity=include_option_identity,
+                )
+            )
             labels.append(float(candidate == gold_by_key[record["sample_key"]]))
             owners.append((row_index, candidate))
             groups.append(str(record["video_path"]))
@@ -174,7 +204,9 @@ def routing_accuracy(
 def main() -> None:
     args = parse_args()
     records = load_jsonl(args.features)
-    annotations = load_jsonl(args.annotations)
+    annotations = apply_subset(
+        load_jsonl(args.annotations), args.subset_file
+    )
     majority_predictions = load_jsonl(args.majority_predictions)
     gold_by_key = {
         sample_key(row): normalize_answer(row.get("mcq_answer") or row.get("answer"))
@@ -191,14 +223,20 @@ def main() -> None:
         raise RuntimeError(
             f"Majority predictions are missing {len(missing_majority)} annotation rows"
         )
-    features, labels, owners, groups = build_examples(records, gold_by_key)
+    views = tuple(args.views)
+    features, labels, owners, groups = build_examples(
+        records,
+        gold_by_key,
+        views=views,
+        include_option_identity=args.include_option_identity,
+    )
     groups_array = np.asarray(groups)
     row_groups = [str(record["video_path"]) for record in records]
     outer_folds = np.asarray(
-        [fold_for(group, args.folds, "outer") for group in groups]
+        [fold_for(group, args.folds, args.outer_salt) for group in groups]
     )
     row_outer_folds = [
-        fold_for(group, args.folds, "outer") for group in row_groups
+        fold_for(group, args.folds, args.outer_salt) for group in row_groups
     ]
     candidates_c = (0.03, 0.1, 0.3, 1.0, 3.0)
     oof_probabilities = np.zeros(len(features), dtype=np.float64)
@@ -213,7 +251,11 @@ def main() -> None:
         for inner_fold in range(args.inner_folds):
             inner_assignments = np.asarray(
                 [
-                    fold_for(group, args.inner_folds, f"inner-{outer_fold}")
+                    fold_for(
+                        group,
+                        args.inner_folds,
+                        f"{args.inner_salt}-{outer_fold}",
+                    )
                     for group in groups_array[train_mask]
                 ]
             )
@@ -303,6 +345,7 @@ def main() -> None:
             handle.write(json.dumps(row) + "\n")
     summary = {
         "rows": len(records),
+        "evaluation_rows": len(gold_by_key),
         "router_correct": router_correct,
         "router_accuracy": round(router_correct / len(records), 6),
         "majority_correct": majority_correct,
@@ -332,7 +375,15 @@ def main() -> None:
         "folds": args.folds,
         "inner_folds": args.inner_folds,
         "chosen_regularization": chosen_regularization,
-        "feature_policy": "confidence_only_no_category_or_operator",
+        "feature_policy": (
+            "legacy_confidence_with_candidate_is_c"
+            if args.include_option_identity
+            else "option_invariant_confidence_no_category_or_operator"
+        ),
+        "views": views,
+        "outer_salt": args.outer_salt,
+        "inner_salt": args.inner_salt,
+        "subset_file": args.subset_file,
         "evaluation_note": (
             "Implied full score uses out-of-fold choices on disagreements and "
             "the fixed majority elsewhere; it is an analysis estimate, not a "

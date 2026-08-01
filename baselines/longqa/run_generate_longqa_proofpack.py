@@ -26,6 +26,7 @@ from typing import Any
 import numpy as np
 
 from longqa_utils import (
+    PROMPT_VARIANTS,
     apply_subset,
     build_longqa_prompt,
     build_prediction_row,
@@ -37,9 +38,9 @@ from run_generate_longqa_grounded import (
     CandidateFrame,
     GroundingQuery,
     SelectedFrame,
-    TextImageGrounder,
     _run_eval,
     _uniform_positions,
+    create_text_image_grounder,
     extract_frames_by_indices,
     load_jsonl,
     load_jsonl_if_exists,
@@ -54,7 +55,9 @@ STRATEGIES = (
     "focus",
     "mixed_resolution",
     "option_contrastive",
+    "option_quota_pivot",
     "temporal_pivot",
+    "temporal_pivot_v2",
     "operator_router",
     "qca",
     "qca_router",
@@ -62,6 +65,11 @@ STRATEGIES = (
     "multi_event_router",
 )
 PROOFPACK_SCHEMA = 2
+RETRIEVAL_QUERY_MODES = (
+    "legacy_joint",
+    "token_safe_balanced",
+    "budgeted_per_option",
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +78,7 @@ class TemporalProgram:
     pivot: str
     direction: str
     target: str
+    event_slots: tuple[str, ...] = ()
 
 
 def _resolve_path(path: str) -> str:
@@ -112,11 +121,196 @@ def compile_temporal_program(question: object) -> TemporalProgram:
     return TemporalProgram("GLOBAL", "", "global", text)
 
 
+def compile_temporal_program_v2(question: object) -> TemporalProgram:
+    """Compile compound operators without swallowing the requested target."""
+    text = " ".join(str(question).split())
+    lower = text.lower()
+    compound_pairs = (
+        ("before", "after"),
+        ("first", "last"),
+        ("earlier", "later"),
+    )
+    if any(all(re.search(rf"\b{word}\b", lower) for word in pair) for pair in compound_pairs):
+        return TemporalProgram(
+            "MULTI_TIME",
+            "",
+            "multi_event",
+            text.rstrip(" ?"),
+            tuple(_temporal_event_slots(text)),
+        )
+
+    leading = re.match(r"(?i)^(after|before)\s+(.+?),\s*(.+)$", text)
+    if leading:
+        operator = leading.group(1).upper()
+        return TemporalProgram(
+            operator,
+            leading.group(2).strip(),
+            "forward" if operator == "AFTER" else "backward",
+            leading.group(3).rstrip(" ?"),
+        )
+
+    embedded = re.search(r"(?i)\b(after|before)\b", text)
+    if embedded:
+        operator = embedded.group(1).upper()
+        prefix = text[: embedded.start()].strip(" ,.?-")
+        remainder = text[embedded.end() :].strip(" ,.?-")
+        split = re.split(
+            r"(?i)(?:[,;.]\s*(?:and\s+)?(?=(?:what|which|where|when|how|who)\b)"
+            r"|\s+(?=(?:did|do|was|were|had|have)\s+I\b))",
+            remainder,
+            maxsplit=1,
+        )
+        pivot = split[0].strip(" ,.?-")
+        prefix = re.sub(
+            r"(?i)\b(?:just|right|immediately)\s*$", "", prefix
+        ).strip(" ,.?-")
+        target = prefix if len(prefix.split()) >= 3 else text.rstrip(" ?")
+        if len(split) > 1 and split[1].strip():
+            target = f"{target} and {split[1].strip(' ,.?-')}"
+        return TemporalProgram(
+            operator,
+            pivot,
+            "forward" if operator == "AFTER" else "backward",
+            target,
+        )
+
+    if re.search(r"(?i)\b(first|earliest|at the start|beginning)\b", text):
+        return TemporalProgram("FIRST", text, "multi_event", text)
+    if re.search(r"(?i)\b(last|latest|finally|at the end|end of)\b", text):
+        return TemporalProgram("LAST", text, "latest", text)
+    if re.search(r"(?i)\b(chang(?:e|ed)|different|compared|between)\b", text):
+        return TemporalProgram("STATE_CHANGE", text, "bidirectional", text)
+    return TemporalProgram("GLOBAL", "", "global", text)
+
+
+def _temporal_event_slots(text: str, max_slots: int = 3) -> list[str]:
+    words = text.split()
+    cue_positions = [
+        index
+        for index, word in enumerate(words)
+        if word.lower().strip(".,;?!")
+        in {"after", "before", "first", "last", "earlier", "later"}
+    ]
+    slots: list[str] = []
+    for position in cue_positions:
+        start = max(0, position - 5)
+        end = min(len(words), position + 8)
+        slot = " ".join(words[start:end]).strip(" ,.?-")
+        normalized = set(re.findall(r"[a-z0-9]+", slot.lower()))
+        is_duplicate = any(
+            len(normalized & set(re.findall(r"[a-z0-9]+", item.lower())))
+            / max(len(normalized | set(re.findall(r"[a-z0-9]+", item.lower()))), 1)
+            >= 0.8
+            for item in slots
+        )
+        if slot and not is_duplicate:
+            slots.append(slot)
+        if len(slots) >= max_slots:
+            break
+    return slots or [text.rstrip(" ?")]
+
+
+def build_temporal_slot_queries(
+    row: dict[str, Any], program: TemporalProgram, max_slots: int = 3
+) -> list[GroundingQuery]:
+    slots = list(program.event_slots) or _temporal_event_slots(str(row["question"]))
+    return [
+        GroundingQuery(
+            f"temporal_slot_{index + 1}",
+            "Find the video event described by this temporal clause.\n"
+            f"Clause: {slot}",
+        )
+        for index, slot in enumerate(slots[:max_slots])
+    ]
+
+
 def _question_options_query(row: dict[str, Any]) -> str:
     return (
         "Find video evidence needed to answer this multiple-choice question.\n"
         f"Question: {row['question']}\nOptions:\n{row['mcq_options']}"
     )
+
+
+def build_token_safe_retrieval_queries(
+    row: dict[str, Any], program: TemporalProgram
+) -> list[GroundingQuery]:
+    """Keep the question and every option in separately encoded queries."""
+    options = parse_mcq_options(row["mcq_options"])
+    queries = [
+        GroundingQuery(
+            "target",
+            "Find visual evidence for this event or activity.\n"
+            f"Event: {program.target or row['question']}",
+        )
+    ]
+    queries.extend(
+        GroundingQuery(
+            f"option_{letter}",
+            "Find visual evidence matching this candidate answer.\n"
+            f"Candidate: {option}",
+        )
+        for letter, option in sorted(options.items())
+    )
+    return queries
+
+
+def combine_balanced_retrieval_scores(
+    component_scores: dict[str, list[float]],
+) -> list[float]:
+    """Fuse target and option scores while giving every option equal weight."""
+    if not component_scores:
+        return []
+    target = _zscore(component_scores["target"])
+    option_labels = sorted(
+        label for label in component_scores if label.startswith("option_")
+    )
+    if not option_labels:
+        return target.tolist()
+    option_mean = np.mean(
+        np.stack([_zscore(component_scores[label]) for label in option_labels]), axis=0
+    )
+    return (0.5 * target + 0.5 * option_mean).tolist()
+
+
+def _head_tail_tokens(token_ids: list[int], budget: int) -> list[int]:
+    if len(token_ids) <= budget:
+        return token_ids
+    head = math.ceil(budget / 2)
+    return token_ids[:head] + token_ids[-(budget - head) :]
+
+
+def build_budgeted_option_queries(
+    row: dict[str, Any], tokenizer: object, max_tokens: int = 64
+) -> list[GroundingQuery]:
+    """Fit question-plus-option queries while retaining tokens from both."""
+    question_ids = tokenizer.encode(str(row["question"]), add_special_tokens=False)
+    options = parse_mcq_options(row["mcq_options"])
+
+    def decode(ids: list[int]) -> str:
+        return tokenizer.decode(ids, skip_special_tokens=True).strip()
+
+    target_ids = _head_tail_tokens(question_ids, max_tokens - 4)
+    queries = [GroundingQuery("target", f"Question: {decode(target_ids)}")]
+    for letter, option in sorted(options.items()):
+        option_ids = tokenizer.encode(option, add_special_tokens=False)
+        question_budget = min(len(question_ids), 30)
+        option_budget = min(len(option_ids), 26)
+        while True:
+            text = (
+                f"Question: {decode(_head_tail_tokens(question_ids, question_budget))}\n"
+                f"Answer: {decode(_head_tail_tokens(option_ids, option_budget))}"
+            )
+            length = len(tokenizer.encode(text, add_special_tokens=True))
+            if length <= max_tokens:
+                break
+            if question_budget >= option_budget and question_budget > 10:
+                question_budget -= 1
+            elif option_budget > 10:
+                option_budget -= 1
+            else:
+                raise ValueError("Could not fit question and option into retrieval context")
+        queries.append(GroundingQuery(f"option_{letter}", text))
+    return queries
 
 
 def build_option_hypotheses(row: dict[str, Any]) -> list[GroundingQuery]:
@@ -904,6 +1098,8 @@ def select_temporal_pivot_pack(
     final_max_frames: int,
     temporal_nms_seconds: float,
     fill_mode: str = "semantic_boundary",
+    per_pivot_direction: bool = False,
+    target_component_scores: dict[str, list[float]] | None = None,
 ) -> tuple[list[SelectedFrame], dict[str, Any]]:
     if program.operator == "GLOBAL":
         return select_eventlet_hybrid(
@@ -958,13 +1154,82 @@ def select_temporal_pivot_pack(
         relevant.sort(reverse=True)
         allowed = set(relevant[: max(target_centers * 2, target_centers)])
 
-    targets = _rank_with_temporal_nms(
-        target_scores,
-        candidates,
-        target_centers,
-        temporal_nms_seconds,
-        allowed=allowed,
-    )
+    quota_centers: dict[str, list[int]] = {}
+    if target_component_scores:
+        targets = []
+        option_labels = sorted(
+            label for label in target_component_scores if label.startswith("option_")
+        )
+        for label in option_labels[:target_centers]:
+            ranked = _rank_with_temporal_nms(
+                target_component_scores[label],
+                candidates,
+                1,
+                temporal_nms_seconds,
+                allowed=allowed,
+            )
+            quota_centers[label] = [candidates[index].index for index in ranked]
+            targets.extend(index for index in ranked if index not in targets)
+        remaining = max(0, target_centers - len(targets))
+        target_query_scores = target_component_scores.get("target", target_scores)
+        if remaining:
+            ranked = _rank_with_temporal_nms(
+                target_query_scores,
+                candidates,
+                max(target_centers, remaining),
+                temporal_nms_seconds,
+                allowed=allowed,
+            )
+            additions = [index for index in ranked if index not in targets][:remaining]
+            targets.extend(additions)
+            quota_centers["target"] = [
+                candidates[index].index for index in additions
+            ]
+        if len(targets) < target_centers:
+            supplements = _rank_with_temporal_nms(
+                target_scores,
+                candidates,
+                target_centers,
+                temporal_nms_seconds,
+                allowed=allowed,
+            )
+            targets.extend(index for index in supplements if index not in targets)
+        targets = targets[:target_centers]
+    elif per_pivot_direction and program.direction in {"forward", "backward"} and pivots:
+        targets = []
+        quota = max(1, math.ceil(target_centers / len(pivots)))
+        for pivot in pivots:
+            pivot_allowed = (
+                set(range(min(pivot + 1, len(candidates)), len(candidates)))
+                if program.direction == "forward"
+                else set(range(0, max(pivot, 0)))
+            )
+            ranked = _rank_with_temporal_nms(
+                target_scores,
+                candidates,
+                quota,
+                temporal_nms_seconds,
+                allowed=pivot_allowed,
+            )
+            targets.extend(index for index in ranked if index not in targets)
+        if len(targets) < target_centers:
+            supplements = _rank_with_temporal_nms(
+                target_scores,
+                candidates,
+                target_centers,
+                temporal_nms_seconds,
+                allowed=allowed,
+            )
+            targets.extend(index for index in supplements if index not in targets)
+        targets = targets[:target_centers]
+    else:
+        targets = _rank_with_temporal_nms(
+            target_scores,
+            candidates,
+            target_centers,
+            temporal_nms_seconds,
+            allowed=allowed,
+        )
     for center in targets:
         _add_eventlet(
             selected,
@@ -1000,6 +1265,8 @@ def select_temporal_pivot_pack(
         "target_centers": [candidates[idx].index for idx in targets],
         "bridge_frames": len(bridge_positions[:bridge_k]),
         "fill_mode": fill_mode,
+        "per_pivot_direction": per_pivot_direction,
+        "target_quota_centers": quota_centers,
     }
 
 
@@ -1043,7 +1310,8 @@ def proofpack_fingerprint(args: argparse.Namespace) -> str:
         "candidate_frames": args.candidate_frames,
         "grounder_model": args.grounder_model,
         "grounder_revision": args.grounder_revision,
-        "retrieval_query_mode": "question_options",
+        "grounder_max_pixels": args.grounder_max_pixels,
+        "retrieval_query_mode": args.retrieval_query_mode,
         "event_centers": args.event_centers,
         "centers_per_option": args.centers_per_option,
         "pivot_centers": args.pivot_centers,
@@ -1090,6 +1358,7 @@ def inference_fingerprint(args: argparse.Namespace, proofpack_hash: str) -> str:
         "model_type": args.model_type,
         "llm_model": args.llm_model,
         "backend": args.backend,
+        "prompt_variant": args.prompt_variant,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:12]
@@ -1108,6 +1377,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True)
     parser.add_argument("--eval-output", default=None)
     parser.add_argument("--grounding-output", required=True)
+    parser.add_argument(
+        "--fixed-grounding-input",
+        default=None,
+        help=(
+            "Use this completed proof pack verbatim after row validation, bypassing "
+            "the grounder and frame selection."
+        ),
+    )
     parser.add_argument("--no-eval", action="store_true")
     parser.add_argument("--no-resume-grounding", action="store_true")
     parser.add_argument("--no-resume-predictions", action="store_true")
@@ -1153,13 +1430,24 @@ def parse_args() -> argparse.Namespace:
         default="semantic_boundary",
     )
     parser.add_argument("--structured-evidence", action="store_true")
+    parser.add_argument(
+        "--prompt-variant",
+        choices=tuple(PROMPT_VARIANTS) + ("operator_adaptive",),
+        default="baseline",
+    )
 
     parser.add_argument("--grounder-model", default="google/siglip2-so400m-patch14-384")
     parser.add_argument("--grounder-device", default="cuda")
     parser.add_argument("--grounder-batch-size", type=int, default=16)
     parser.add_argument("--grounder-dtype", default="bfloat16")
     parser.add_argument("--grounder-revision", default=None)
+    parser.add_argument("--grounder-max-pixels", type=int, default=200704)
     parser.add_argument("--grounder-cache-dir", default=None)
+    parser.add_argument(
+        "--retrieval-query-mode",
+        choices=RETRIEVAL_QUERY_MODES,
+        default="legacy_joint",
+    )
 
     parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
@@ -1187,13 +1475,64 @@ def main() -> None:
     grounding_output = _resolve_path(args.grounding_output)
     cache_dir = _resolve_path(args.grounder_cache_dir) if args.grounder_cache_dir else None
     fingerprint = proofpack_fingerprint(args)
-    generation_fingerprint = inference_fingerprint(args, fingerprint)
 
     rows = apply_subset(load_jsonl(input_path), args.subset_file)
     if args.max_samples is not None:
         rows = rows[: args.max_samples]
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     os.makedirs(os.path.dirname(grounding_output), exist_ok=True)
+    if args.fixed_grounding_input:
+        fixed_path = _resolve_path(args.fixed_grounding_input)
+        fixed_records = load_jsonl(fixed_path)
+        if len(fixed_records) != len(rows):
+            raise RuntimeError(
+                f"Fixed proof pack has {len(fixed_records)} rows; expected {len(rows)}"
+            )
+        normalized_records = []
+        evidence_payload = []
+        for idx, (record, row) in enumerate(zip(fixed_records, rows)):
+            if str(record.get("video_path", "")) != str(row.get("video_path", "")):
+                raise RuntimeError(f"Fixed proof-pack video mismatch at row {idx}")
+            if record.get("strategy") != args.strategy:
+                raise RuntimeError(
+                    f"Fixed proof-pack strategy mismatch at row {idx}: "
+                    f"{record.get('strategy')} != {args.strategy}"
+                )
+            selected = record.get("selected")
+            if not isinstance(selected, list) or not selected:
+                raise RuntimeError(f"Fixed proof pack has no selected frames at row {idx}")
+            if len(selected) > args.final_max_frames:
+                raise RuntimeError(
+                    f"Fixed proof pack exceeds {args.final_max_frames} frames at row {idx}"
+                )
+            normalized = dict(record)
+            normalized["index"] = idx
+            normalized["sample_key"] = sample_key(row)
+            normalized_records.append(normalized)
+            evidence_payload.append(
+                {
+                    "sample_key": normalized["sample_key"],
+                    "selected": selected,
+                    "selection_meta": record.get("selection_meta", {}),
+                }
+            )
+        encoded_evidence = json.dumps(
+            evidence_payload, sort_keys=True, separators=(",", ":")
+        )
+        fingerprint = "fixed-" + hashlib.sha1(
+            encoded_evidence.encode("utf-8")
+        ).hexdigest()[:12]
+        for record in normalized_records:
+            record["proofpack_fingerprint"] = fingerprint
+            record["fixed_grounding_source"] = os.path.abspath(fixed_path)
+        with open(grounding_output, "w") as handle:
+            for record in normalized_records:
+                handle.write(json.dumps(record) + "\n")
+        print(
+            f"Validated fixed proof pack: rows={len(normalized_records)}, "
+            f"fingerprint={fingerprint}"
+        )
+    generation_fingerprint = inference_fingerprint(args, fingerprint)
     print(
         f"Proof-pack config: strategy={args.strategy}, candidates={args.candidate_frames}, "
         f"final_frames={args.final_max_frames}, structured={args.structured_evidence}, "
@@ -1216,12 +1555,13 @@ def main() -> None:
         print(f"Resuming proof-pack selection from {len(records)}/{len(rows)} rows")
 
     if len(records) < len(rows):
-        grounder = TextImageGrounder(
+        grounder = create_text_image_grounder(
             args.grounder_model,
             device=args.grounder_device,
             batch_size=args.grounder_batch_size,
             dtype=args.grounder_dtype,
             revision=args.grounder_revision,
+            max_pixels=args.grounder_max_pixels,
         )
         mode = "a" if records else "w"
         if len(records) != len(cached):
@@ -1234,11 +1574,40 @@ def main() -> None:
                 candidates, image_features, cache_hit = load_or_encode_grounder_features(
                     video_path, args.candidate_frames, grounder, cache_dir
                 )
-                base_query = _question_options_query(row)
-                base_scores = grounder.score_embeddings(base_query, image_features)
-                queries = [{"label": "question_options", "hash": query_hash(base_query)}]
                 program: TemporalProgram | None = None
+                component_scores: dict[str, list[float]] = {}
                 rng = np.random.default_rng(args.selection_seed + row_idx)
+                if args.retrieval_query_mode == "token_safe_balanced":
+                    program = compile_temporal_program(row["question"])
+                    retrieval_queries = build_token_safe_retrieval_queries(row, program)
+                    component_scores = {
+                        query.label: grounder.score_embeddings(query.text, image_features)
+                        for query in retrieval_queries
+                    }
+                    base_scores = combine_balanced_retrieval_scores(component_scores)
+                    queries = [
+                        {"label": query.label, "hash": query_hash(query.text)}
+                        for query in retrieval_queries
+                    ]
+                elif args.retrieval_query_mode == "budgeted_per_option":
+                    retrieval_queries = build_budgeted_option_queries(
+                        row, grounder.processor.tokenizer
+                    )
+                    component_scores = {
+                        query.label: grounder.score_embeddings(query.text, image_features)
+                        for query in retrieval_queries
+                    }
+                    base_scores = combine_balanced_retrieval_scores(component_scores)
+                    queries = [
+                        {"label": query.label, "hash": query_hash(query.text)}
+                        for query in retrieval_queries
+                    ]
+                else:
+                    base_query = _question_options_query(row)
+                    base_scores = grounder.score_embeddings(base_query, image_features)
+                    queries = [
+                        {"label": "question_options", "hash": query_hash(base_query)}
+                    ]
 
                 if args.strategy == "adaq":
                     selected, selection_meta = select_adaq_pack(
@@ -1319,8 +1688,111 @@ def main() -> None:
                         args.qca_relevance_threshold,
                     )
                     selection_meta["route"] = "qca"
+                elif args.strategy == "option_quota_pivot":
+                    if args.retrieval_query_mode != "budgeted_per_option":
+                        raise ValueError(
+                            "option_quota_pivot requires --retrieval-query-mode "
+                            "budgeted_per_option"
+                        )
+                    program = compile_temporal_program_v2(row["question"])
+                    pivot_query = (
+                        "Find this temporal reference event in the video.\n"
+                        f"Reference event: {program.pivot or row['question']}"
+                    )
+                    pivot_scores = grounder.score_embeddings(pivot_query, image_features)
+                    queries = [
+                        {"label": "pivot_v2", "hash": query_hash(pivot_query)}
+                    ] + queries
+                    selected, selection_meta = select_temporal_pivot_pack(
+                        candidates,
+                        pivot_scores,
+                        base_scores,
+                        image_features,
+                        program,
+                        args.pivot_centers,
+                        args.target_centers,
+                        args.eventlet_radius,
+                        args.anchor_k,
+                        args.bridge_k,
+                        args.final_max_frames,
+                        args.temporal_nms_seconds,
+                        args.fill_mode,
+                        per_pivot_direction=True,
+                        target_component_scores=component_scores,
+                    )
+                    selection_meta["route"] = "budgeted_option_quota_pivot"
+                    selection_meta["temporal_program"] = {
+                        "operator": program.operator,
+                        "pivot": program.pivot,
+                        "direction": program.direction,
+                        "target": program.target,
+                        "event_slots": list(program.event_slots),
+                    }
+                elif args.strategy == "temporal_pivot_v2":
+                    program = compile_temporal_program_v2(row["question"])
+                    if program.operator == "MULTI_TIME":
+                        slot_queries = build_temporal_slot_queries(
+                            row, program, args.max_event_queries
+                        )
+                        slot_scores = {
+                            query.label: grounder.score_embeddings(
+                                query.text, image_features
+                            )
+                            for query in slot_queries
+                        }
+                        queries.extend(
+                            {"label": query.label, "hash": query_hash(query.text)}
+                            for query in slot_queries
+                        )
+                        selected, selection_meta = select_multi_event_pack(
+                            candidates,
+                            slot_scores,
+                            base_scores,
+                            args.multi_event_centers,
+                            args.eventlet_radius,
+                            args.anchor_k,
+                            args.bridge_k,
+                            args.final_max_frames,
+                            args.temporal_nms_seconds,
+                        )
+                        selection_meta["route"] = "compound_temporal_slots"
+                    else:
+                        pivot_query = (
+                            "Find this temporal reference event in the video.\n"
+                            f"Reference event: {program.pivot or row['question']}"
+                        )
+                        pivot_scores = grounder.score_embeddings(
+                            pivot_query, image_features
+                        )
+                        queries = [
+                            {"label": "pivot_v2", "hash": query_hash(pivot_query)}
+                        ] + queries
+                        selected, selection_meta = select_temporal_pivot_pack(
+                            candidates,
+                            pivot_scores,
+                            base_scores,
+                            image_features,
+                            program,
+                            args.pivot_centers,
+                            args.target_centers,
+                            args.eventlet_radius,
+                            args.anchor_k,
+                            args.bridge_k,
+                            args.final_max_frames,
+                            args.temporal_nms_seconds,
+                            args.fill_mode,
+                            per_pivot_direction=True,
+                        )
+                        selection_meta["route"] = "multi_pivot_direction"
+                    selection_meta["temporal_program"] = {
+                        "operator": program.operator,
+                        "pivot": program.pivot,
+                        "direction": program.direction,
+                        "target": program.target,
+                        "event_slots": list(program.event_slots),
+                    }
                 elif args.strategy in {"multi_event", "multi_event_router"}:
-                    program = compile_temporal_program(row["question"])
+                    program = program or compile_temporal_program(row["question"])
                     use_multi_event = args.strategy == "multi_event" or program.operator in {
                         "FIRST",
                         "STATE_CHANGE",
@@ -1358,10 +1830,15 @@ def main() -> None:
                         pivot_scores = grounder.score_embeddings(
                             pivot_query, image_features
                         )
-                        queries = [
-                            {"label": "pivot", "hash": query_hash(pivot_query)},
-                            {"label": "target", "hash": query_hash(base_query)},
-                        ]
+                        if args.retrieval_query_mode == "token_safe_balanced":
+                            queries = [
+                                {"label": "pivot", "hash": query_hash(pivot_query)}
+                            ] + queries
+                        else:
+                            queries = [
+                                {"label": "pivot", "hash": query_hash(pivot_query)},
+                                {"label": "target", "hash": query_hash(base_query)},
+                            ]
                         selected, selection_meta = select_temporal_pivot_pack(
                             candidates,
                             pivot_scores,
@@ -1385,16 +1862,21 @@ def main() -> None:
                         "target": program.target,
                     }
                 else:
-                    program = compile_temporal_program(row["question"])
+                    program = program or compile_temporal_program(row["question"])
                     pivot_query = (
                         "Find the temporal pivot event in the video.\n"
                         f"Pivot event: {program.pivot or row['question']}"
                     )
                     pivot_scores = grounder.score_embeddings(pivot_query, image_features)
-                    queries = [
-                        {"label": "pivot", "hash": query_hash(pivot_query)},
-                        {"label": "target", "hash": query_hash(base_query)},
-                    ]
+                    if args.retrieval_query_mode == "token_safe_balanced":
+                        queries = [
+                            {"label": "pivot", "hash": query_hash(pivot_query)}
+                        ] + queries
+                    else:
+                        queries = [
+                            {"label": "pivot", "hash": query_hash(pivot_query)},
+                            {"label": "target", "hash": query_hash(base_query)},
+                        ]
                     if args.strategy == "operator_router" and program.operator == "GLOBAL":
                         selected, selection_meta = select_baseline_uniform_frames(
                             video_path, args.global_uniform_frames
@@ -1453,6 +1935,7 @@ def main() -> None:
                     "proofpack_fingerprint": fingerprint,
                     "feature_cache_hit": cache_hit,
                     "grounder_model": args.grounder_model,
+                    "retrieval_query_mode": args.retrieval_query_mode,
                     "queries": queries,
                     "selection_meta": selection_meta,
                     "selected": [
@@ -1499,7 +1982,9 @@ def main() -> None:
     )
     reset_prompt_token_stats()
     mode = "a" if pred_start else "w"
-    prompt_variant = "structured_evidence" if args.structured_evidence else "baseline"
+    prompt_variant = (
+        "structured_evidence" if args.structured_evidence else args.prompt_variant
+    )
     with model, open(output_path, mode) as handle:
         for row_idx, (row, record) in enumerate(
             zip(rows[pred_start:], records[pred_start:]), start=pred_start
@@ -1520,17 +2005,28 @@ def main() -> None:
                     for frame, frame_index in zip(frames, frame_indices)
                 ]
             temporal_program = record.get("selection_meta", {}).get("temporal_program")
-            prompt = (
-                build_structured_evidence_prompt(row, selected_meta, temporal_program)
-                if args.structured_evidence
-                else build_longqa_prompt(
-                    row["question"], row["mcq_options"], prompt_variant="baseline"
+            if args.structured_evidence:
+                prompt = build_structured_evidence_prompt(
+                    row, selected_meta, temporal_program
                 )
-            )
+            else:
+                row_prompt_variant = args.prompt_variant
+                if row_prompt_variant == "operator_adaptive":
+                    operator = str((temporal_program or {}).get("operator", "GLOBAL"))
+                    row_prompt_variant = (
+                        "option_verify" if operator == "GLOBAL" else "temporal_anchor"
+                    )
+                prompt = build_longqa_prompt(
+                    row["question"],
+                    row["mcq_options"],
+                    prompt_variant=row_prompt_variant,
+                )
             response = model.generate(
                 frames, [{"role": "user", "content": prompt}], max_new_tokens=16
             )
             pred = build_prediction_row(row, response, prompt_variant=prompt_variant)
+            if args.prompt_variant == "operator_adaptive":
+                pred["adaptive_prompt_variant"] = row_prompt_variant
             pred["proofpack_strategy"] = args.strategy
             pred["proofpack_fingerprint"] = fingerprint
             pred["proofpack_inference_fingerprint"] = generation_fingerprint
