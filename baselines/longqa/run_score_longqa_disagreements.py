@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Score pivot, uniform, mixed, and blind views on ensemble disagreements."""
+"""Score evidence views for disagreements among three independent answerers."""
 
 from __future__ import annotations
 
@@ -66,7 +66,16 @@ def _fingerprint(args: argparse.Namespace) -> str:
         "primary": os.path.abspath(args.primary_predictions),
         "secondary": os.path.abspath(args.secondary_predictions),
         "tertiary": os.path.abspath(args.tertiary_predictions),
+        "prediction_labels": list(args.prediction_labels),
         "proofpack": os.path.abspath(args.proofpack),
+        "uncertainty_selection": (
+            os.path.abspath(args.uncertainty_selection)
+            if args.uncertainty_selection
+            else None
+        ),
+        "specialist_predictions": [
+            os.path.abspath(path) for path in args.specialist_predictions
+        ],
         "model": args.llm_model,
         "max_frames": args.max_frames,
         "proofpack_quota": args.proofpack_quota,
@@ -90,8 +99,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--primary-predictions", required=True)
     parser.add_argument("--secondary-predictions", required=True)
     parser.add_argument("--tertiary-predictions", required=True)
+    parser.add_argument(
+        "--prediction-labels",
+        nargs=3,
+        default=["q35_pivot", "q35_uniform", "q3_verifier"],
+        metavar=("PRIMARY", "SECONDARY", "TERTIARY"),
+    )
     parser.add_argument("--proofpack", required=True)
     parser.add_argument("--proofpack-reference", required=True)
+    parser.add_argument(
+        "--uncertainty-selection",
+        default=None,
+        help="Row-aligned uncertainty selections containing final_indices.",
+    )
+    parser.add_argument(
+        "--specialist-predictions",
+        action="append",
+        default=[],
+        help=(
+            "Optional gated specialist prediction JSONL. Its frames and OCR/track "
+            "ledger are verifier evidence only, never candidate answers."
+        ),
+    )
     parser.add_argument("--output", required=True)
     parser.add_argument("--max-frames", type=int, default=64)
     parser.add_argument("--proofpack-quota", type=int, default=32)
@@ -107,12 +136,40 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--score-views",
         nargs="+",
-        choices=("pivot", "uniform", "mixed", "blind"),
+        choices=("pivot", "uniform", "mixed", "uncertainty", "specialist", "blind"),
         default=["pivot", "uniform", "mixed", "blind"],
         help="Contexts to score. Restricting this list avoids unused model calls.",
     )
     parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args()
+
+
+def _specialist_evidence(
+    records: list[dict[str, Any]], max_frames: int
+) -> tuple[list[int], str]:
+    indices: list[int] = []
+    notes: list[str] = []
+    for record in records:
+        evidence = record.get("specialist_evidence") or {}
+        for field in ("detail_indices", "final_indices"):
+            for value in evidence.get(field, []):
+                frame_index = int(value)
+                if frame_index not in indices:
+                    indices.append(frame_index)
+        ledger = str(evidence.get("ocr_ledger", "")).strip()
+        if ledger:
+            notes.append("OCR transcription: " + ledger)
+        events = evidence.get("events") or []
+        if events:
+            rendered = []
+            for event in events[:18]:
+                rendered.append(
+                    f"{float(event.get('timestamp', 0.0)):.1f}s "
+                    f"{event.get('track_id', '?')} {event.get('label', 'object')} "
+                    f"({event.get('role', 'observation')})"
+                )
+            notes.append("Object observations: " + "; ".join(rendered))
+    return sorted(indices[:max_frames]), "\n".join(notes)
 
 
 def _map_displayed_scores(
@@ -146,9 +203,15 @@ def main() -> None:
     output_path = _resolve_path(args.output)
     rows = apply_subset(load_jsonl(input_path), args.subset_file)
     prediction_sets = {
-        "q35_pivot": _index_jsonl(_resolve_path(args.primary_predictions)),
-        "q35_uniform": _index_jsonl(_resolve_path(args.secondary_predictions)),
-        "q3_verifier": _index_jsonl(_resolve_path(args.tertiary_predictions)),
+        label: _index_jsonl(_resolve_path(path))
+        for label, path in zip(
+            args.prediction_labels,
+            (
+                args.primary_predictions,
+                args.secondary_predictions,
+                args.tertiary_predictions,
+            ),
+        )
     }
     proofpack_reference = load_jsonl(_resolve_path(args.proofpack_reference))
     proofpacks = index_row_aligned_metadata(
@@ -156,6 +219,14 @@ def main() -> None:
         proofpack_reference,
         "router proof pack",
     )
+    uncertainty_selections = (
+        _index_jsonl(_resolve_path(args.uncertainty_selection))
+        if args.uncertainty_selection
+        else {}
+    )
+    specialist_sets = [
+        _index_jsonl(_resolve_path(path)) for path in args.specialist_predictions
+    ]
     disagreement_rows = []
     for row in rows:
         key = sample_key(row)
@@ -163,7 +234,14 @@ def main() -> None:
         if len(set(answers)) > 1:
             disagreement_rows.append(row)
     required = {sample_key(row) for row in disagreement_rows}
-    for label, indexed in {**prediction_sets, "proofpack": proofpacks}.items():
+    required_inputs = {**prediction_sets, "proofpack": proofpacks}
+    if "uncertainty" in set(args.score_views):
+        if not uncertainty_selections:
+            raise RuntimeError(
+                "--uncertainty-selection is required when scoring the uncertainty view"
+            )
+        required_inputs["uncertainty selection"] = uncertainty_selections
+    for label, indexed in required_inputs.items():
         missing = required - set(indexed)
         if missing:
             raise RuntimeError(f"{label} is missing {len(missing)} disagreement rows")
@@ -228,6 +306,30 @@ def main() -> None:
                     proofpack_quota=args.proofpack_quota,
                 )
                 frame_indices["mixed"] = mixed_indices
+            if "uncertainty" in requested_views:
+                selection = uncertainty_selections[key]
+                uncertainty_indices = [
+                    int(frame_index)
+                    for frame_index in selection.get("final_indices", [])
+                ]
+                if not uncertainty_indices:
+                    raise RuntimeError(
+                        "Uncertainty selection has no frames for disagreement row: "
+                        f"{key}"
+                    )
+                frame_indices["uncertainty"] = sorted(
+                    dict.fromkeys(uncertainty_indices)
+                )[: args.max_frames]
+            specialist_note = ""
+            if "specialist" in requested_views:
+                specialist_records = [
+                    indexed[key] for indexed in specialist_sets if key in indexed
+                ]
+                specialist_indices, specialist_note = _specialist_evidence(
+                    specialist_records, args.max_frames
+                )
+                if specialist_indices:
+                    frame_indices["specialist"] = specialist_indices
             contexts = {
                 name: extract_frames_by_indices(video_path, indices)
                 for name, indices in frame_indices.items()
@@ -249,8 +351,19 @@ def main() -> None:
                 ]
                 rotation_contexts = {}
                 for name, frames in contexts.items():
+                    prompt = visual_prompt
+                    if name == "specialist" and specialist_note:
+                        prompt = [{
+                            "role": "user",
+                            "content": (
+                                visual_prompt[0]["content"]
+                                + "\n\nAdditional machine-generated evidence follows. "
+                                "Treat it as uncertain and verify it against the images:\n"
+                                + specialist_note
+                            ),
+                        }]
                     mapped = _map_displayed_scores(
-                        model.score_choice_letters(frames, visual_prompt),
+                        model.score_choice_letters(frames, prompt),
                         displayed_to_original,
                     )
                     mapped_context_scores[name].append(mapped)
@@ -318,6 +431,7 @@ def main() -> None:
                 "mixed_frame_meta": mixed_meta,
                 "option_rotations": args.option_rotations,
                 "score_views": sorted(requested_views),
+                "specialist_evidence_available": bool(specialist_note),
                 "score_fingerprint": fingerprint,
             }
             if args.option_rotations > 1:

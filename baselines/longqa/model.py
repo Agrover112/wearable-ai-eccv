@@ -794,6 +794,11 @@ class VLLMModel(VideoQAModel):
         if self._is_qwen35 and self._enable_thinking is None:
             self._enable_thinking = False
         self._gdn_prefill_backend = os.environ.get("VLLM_GDN_PREFILL_BACKEND")
+        self._qwen_media_mode = os.environ.get(
+            "VLLM_QWEN_MEDIA_MODE", "images"
+        ).strip().lower()
+        if self._qwen_media_mode not in {"images", "video"}:
+            raise ValueError("VLLM_QWEN_MEDIA_MODE must be `images` or `video`")
         if self._is_qwen35 and not self._gdn_prefill_backend:
             self._gdn_prefill_backend = "triton"
         if self._gdn_prefill_backend not in {None, "triton", "flashinfer"}:
@@ -903,7 +908,10 @@ class VLLMModel(VideoQAModel):
                 ["--quantization", "fp8", "--max-model-len", str(self._context_window)]
             )
         if self.max_frames > 0:
-            limit_json = f'{{"image": {self.max_frames}}}'
+            if self.model_type == "qwen" and self._qwen_media_mode == "video":
+                limit_json = '{"video": 1}'
+            else:
+                limit_json = f'{{"image": {self.max_frames}}}'
             server_args.extend(["--limit-mm-per-prompt", limit_json])
             # --mm-processor-kwargs is Qwen-specific (controls pixel resolution);
             # other models (e.g., Scout) do not support this flag.
@@ -922,6 +930,16 @@ class VLLMModel(VideoQAModel):
                         ),
                     ]
                 )
+                if self._qwen_media_mode == "video":
+                    server_args.extend(
+                        [
+                            "--media-io-kwargs",
+                            (
+                                '{"video": {"num_frames": '
+                                f"{self.max_frames}, \"fps\": 1.0}}}}"
+                            ),
+                        ]
+                    )
         max_num_batched_tokens = os.environ.get("VLLM_MAX_NUM_BATCHED_TOKENS")
         if max_num_batched_tokens:
             server_args.extend(
@@ -941,6 +959,7 @@ class VLLMModel(VideoQAModel):
         env.setdefault("VLLM_USE_V1", "1")
         env.setdefault("LLM_DISABLE_COMPILE_CACHE", "1")
         env.setdefault("VLLM_FLASH_ATTN_VERSION", "3")
+        env.setdefault("PYTHONNOUSERSITE", "1")
 
         cmd = [sys.executable, "-m", "vllm.entrypoints.openai.api_server"]
         cmd.extend(server_args)
@@ -1198,6 +1217,84 @@ class VLLMModel(VideoQAModel):
             )
         return content
 
+    def generate_video_frames(
+        self,
+        frames: list[object],
+        messages: list[dict[str, str]],
+        max_new_tokens: int = 4096,
+    ) -> str:
+        """Generate with selected frames encoded as one chronological video."""
+        import base64
+        import io
+        import json
+        import urllib.error
+        import urllib.request
+
+        if self._qwen_media_mode != "video":
+            raise RuntimeError(
+                "generate_video_frames requires VLLM_QWEN_MEDIA_MODE=video"
+            )
+        encoded_frames: list[str] = []
+        for frame in frames:
+            buffer = io.BytesIO()
+            frame.save(buffer, format="JPEG", quality=90)
+            encoded_frames.append(base64.b64encode(buffer.getvalue()).decode())
+        video_url = "data:video/jpeg;base64," + ",".join(encoded_frames)
+
+        openai_messages: list[dict[str, object]] = []
+        video_inserted = False
+        for message in messages:
+            if message["role"] == "user" and not video_inserted and frames:
+                openai_messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "video_url", "video_url": {"url": video_url}},
+                            {"type": "text", "text": message["content"]},
+                        ],
+                    }
+                )
+                video_inserted = True
+            else:
+                openai_messages.append(message)
+
+        request_data: dict[str, object] = {
+            "model": self.model_id,
+            "messages": openai_messages,
+            "max_tokens": max_new_tokens,
+            "temperature": 0.0,
+        }
+        self._apply_chat_template_options(request_data)
+        request = urllib.request.Request(
+            f"http://localhost:{self._port}/v1/chat/completions",
+            data=json.dumps(request_data).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(
+                request, timeout=self.request_timeout
+            ) as response:
+                result = json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            body = error.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"vLLM HTTP {error.code}: {body[:2000]}") from error
+        if "error" in result:
+            raise RuntimeError(f"vLLM returned error: {result['error']}")
+        usage = result.get("usage", {})
+        if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
+            record_prompt_token_counts(
+                [int(usage["prompt_tokens"])], self._context_window
+            )
+        try:
+            message = result["choices"][0]["message"]
+        except (KeyError, IndexError) as error:
+            raise RuntimeError(f"Unexpected vLLM response: {result}") from error
+        content = _merge_reasoning_content(message)
+        if content is None:
+            raise RuntimeError("vLLM returned null VideoJudge content")
+        return content
+
     def score_choice_letters(
         self,
         frames: list[object],
@@ -1235,13 +1332,14 @@ class VLLMModel(VideoQAModel):
                 images_inserted = True
             else:
                 openai_messages.append(message)
+        top_logprobs = max(20, int(os.environ.get("VLLM_MAX_LOGPROBS", "20")))
         request_data: dict[str, object] = {
                 "model": self.model_id,
                 "messages": openai_messages,
                 "max_tokens": 1,
                 "temperature": 0.0,
                 "logprobs": True,
-                "top_logprobs": 20,
+                "top_logprobs": top_logprobs,
         }
         self._apply_chat_template_options(request_data)
         payload = json.dumps(request_data).encode()

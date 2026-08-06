@@ -1,0 +1,320 @@
+{
+  "source": "wearable_ai_2026_egolongqa_val_700.jsonl",
+  "base_subset": "egolongqa_dev140_seed20260709.json",
+  "gate": "reid",
+  "n": 39,
+  "samples": [
+    {
+      "index": 0,
+      "key": "06615b19ef5373ca.mp4||Which did I paint first, the house's exterior siding or the adjacent wooden fence, and what visual evidence in the video indicates the order?",
+      "video_path": "06615b19ef5373ca.mp4",
+      "question": "Which did I paint first, the house's exterior siding or the adjacent wooden fence, and what visual evidence in the video indicates the order?",
+      "category": "Daily Activities",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 1,
+      "key": "11c6e381488dcff7.mp4||After I removed the plastic bag from the closet, where did the purple package that was inside it end up?",
+      "video_path": "11c6e381488dcff7.mp4",
+      "question": "After I removed the plastic bag from the closet, where did the purple package that was inside it end up?",
+      "category": "Events",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 2,
+      "key": "1aca110c98e1d797.mp4||After the dog in the red sweater ran to the far end of the fenced area and returned, where was it when I extended my hand towards it?",
+      "video_path": "1aca110c98e1d797.mp4",
+      "question": "After the dog in the red sweater ran to the far end of the fenced area and returned, where was it when I extended my hand towards it?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "D"
+    },
+    {
+      "index": 3,
+      "key": "204df747cf88e632.mp4||After I rode the escalator down to the lower level and passed a large bear-shaped clothing display, what was the name on the tag of the plush bear I later picked up in that same department?",
+      "video_path": "204df747cf88e632.mp4",
+      "question": "After I rode the escalator down to the lower level and passed a large bear-shaped clothing display, what was the name on the tag of the plush bear I later picked up in that same department?",
+      "category": "Shopping",
+      "mcq_answer": "D"
+    },
+    {
+      "index": 4,
+      "key": "2341ee3265018e40.mp4||What decorative feature, first noticed in the background when I saw the wooden bench among fallen leaves, did I later spot again in the distance while walking along a grassy path flanked by bushes?",
+      "video_path": "2341ee3265018e40.mp4",
+      "question": "What decorative feature, first noticed in the background when I saw the wooden bench among fallen leaves, did I later spot again in the distance while walking along a grassy path flanked by bushes?",
+      "category": "Gardening",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 5,
+      "key": "239c596fbc5ff872.mp4||After seeing the activity schedule earlier, I later made a craft. What was the craft and where did I hold the finished item?",
+      "video_path": "239c596fbc5ff872.mp4",
+      "question": "After seeing the activity schedule earlier, I later made a craft. What was the craft and where did I hold the finished item?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 6,
+      "key": "283c1d1c42b83e9e.mp4||When I first saw the AT&T building near Legends Corner, what color were its spires, and what color were they when I saw it again later near the Hilton hotel?",
+      "video_path": "283c1d1c42b83e9e.mp4",
+      "question": "When I first saw the AT&T building near Legends Corner, what color were its spires, and what color were they when I saw it again later near the Hilton hotel?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 7,
+      "key": "286c91162b2b9918.mp4||I noticed two different hot pot restaurants during my walk. What were their names, and which one was closer to where I parked my car?",
+      "video_path": "286c91162b2b9918.mp4",
+      "question": "I noticed two different hot pot restaurants during my walk. What were their names, and which one was closer to where I parked my car?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 8,
+      "key": "3305f03f9d1f59cb.mp4||Earlier I saw a person in an orange shirt standing near a building with a ramp. Where did I see that same person again later in the video?",
+      "video_path": "3305f03f9d1f59cb.mp4",
+      "question": "Earlier I saw a person in an orange shirt standing near a building with a ramp. Where did I see that same person again later in the video?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 9,
+      "key": "3a8a1a5119cec3a1.mp4||What new detail did I notice about the woman in the black shirt when I saw her again near the beach compared to when she was with me near the scooter prohibition sign?",
+      "video_path": "3a8a1a5119cec3a1.mp4",
+      "question": "What new detail did I notice about the woman in the black shirt when I saw her again near the beach compared to when she was with me near the scooter prohibition sign?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 10,
+      "key": "3ec8a158983b80dd.mp4||What did I do with the boiled eggs I peeled later in the video, and how did it differ from the egg-based ingredient I used in the noodle bowls earlier?",
+      "video_path": "3ec8a158983b80dd.mp4",
+      "question": "What did I do with the boiled eggs I peeled later in the video, and how did it differ from the egg-based ingredient I used in the noodle bowls earlier?",
+      "category": "Daily Activities",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 11,
+      "key": "68be854a3b8f3d47.mp4||What object in the water was not visible when I was near the gray truck earlier but became visible after I walked to a different vantage point later?",
+      "video_path": "68be854a3b8f3d47.mp4",
+      "question": "What object in the water was not visible when I was near the gray truck earlier but became visible after I walked to a different vantage point later?",
+      "category": "Sightseeing",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 12,
+      "key": "68c23dcc96acbfbf.mp4||What was different about the picnic table I saw near the stone retaining wall compared to the picnic tables I had seen earlier in the campground?",
+      "video_path": "68c23dcc96acbfbf.mp4",
+      "question": "What was different about the picnic table I saw near the stone retaining wall compared to the picnic tables I had seen earlier in the campground?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 13,
+      "key": "72f6fb2b3fcd5b08.mp4||In the '\u041f\u0430\u0440\u0430\u0434 \u043c\u043e\u0434\u0435\u043b\u0435\u0439' section I saw earlier, which model number corresponds to the outfit on the magazine cover, and what are the pattern numbers for the blouse and pants of that outfit in the later spread?",
+      "video_path": "72f6fb2b3fcd5b08.mp4",
+      "question": "In the '\u041f\u0430\u0440\u0430\u0434 \u043c\u043e\u0434\u0435\u043b\u0435\u0439' section I saw earlier, which model number corresponds to the outfit on the magazine cover, and what are the pattern numbers for the blouse and pants of that outfit in the later spread?",
+      "category": "Fashion Advice",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 14,
+      "key": "7392bac19ba7eec5.mp4||What did I put on between the first time I was kneeling and the first time I was lying on the ground?",
+      "video_path": "7392bac19ba7eec5.mp4",
+      "question": "What did I put on between the first time I was kneeling and the first time I was lying on the ground?",
+      "category": "Gardening",
+      "mcq_answer": "D"
+    },
+    {
+      "index": 15,
+      "key": "7bfeb3af24f17ceb.mp4||After I opened the plastic package on the ironing board, how did the fabric inside compare to the lace I had seen draped over the couch since the beginning of the video?",
+      "video_path": "7bfeb3af24f17ceb.mp4",
+      "question": "After I opened the plastic package on the ironing board, how did the fabric inside compare to the lace I had seen draped over the couch since the beginning of the video?",
+      "category": "Events",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 16,
+      "key": "86897310591a3dc6.mp4||I saw a person with a pink backpack at gate B24 and later on the airplane; what did this confirm about my journey?",
+      "video_path": "86897310591a3dc6.mp4",
+      "question": "I saw a person with a pink backpack at gate B24 and later on the airplane; what did this confirm about my journey?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 17,
+      "key": "8812f05ea4220629.mp4||Which light sculpture did I see both before I went inside the chapel and again after I came out?",
+      "video_path": "8812f05ea4220629.mp4",
+      "question": "Which light sculpture did I see both before I went inside the chapel and again after I came out?",
+      "category": "Events",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 18,
+      "key": "99e2dcde53231cf0.mp4||What color and number was the card I placed on the table right before I picked up the instruction sheet, and where did that card end up after the game was over?",
+      "video_path": "99e2dcde53231cf0.mp4",
+      "question": "What color and number was the card I placed on the table right before I picked up the instruction sheet, and where did that card end up after the game was over?",
+      "category": "Pets, social gatherings with friends and family",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 19,
+      "key": "9e889ac62c531781.mp4||What CB handle did the Duke Boys use, as stated on a plaque I saw later in the store, and which item I noticed earlier relates to this?",
+      "video_path": "9e889ac62c531781.mp4",
+      "question": "What CB handle did the Duke Boys use, as stated on a plaque I saw later in the store, and which item I noticed earlier relates to this?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 20,
+      "key": "a3465114a56fdfd2.mp4||Earlier I saw a plaque for the Bird Sanctuary, and later I read an informational sign about it. What information from the plaque was not included on the sign?",
+      "video_path": "a3465114a56fdfd2.mp4",
+      "question": "Earlier I saw a plaque for the Bird Sanctuary, and later I read an informational sign about it. What information from the plaque was not included on the sign?",
+      "category": "Sightseeing",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 21,
+      "key": "a8fac98f26a2bbf9.mp4||I glimpsed a phone with a green case on the left edge of the frame at the very start; much later, I saw a phone again. What was I doing with it, and what architectural feature was I photographing?",
+      "video_path": "a8fac98f26a2bbf9.mp4",
+      "question": "I glimpsed a phone with a green case on the left edge of the frame at the very start; much later, I saw a phone again. What was I doing with it, and what architectural feature was I photographing?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 22,
+      "key": "aa4de1bef2a624b1.mp4||After the self-service kiosk warned that a clear bag was not appropriate packing, what did I do with the item I intended to ship?",
+      "video_path": "aa4de1bef2a624b1.mp4",
+      "question": "After the self-service kiosk warned that a clear bag was not appropriate packing, what did I do with the item I intended to ship?",
+      "category": "Sightseeing",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 23,
+      "key": "ac25c972dd028054.mp4||I first saw a man in a dark puffer jacket pushing a cart near the bedding and towel displays. Later, after I checked out touchscreen gloves, I saw the same man closely examining a product. What was it?",
+      "video_path": "ac25c972dd028054.mp4",
+      "question": "I first saw a man in a dark puffer jacket pushing a cart near the bedding and towel displays. Later, after I checked out touchscreen gloves, I saw the same man closely examining a product. What was it?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 24,
+      "key": "b272a41741a986ac.mp4||Earlier I walked past metal grates on the sidewalk next to a large truck; when I encountered similar grates later, what vehicle was parked on the adjacent street instead?",
+      "video_path": "b272a41741a986ac.mp4",
+      "question": "Earlier I walked past metal grates on the sidewalk next to a large truck; when I encountered similar grates later, what vehicle was parked on the adjacent street instead?",
+      "category": "Sightseeing",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 25,
+      "key": "bc484bf7424a0679.mp4||After I helped place the Rudolph inflatable box on top of the Santa boxes, where did I later see the same Rudolph box displayed and what was the price shown below it?",
+      "video_path": "bc484bf7424a0679.mp4",
+      "question": "After I helped place the Rudolph inflatable box on top of the Santa boxes, where did I later see the same Rudolph box displayed and what was the price shown below it?",
+      "category": "Shopping",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 26,
+      "key": "bc6cc236f240d2cd.mp4||Which ingredient did I add to the meat mixture both at the beginning and again later after I had already mixed the ingredients by hand?",
+      "video_path": "bc6cc236f240d2cd.mp4",
+      "question": "Which ingredient did I add to the meat mixture both at the beginning and again later after I had already mixed the ingredients by hand?",
+      "category": "Daily Activities",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 27,
+      "key": "be18a5e734f021c7.mp4||What action by the person led the white dog to sniff the signpost near the fenced pool for the first time, and what was the gray dog doing when this signpost was first encountered?",
+      "video_path": "be18a5e734f021c7.mp4",
+      "question": "What action by the person led the white dog to sniff the signpost near the fenced pool for the first time, and what was the gray dog doing when this signpost was first encountered?",
+      "category": "Daily Activities",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 28,
+      "key": "cf2bd89a7b5d37d8.mp4||What sporting goods store did I see across the street from the Barclays Center later that was in the same complex as the Best Buy I had passed earlier?",
+      "video_path": "cf2bd89a7b5d37d8.mp4",
+      "question": "What sporting goods store did I see across the street from the Barclays Center later that was in the same complex as the Best Buy I had passed earlier?",
+      "category": "Sightseeing",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 29,
+      "key": "d12791aa7c6e8d2f.mp4||Earlier, I walked past a bakery with Chinese characters on its sign. Later, I boarded a subway train. What was the name of the bakery, and what subway line did I take?",
+      "video_path": "d12791aa7c6e8d2f.mp4",
+      "question": "Earlier, I walked past a bakery with Chinese characters on its sign. Later, I boarded a subway train. What was the name of the bakery, and what subway line did I take?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 30,
+      "key": "e01d486f76bc5d26.mp4||What did I hold in my hand before I saw the woman with the dog and again later when I was near the cliff edge overlooking the valley?",
+      "video_path": "e01d486f76bc5d26.mp4",
+      "question": "What did I hold in my hand before I saw the woman with the dog and again later when I was near the cliff edge overlooking the valley?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 31,
+      "key": "e35940287634d819.mp4||The first time I saw the gray poodle in the dog park, what was it doing, and what was the black and tan dog (the first dog I saw in the park) doing the last time I saw it?",
+      "video_path": "e35940287634d819.mp4",
+      "question": "The first time I saw the gray poodle in the dog park, what was it doing, and what was the black and tan dog (the first dog I saw in the park) doing the last time I saw it?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 32,
+      "key": "e5c41c61342fb8bb.mp4||Earlier I read a plaque about a 14th-century tomb slab of a friar. Later, I saw a tomb slab depicting a figure in armor. Was this the same tomb slab?",
+      "video_path": "e5c41c61342fb8bb.mp4",
+      "question": "Earlier I read a plaque about a 14th-century tomb slab of a friar. Later, I saw a tomb slab depicting a figure in armor. Was this the same tomb slab?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 33,
+      "key": "edaffe97b6620535.mp4||After the person in the Harry Potter robe entered the gym, did I see them again, and if not, what other costumed character did I see that was also wearing a robe?",
+      "video_path": "edaffe97b6620535.mp4",
+      "question": "After the person in the Harry Potter robe entered the gym, did I see them again, and if not, what other costumed character did I see that was also wearing a robe?",
+      "category": "Sightseeing",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 34,
+      "key": "f11fb6958943a777.mp4||What was different about the white SUV's surroundings the second time I saw it compared to the first time?",
+      "video_path": "f11fb6958943a777.mp4",
+      "question": "What was different about the white SUV's surroundings the second time I saw it compared to the first time?",
+      "category": "Outdoor Activities and Sports",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 35,
+      "key": "f2ec78a1ecc0e859.mp4||Earlier I spotted a golden, beaded, looped sculpture in the distance across the lawn, and later I stood next to it and read its plaque. What was the title of the artwork and the artist's name?",
+      "video_path": "f2ec78a1ecc0e859.mp4",
+      "question": "Earlier I spotted a golden, beaded, looped sculpture in the distance across the lawn, and later I stood next to it and read its plaque. What was the title of the artwork and the artist's name?",
+      "category": "Sightseeing",
+      "mcq_answer": "B"
+    },
+    {
+      "index": 36,
+      "key": "f65855c5790ba916.mp4||Earlier in the video, I saw an artist list that included Martin Wong and his work 'City Hall, 1986'. Later, I viewed two framed photographs with a label bearing his name and a number. What was that number, and what time of day was shown in the top photograph?",
+      "video_path": "f65855c5790ba916.mp4",
+      "question": "Earlier in the video, I saw an artist list that included Martin Wong and his work 'City Hall, 1986'. Later, I viewed two framed photographs with a label bearing his name and a number. What was that number, and what time of day was shown in the top photograph?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 37,
+      "key": "f86b147546baa484.mp4||What vehicle did I see parked near a yellow fire hydrant earlier that I later saw again near a cyclist?",
+      "video_path": "f86b147546baa484.mp4",
+      "question": "What vehicle did I see parked near a yellow fire hydrant earlier that I later saw again near a cyclist?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C"
+    },
+    {
+      "index": 38,
+      "key": "046f557aae4c377b.mp4||What did I point at earlier that the woman later ate with a spoon?",
+      "video_path": "046f557aae4c377b.mp4",
+      "question": "What did I point at earlier that the woman later ate with a spoon?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C"
+    }
+  ]
+}

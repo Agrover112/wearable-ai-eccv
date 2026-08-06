@@ -1101,7 +1101,7 @@ def select_temporal_pivot_pack(
     per_pivot_direction: bool = False,
     target_component_scores: dict[str, list[float]] | None = None,
 ) -> tuple[list[SelectedFrame], dict[str, Any]]:
-    if program.operator == "GLOBAL":
+    if program.operator == "GLOBAL" and not target_component_scores:
         return select_eventlet_hybrid(
             candidates,
             target_scores,
@@ -1117,11 +1117,15 @@ def select_temporal_pivot_pack(
 
     selected: dict[int, SelectedFrame] = {}
     priorities: dict[int, int] = {}
-    pivots = _rank_with_temporal_nms(
-        pivot_scores,
-        candidates,
-        pivot_centers,
-        temporal_nms_seconds,
+    pivots = (
+        []
+        if program.operator == "GLOBAL"
+        else _rank_with_temporal_nms(
+            pivot_scores,
+            candidates,
+            pivot_centers,
+            temporal_nms_seconds,
+        )
     )
     primary_pivot = pivots[0] if pivots else len(candidates) // 2
     for center in pivots:
@@ -1155,6 +1159,7 @@ def select_temporal_pivot_pack(
         allowed = set(relevant[: max(target_centers * 2, target_centers)])
 
     quota_centers: dict[str, list[int]] = {}
+    quota_unrestricted_fallback: list[str] = []
     if target_component_scores:
         targets = []
         option_labels = sorted(
@@ -1168,6 +1173,14 @@ def select_temporal_pivot_pack(
                 temporal_nms_seconds,
                 allowed=allowed,
             )
+            if not ranked and allowed is not None:
+                ranked = _rank_with_temporal_nms(
+                    target_component_scores[label],
+                    candidates,
+                    1,
+                    temporal_nms_seconds,
+                )
+                quota_unrestricted_fallback.append(label)
             quota_centers[label] = [candidates[index].index for index in ranked]
             targets.extend(index for index in ranked if index not in targets)
         remaining = max(0, target_centers - len(targets))
@@ -1180,6 +1193,14 @@ def select_temporal_pivot_pack(
                 temporal_nms_seconds,
                 allowed=allowed,
             )
+            if not ranked and allowed is not None:
+                ranked = _rank_with_temporal_nms(
+                    target_query_scores,
+                    candidates,
+                    max(target_centers, remaining),
+                    temporal_nms_seconds,
+                )
+                quota_unrestricted_fallback.append("target")
             additions = [index for index in ranked if index not in targets][:remaining]
             targets.extend(additions)
             quota_centers["target"] = [
@@ -1193,6 +1214,14 @@ def select_temporal_pivot_pack(
                 temporal_nms_seconds,
                 allowed=allowed,
             )
+            if not supplements and allowed is not None:
+                supplements = _rank_with_temporal_nms(
+                    target_scores,
+                    candidates,
+                    target_centers,
+                    temporal_nms_seconds,
+                )
+                quota_unrestricted_fallback.append("target_supplement")
             targets.extend(index for index in supplements if index not in targets)
         targets = targets[:target_centers]
     elif per_pivot_direction and program.direction in {"forward", "backward"} and pivots:
@@ -1267,6 +1296,7 @@ def select_temporal_pivot_pack(
         "fill_mode": fill_mode,
         "per_pivot_direction": per_pivot_direction,
         "target_quota_centers": quota_centers,
+        "quota_unrestricted_fallback": sorted(set(quota_unrestricted_fallback)),
     }
 
 
@@ -1924,6 +1954,20 @@ def main() -> None:
                             args.fill_mode,
                         )
                         selection_meta["route"] = "temporal_pivot"
+
+                if args.strategy == "option_quota_pivot":
+                    quota_centers = selection_meta.get("target_quota_centers", {})
+                    option_labels = sorted(
+                        label for label in component_scores if label.startswith("option_")
+                    )
+                    missing_quotas = [
+                        label for label in option_labels if not quota_centers.get(label)
+                    ]
+                    if not option_labels or missing_quotas:
+                        raise RuntimeError(
+                            "option_quota_pivot produced incomplete option evidence "
+                            f"for row {row_idx}: {missing_quotas or 'no option queries'}"
+                        )
 
                 record = {
                     "index": row_idx,

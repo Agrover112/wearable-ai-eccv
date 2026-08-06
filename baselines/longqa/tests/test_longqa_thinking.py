@@ -6,7 +6,9 @@ from model import _merge_reasoning_content, VLLMModel
 from run_generate_longqa import (
     _complete_missing_final_answers,
     has_final_answer_marker,
+    has_unambiguous_final_answer,
 )
+from run_generate_longqa_multicandidate_judge import build_judge_prompt
 
 
 class FakeModel:
@@ -30,6 +32,37 @@ class FakeThinkingModel(FakeModel):
 
 
 class LongQAThinkingTests(unittest.TestCase):
+    def test_candidate_blind_thinking_prompt_has_no_previous_answers(self):
+        row = {
+            "question": "What happened after paying?",
+            "mcq_options": "A. Left\nB. Waited\nC. Shopped\nD. Sat",
+        }
+        prompt = build_judge_prompt(
+            row,
+            {"pivot": "A", "uniform": "B"},
+            show_candidate_suggestions=False,
+            require_final_answer_marker=True,
+        )
+        self.assertIn("Final Answer: X", prompt)
+        self.assertNotIn("selected A", prompt)
+        self.assertNotIn("selected B", prompt)
+
+    def test_candidate_blind_timestamp_prompt_maps_image_ordinals(self):
+        row = {
+            "question": "What happened after paying?",
+            "mcq_options": "A. Left\nB. Waited\nC. Shopped\nD. Sat",
+        }
+        prompt = build_judge_prompt(
+            row,
+            {"pivot": "A"},
+            show_candidate_suggestions=False,
+            frame_timestamps=[0.0, 12.34, 98.76],
+        )
+        self.assertIn("image 1=0.0s", prompt)
+        self.assertIn("image 2=12.3s", prompt)
+        self.assertIn("image 3=98.8s", prompt)
+        self.assertIn("distinguish repeated events", prompt)
+
     def test_thinking_prompt_requests_final_marker(self):
         prompt = build_longqa_prompt(
             "What happened first?", "A. One\nB. Two\nC. Three\nD. Four", "thinking"
@@ -41,6 +74,12 @@ class LongQAThinkingTests(unittest.TestCase):
         response = "I compared the events.\nFinal Answer: B"
         self.assertTrue(has_final_answer_marker(response))
         self.assertEqual(normalize_answer(response), "B")
+
+    def test_answer_only_letter_is_unambiguous(self):
+        self.assertTrue(has_unambiguous_final_answer("B"))
+        self.assertTrue(has_unambiguous_final_answer("(C)"))
+        self.assertFalse(has_final_answer_marker("B"))
+        self.assertFalse(has_unambiguous_final_answer("I think B"))
 
     def test_vllm_reasoning_field_survives_null_content(self):
         self.assertEqual(
@@ -93,6 +132,18 @@ class LongQAThinkingTests(unittest.TestCase):
         self.assertEqual(len(model.final_calls), 1)
         self.assertEqual(model.final_calls[0][2], 64)
         self.assertEqual(normalize_answer(completed[0]), "B")
+
+    def test_answer_only_retry_is_canonicalized(self):
+        model = FakeThinkingModel(retry_response="C")
+        completed = _complete_missing_final_answers(
+            model,
+            [["frame-a"]],
+            [[{"role": "user", "content": "question a"}]],
+            ["unfinished reasoning"],
+            required=True,
+        )
+        self.assertTrue(has_final_answer_marker(completed[0]))
+        self.assertEqual(normalize_answer(completed[0]), "C")
 
     def test_unfinished_retry_is_rejected(self):
         model = FakeThinkingModel(retry_response="still reasoning")

@@ -1394,3 +1394,317 @@ Dev140 inference:
 - **Answer distribution:** predicted `A/B/C/D = 21/35/58/26`; gold `A/B/C/D = 1/39/91/9`. InternVideo3 substantially under-selects C on this dev slice.
 - **Inference:** The matched hot swap is 20 correct answers below Qwen3-VL uniform64/672. Its relatively strong non-C and macro-letter scores suggest useful visual reasoning, but direct option-letter calibration is poorly matched to the unusually C-heavy dev140 distribution.
 - **Artifacts:** `runs/egolongqa/internvideo3_8b_hf_uniform64_px451584_dev140_2026-07-13/` contains committed predictions, evaluation results, and shortcut-aware diagnostics.
+# Prepared Candidate-Diversity And Specialist Evidence Suite (2026-08-01)
+
+Eight follow-up experiments were implemented without changing the frozen
+`565/700` primary prediction file. The dependency-aware commands and method
+descriptions are in
+`documentation/LONGQA_NEXT_EXPERIMENTS_2026-08-01.md`.
+
+The CPU-only Candidate-C audit has completed on dev140. Qwen3.5 pivot and
+uniform have a `120/140` oracle. Adding the current nested Qwen3 verifier raises
+the oracle to `128/140` by uniquely supplying eight correct answers. The
+promoted rotation scorer selects an answer unique to Candidate C on seven rows,
+five correctly. Qwen-embedding pivot produces a stronger simple majority
+(`117/140`) but no additional oracle recall; endpoint uniform raises the oracle
+only to `123/140`. The new uncertainty Candidate C must therefore preserve
+candidate diversity, not merely match standalone accuracy. Full audit:
+`analysis/egolongqa/candidate_c_replacement_audit_dev140_2026-08-01.json`.
+
+Prepared GPU paths:
+
+| Direction | Scope | Launcher | Dependency |
+| --- | --- | --- | --- |
+| Independent uncertainty Candidate C | dev140 | `slurm_longqa_qwen35_ug_candidate_c_dev.sh` | none |
+| Existing candidates + uncertainty/multi-view judge | dev140 disagreements | `slurm_longqa_qwen35_ug_original_multiview_rotation_dev.sh` | uncertainty Candidate C selections |
+| Replacement Candidate C + uncertainty/multi-view judge | dev140 disagreements | `slurm_longqa_qwen35_ug_candidate_c_multiview_rotation_dev.sh` | uncertainty Candidate C predictions and selections |
+| Hierarchical occurrence-aware pivot | dev20 | `slurm_longqa_qwen35_hierarchical_pivot_dev20.sh` | none |
+| HieraMamba interval proposals | dev20 | `slurm_hieramamba_queries_dev20.sh` then extraction and inference | sequential external environment stages |
+| Qwen3.5 HieraMamba answer variants | dev20 | `slurm_longqa_qwen35_hieramamba_top{1,3}_*.sh` | normalized HieraMamba proposals |
+| Targeted Qwen OCR | 49 gated dev140 rows | `slurm_longqa_qwen35_targeted_ocr_dev.sh` | reuses archived detections |
+| SigLIP2 object re-identification | 39 gated dev140 rows | `slurm_longqa_qwen35_object_reid_dev.sh` | reuses archived detections |
+
+Implementation verification: all changed Python files compile; 49 focused
+function tests and six object-evidence unit tests pass; all new shell launchers
+pass `bash -n`; uncertainty and specialist launcher preflights resolve their
+inputs and commands successfully.
+
+# Candidate-Diversity Pilot Results (2026-08-01)
+
+### `qwen35_9b_vllm_hierarchical_pivot_c128_w16_local48_global16_dev20_2026-08-01`
+
+- **Purpose:** Test a two-level temporal search that first selects coarse video windows and then searches for separated event occurrences inside those windows.
+- **SLURM job:** `49347129`, launched via `slurm_longqa_qwen35_hierarchical_pivot_dev20.sh`.
+- **Runtime:** `4863` seconds (`1h21m03s`). The scorer made `2532` model calls; mean context fill was `0.88%`, with a `57.47%` maximum on final answer calls.
+- **Result:** `13/20` (`65.00%`). On the same 20 examples, the frozen Qwen3.5 pivot answered `12/20`; the hierarchical run changed only one answer and corrected it.
+- **Inference:** The pilot gives a one-example gain but almost no candidate diversity relative to the original pivot. Its coarse-to-fine scoring cost is not justified by this dev20 result, so it should not be expanded before inspecting the one changed case and simplifying the scorer.
+- **Artifacts:** `runs/egolongqa/qwen35_9b_vllm_hierarchical_pivot_c128_w16_local48_global16_dev20_2026-08-01/`.
+
+### `qwen35_9b_vllm_targeted_qwen_ocr_dev_2026-08-01`
+
+- **Purpose:** Transcribe question-conditioned detail crops for 49 text-sensitive dev140 questions, then answer from the transcription, chronological frames, and crops.
+- **SLURM job:** `49347130`, launched via `slurm_longqa_qwen35_targeted_ocr_dev.sh`.
+- **Runtime:** `3014` seconds (`50m14s`). Specialist-only gated accuracy was `39/49` (`79.59%`).
+- **Overlay result:** `111/140` (`79.29%`) versus `115/140` for the frozen Qwen3.5 pivot on the same dev140 rows. The specialist changed 15 answers: five fixes and nine regressions.
+- **Inference:** Explicit OCR recovers five pivot errors, but unconditional replacement loses four net answers. Retain OCR as evidence for a judge or tightly calibrated gate; do not promote the current overlay.
+- **Artifacts:** `runs/egolongqa/qwen35_9b_vllm_targeted_qwen_ocr_dev_2026-08-01/`.
+
+### `qwen35_9b_vllm_siglip2_object_reid_dev_2026-08-01`
+
+- **Purpose:** Cluster question-conditioned object detections by SigLIP2 appearance, expose first/peak/last observations with stable track IDs, and answer 39 repeated-object or state-change questions.
+- **SLURM job:** `49347131`, launched via `slurm_longqa_qwen35_object_reid_dev.sh`.
+- **Runtime:** `3305` seconds (`55m05s`), including track preparation. Specialist-only gated accuracy was `34/39` (`87.18%`).
+- **Overlay result:** `113/140` (`80.71%`) versus `115/140` for the frozen Qwen3.5 pivot. It changed six answers: two fixes and four regressions.
+- **Inference:** The track ledger is more conservative than OCR but still degrades under unconditional replacement. Its two unique fixes may be useful as verifier evidence; the direct overlay is not promoted.
+- **Artifacts:** `runs/egolongqa/qwen35_9b_vllm_siglip2_object_reid_dev_2026-08-01/`.
+
+### HieraMamba query conversion failure and fix
+
+- **Failed SLURM job:** `49347668`, launched via `slurm_hieramamba_queries_dev20.sh`; it failed before processing any examples because `convert_queries.py` required `bitsandbytes>=0.46.1`, which is absent from the `wearable-ai` environment.
+- **Fix:** Query conversion now accepts `--quantization {auto,4bit,none}`. `auto` uses compatible 4-bit weights when available and otherwise loads the 3B converter in FP16, which fits on the requested H100. The selected mode is printed at startup.
+- **Validation:** The converter compiles, its CLI resolves, and the launcher passes `bash -n`. Rerun with `sbatch slurm_hieramamba_queries_dev20.sh`.
+
+### Still running
+
+- **Uncertainty Candidate C:** job `49347126`, `qwen35_9b_vllm_ug_candidate_c_temporal_pivot_dev_2026-08-01`, was active at `25/140` when this log was updated. Its live Slurm and output files were deliberately left untouched. The two multi-view rotation jobs remain blocked until it completes.
+
+### HieraMamba query conversion retry and extraction setup (2026-08-01)
+
+- **Successful query job:** `49347740`, launched via `slurm_hieramamba_queries_dev20.sh`. The FP16 fallback processed all `20/20` dev20 samples and wrote `/scratch/inf0/user/agaur/wai-26/data/wearable-ai/hieramamba/dev20/manifest_with_queries.json`.
+- **Query programs:** three samples contain one event query, ten contain two, six contain three, and one contains four. This confirms conversion completeness but does not yet validate temporal localization.
+- **Held extraction submission:** job `49347761` remained pending with `user env retrieval failed requeued held`. It produced no Slurm log and never executed `slurm_hieramamba_extract_dev20.sh`.
+- **Additional prerequisite found:** the documented HieraMamba environment, HieraMamba checkout, EgoVLP checkout, and EgoVLP checkpoint are not installed under `/scratch/inf0/user/agaur/wai-26/external`. Releasing the held job would therefore fail during script startup.
+- **Launcher fix:** `slurm_hieramamba_bootstrap_h100.sh` now performs the one-time external setup. Extraction and inference use stable scratch defaults, validate all inputs, and no longer require command-line `--export` arguments.
+- **Required sequence:** cancel held job `49347761`; run the bootstrap once; then submit extraction and inference sequentially with plain `sbatch` commands.
+
+### HieraMamba bootstrap/order failures and fix (2026-08-01)
+
+- **Bootstrap job `49347801`:** failed before creating the environment because Conda attempted to write `/home/agaur/.cache/conda/notices` and hit the home-directory disk quota.
+- **Extraction job `49347804`:** was submitted before bootstrap succeeded. Its prerequisite check stopped immediately because the HieraMamba environment did not exist.
+- **Inference job `49347807`:** was also submitted before its dependencies. It stopped immediately because neither the environment nor extracted features existed.
+- **Data safety:** no partial model environment or feature files were produced. The successful 20-sample query manifest remains valid and does not need to be regenerated.
+- **Cache fix:** the bootstrap now redirects `HOME`, XDG, Conda packages, pip, compiler temporaries, Torch, and Hugging Face caches to `/scratch/inf0/user/agaur/wai-26/cache/hieramamba-bootstrap` for the duration of the setup job.
+- **Ordering fix:** `scripts/submit_hieramamba_dev20_after_queries.sh` submits bootstrap, extraction, and inference with strict Slurm `afterok` dependencies. This is now the recommended submission path.
+
+### HieraMamba deferred and generated data removed (2026-08-01)
+
+- A subsequent bootstrap retry (`49347817`) created a partial Conda environment and cloned HieraMamba, but failed while building `mamba-ssm` because pip's isolated build environment could not import PyTorch.
+- HieraMamba experimentation is deferred. No extraction, temporal proposals, or Qwen answer experiments were completed, so there is no benchmark result to retain.
+- Removed all HieraMamba-generated material: the partial environment and external checkout, bootstrap caches, dev20 query manifest/data, temporary Slurm logs, and HieraMamba run archives.
+- Repository source, documentation, configurations, and Slurm launchers were deliberately retained for a possible later retry.
+
+# Independent Uncertainty-Pivot Result (2026-08-02)
+
+### `qwen35_9b_vllm_ug_candidate_c_temporal_pivot_dev_2026-08-01`
+
+- **Naming note:** The historical run name contains `candidate_c`, but this is an independent Qwen3.5-9B prediction branch using uncertainty-selected visual evidence. It is not the old verifier-derived Candidate C and is referred to below as the **uncertainty-pivot model**.
+- **Purpose:** Sample 128 candidate frames, use Qwen3.5 answer entropy and reference-event visibility to construct a 64-frame temporal evidence pack, and answer all dev140 questions independently.
+- **SLURM job:** `49347126`, launched via `slurm_longqa_qwen35_ug_candidate_c_dev.sh`.
+- **Runtime:** `33128` seconds (`9h12m08s`). The run made `35980` scoring/answer calls. Mean context fill was `0.54%`; final answer calls reached a maximum of `57.44%` of the 49152-token window.
+- **Result:** `113/140` (`80.71%`). Temporal questions scored `82.71%`; non-temporal questions scored `42.86%`. The latter contains only seven examples and reinforces that uncertainty selection should remain a temporal specialist.
+- **Clean ensemble contribution:** Qwen3.5 pivot plus uniform gives a primary-tie-broken result of `115/140` and an oracle of `120/140`. Adding uncertainty-pivot produces a three-model majority of `119/140` (`85.00%`), with five fixes and one regression. Its oracle is `121/140`, so a verifier can recover at most two additional answers from this three-model candidate set.
+- **Other independent candidates:** Adding endpoint-uniform to the clean three-model pool raises candidate oracle to `124/140`, but naive four-model voting falls to `117/140`. Adding option-quota instead raises oracle to `123/140`. These branches are useful only when a verifier chooses among their proposed answers.
+- **Independent-trio audit:** Across the completed normal-model branches, uncertainty-pivot + option-quota pivot + endpoint-uniform is the strongest three-way majority at `121/140` (`86.43%`), with a `124/140` (`88.57%`) candidate oracle. This combination was selected after inspecting dev140 and must therefore be frozen and evaluated on val560 before promotion.
+- **Decision:** Exclude the old verifier-derived Candidate C from all subsequent ensembles. Use only independently generated model answers as candidates; verifier outputs are final decisions and must never be fed back as candidates to another verifier.
+- **Artifacts:** `runs/egolongqa/qwen35_9b_vllm_ug_candidate_c_temporal_pivot_dev_2026-08-01/`.
+
+# Clean Independent Ensemble Suite Prepared (2026-08-02)
+
+- **Frozen candidates:** independent Qwen3.5 uncertainty-pivot, option-quota pivot, and endpoint-inclusive uniform branches. The old verifier-derived Candidate C is excluded by construction.
+- **CPU majority artifact:** `qwen35_9b_clean_trio_majority_dev_2026-08-02` achieves `121/140` (`86.43%`) across 24 disagreement rows; artifacts are in `runs/egolongqa/qwen35_9b_clean_trio_majority_dev_2026-08-02/`.
+- **Terminal verifier:** `slurm_longqa_qwen35_clean_trio_verifier_dev.sh` scores only candidate disagreements under four cyclic option placements and pivot, uniform, and uncertainty evidence views. It emits unrestricted, all-different-only, and conservative policies.
+- **Specialist verifier ablation:** `slurm_longqa_qwen35_clean_trio_specialist_verifier_dev.sh` additionally supplies existing OCR transcriptions/detail frames and object re-identification observations/frames as uncertain judge evidence. Specialist predictions are never added to the candidate set.
+- **Val560 candidates:** option-quota and endpoint-uniform use single resumable jobs. Uncertainty-pivot uses four deterministic 140-row array shards to keep each task near the measured dev140 runtime.
+- **Merge safety:** shard merging validates exact key coverage and rejects missing, extra, or duplicate rows. The merge script creates val560 and full-700 candidates and majority outputs; the verifier policy is frozen on dev140 before val560 evaluation.
+- **Runbook:** `documentation/LONGQA_CLEAN_ENSEMBLE_RUNBOOK_2026-08-02.md`.
+
+### Initial clean-verifier startup failure and fix (2026-08-02)
+
+- **Failed jobs:** clean verifier `49350995` and specialist-evidence verifier `49350996` both generated the expected `121/140` majority file, then failed before scoring any of the 24 disagreements.
+- **Cause:** the shared verifier wrapper did not propagate the Conda user-site directory to the vLLM server subprocess, so vLLM could not import `psutil`.
+- **Fix:** `scripts/run_longqa_clean_trio_verifier.sh` now exports the user-site directory through `PYTHONPATH`, restores the standard Qwen3.5 runtime flags, and performs an explicit `import psutil, vllm` preflight before starting work.
+- **Validation:** the job environment imports `psutil 7.0.0` and `vllm 0.19.1`; both launchers resolve successfully in dry-run mode. No disagreement features were produced by the failed attempts, so both jobs must be resubmitted.
+- **Concurrent candidate status:** uncertainty val560 shard 0 started successfully and reached a healthy vLLM server. Array shards 1-3, option-quota val560, and endpoint-uniform val560 had not started writing logs at the time of inspection and were left untouched.
+
+### Clean-verifier and val560 progress (2026-08-02, evening)
+
+- **Clean multi-view verifier:** retry job `49351024` completed all `24/24` clean-trio disagreement rows in `2362` seconds. The frozen majority remains `121/140` (`86.43%`). Applying the verifier to every disagreement reduced accuracy to `118/140`; the conservative policy reduced it to `119/140`; restricting changes to all-different rows preserved `121/140` but produced no net gain. The terminal judge is therefore not promoted over plain majority.
+- **Specialist-evidence verifier:** retry job `49351025` scored `22/24` disagreements and then stopped when answer `B` was absent from the vLLM `top_logprobs` response. It has no valid final accuracy. Its partial feature cache is retained for a resumable retry, but this ablation is lower priority because the non-specialist judge already failed to improve majority.
+- **Uncertainty-pivot val560:** all four array shards completed, each producing 140 unique rows. The per-shard accuracies printed by the jobs are invalid because each shard was compared with the first 140 annotations rather than its interleaved subset. After strict key-based merging in val560 order, the valid aggregate is **424/560 (`75.71%`)**. Runtime across the four shards was `31633`--`35478` seconds, or approximately `226`--`253` seconds per question; the branch stays below 300 seconds on average but still lacks per-example timing.
+- **Generalization:** uncertainty-pivot falls from `113/140` (`80.71%`) on dev140 to `424/560` (`75.71%`) on held-out val560. Combined without tuning, that is `537/700` (`76.71%`). It remains useful for candidate diversity and conditional routing, not as the primary standalone model.
+- **Still running:** option-quota val560 job `49350997` had produced `515/560` predictions; endpoint-uniform val560 job `49350998` had produced `252/560`. Both files were advancing normally and were left untouched. The clean val560 majority and final full-700 comparison must wait for both runs to finish.
+- **Artifacts:** the correctly merged uncertainty files are in `runs/egolongqa/qwen35_9b_vllm_uncertainty_pivot_val560_2026-08-02/`; completed shard artifacts remain in their four `shard{0,1,2,3}_of4` directories.
+
+### Clean-trio held-out result and final-push suite (2026-08-03)
+
+- **Completed candidates:** option-quota job `49350997` finished in `22638` seconds at `429/560` (`76.61%`); endpoint-uniform job `49350998` finished in `23220` seconds at `426/560` (`76.07%`). The previously merged uncertainty-pivot result is `424/560` (`75.71%`).
+- **Held-out majority:** strict key-aligned merging produced `437/560` (`78.04%`) across 132 val560 disagreement rows. Combining the frozen dev and val outputs gives `558/700` (`79.71%`) across 156 disagreements.
+- **Decision:** reject the clean trio. Its dev140 result of `121/140` (`86.43%`) overestimated held-out performance by 8.39 percentage points. The validated rotation-pivot result at `565/700` remains primary.
+- **Independent candidate pool:** pivot, uniform, uncertainty-pivot, option-quota, and endpoint-uniform form a five-way majority of `559/700` (`79.86%`) with a `614/700` (`87.71%`) oracle. The old verifier-derived Candidate C is excluded. On dev140, this pool scores `119/140`, has a `124/140` oracle, and disagrees on 28 rows.
+- **Larger-model pilot prepared:** `slurm_longqa_qwen35_27b_primary_judge_dev.sh` invokes Qwen3.5-27B only on those 28 dev140 disagreements. Each call uses one chronological 64-frame pack with 24 pivot, 24 global, and 16 uncertainty-prioritized frames and can choose any of the four options.
+- **Fixed judge policies:** the dev run emits unrestricted, candidate-supported, and all-different-only policies. A policy must reach at least `122/140`, have positive net gain, and cause at most one regression before `slurm_longqa_qwen35_27b_primary_judge_val560.sh` is eligible.
+- **Diagnostic pilot:** `slurm_longqa_qwen35_27b_primary_judge_audit30.sh` evaluates all rows in a reproducible 30-error set split evenly among cross-time, shopping/OCR, and all-runs-missed failures.
+- **Router analysis:** after dev/val judge merging, `scripts/run_longqa_qwen35_27b_router_cv.sh` performs grouped out-of-fold routing from five-model vote support, source agreement, the frozen majority, and the 27B answer. Option identity is excluded. This is analysis, not yet a deployable test-set router.
+- **Runbook:** `documentation/LONGQA_FINAL_PUSH_RUNBOOK_2026-08-03.md`.
+
+### Qwen3.5-27B selective judge pilot (2026-08-03)
+
+- **SLURM job:** `49366336`, launched with `slurm_longqa_qwen35_27b_primary_judge_dev.sh`; all 28 independent-five disagreements completed in `2368` seconds.
+- **Runtime:** mean per judged question `62.62` seconds, maximum `108.66` seconds, and `0/28` above the workshop's 300-second limit. Mean context fill was `57.04%`, with a `57.36%` maximum.
+- **Unrestricted result:** applying the 27B answer to every disagreement reduced the independent-five majority from `119/140` to `117/140` (`83.57%`): seven answers changed, with two fixes, four regressions, and one both-wrong change. The judge supplied no correct answer absent from the five candidates.
+- **Agreement pattern:** both fixes occurred on `2-2-1` plurality ties. Every regression occurred when the five candidates already had a unique plurality (`3-2`, `4-1`, or `3-1-1`).
+- **Tie-break policy:** a label-free `plurality_ties_only` policy applies the 27B judge on the three dev140 plurality ties and reaches **121/140 (`86.43%`)**, with two fixes and zero regressions. There are only four such rows on val560, so its held-out test is inexpensive but its maximum contribution is necessarily small.
+- **Decision:** do not run the broad 171-disagreement val560 judge. If validating this narrow tie-break, run the updated val launcher with `JUDGE_POLICY=plurality_ties_only`; it will make only four model calls. The 30-error diagnostic remains useful for determining whether 27B can recover unanimous hard failures.
+- **Artifacts:** `runs/egolongqa/qwen35_27b_multievidence_primary_judge_dev140_2026-08-03/`.
+
+### Qwen3.5-27B held-out tie-break and hard-error audit (2026-08-03)
+
+- **Held-out tie-break:** job `49367234` called Qwen3.5-27B on the four val560 `2-2-1` plurality ties. The independent-five majority fell from `440/560` to `439/560`: three answers changed, with one fix and two regressions. Mean judged-row time was `57.61` seconds, maximum `73.78` seconds, and no row exceeded 300 seconds.
+- **Full frozen policy:** merging dev and val gives `560/700` (`80.00%`), only one answer above the independent-five majority (`559/700`) and below the validated `565/700` primary. The dev tie-break pattern did not generalize and is rejected.
+- **Hard-error audit:** job `49368456` judged all 30 selected primary errors in `1859` seconds. It improved the independent-five fallback from `2/30` to `7/30`, changing nine answers with six fixes and one regression. Three fixes supplied an answer absent from all five candidates.
+- **Audit strata:** cross-time errors improved from `1/10` to `2/10` (two fixes, one regression); shopping/OCR improved from `1/10` to `2/10` (one fix); all-runs-missed errors improved from `0/10` to `3/10` (three fixes). This shows limited new reasoning capability, especially on upstream misses, but recall remains only `23.33%` on an error-only sample.
+- **Router check:** the post-merge grouped router estimates `561/700` (`80.14%`). It is not deployment-valid because dev contains all 28 disagreement judgments while val contains only four tie judgments, leaving only 32 routed rows with inconsistent coverage. It is not promoted.
+- **Decision:** neither broad 27B arbitration nor tie-only arbitration improves the final system. Retain the audit's three candidate-missing recoveries for qualitative analysis; do not run a broad val560 judge from these results.
+- **Artifacts:** val tie-break in `runs/egolongqa/qwen35_27b_multievidence_primary_judge_val560_2026-08-03/`, audit in `runs/egolongqa/qwen35_27b_multievidence_primary_judge_audit30_2026-08-03/`, and merged tie policy in `runs/egolongqa/qwen35_27b_multievidence_primary_judge_plurality_ties_only_full_2026-08-03/`.
+
+### Candidate-blind Qwen3.5-27B dev experiment prepared (2026-08-03)
+
+- **Purpose:** determine whether the larger model can become a genuinely independent candidate rather than an arbiter anchored to previous answers.
+- **Implementation:** `slurm_longqa_qwen35_27b_candidate_blind_dev.sh` runs all 140 dev questions with the same chronological 64-frame pack used by the judge: 24 temporal-pivot, 24 global, and 16 uncertainty-prioritized frames. Previous model predictions and vote counts are omitted from the prompt; all four complete answer options remain visible.
+- **Promotion rule:** expand to val560 only at `>=122/140`, with several unique correct answers beyond the independent five-model oracle and no question above 300 seconds.
+
+### Candidate-blind Qwen3.5-27B dev result (2026-08-03)
+
+- **SLURM job:** `49369598`; all 140 candidate-blind questions completed in `7948` seconds.
+- **Standalone result:** `120/140` (`85.71%`) versus `119/140` for the independent-five majority and `120/140` for the validated primary on the same subset. The model changed 20 independent-majority answers, with eight fixes and seven regressions.
+- **Candidate diversity:** six fixes selected the correct answer when none of the five independent 9B branches had proposed it. Adding candidate-blind 27B raises the dev candidate oracle from `124/140` (`88.57%`) to **`130/140` (`92.86%`)**. It disagrees with the validated primary on 17 rows, and their two-model oracle is `127/140`.
+- **Runtime:** mean `54.98` seconds per question, maximum `102.03` seconds, and `0/140` above 300 seconds. Mean context fill was `56.97%`, with a `57.53%` maximum.
+- **Decision:** although standalone accuracy misses the original `122/140` threshold, its six unique recoveries make it the first larger-model run with substantial independent candidate value. A frozen val560 expansion is prepared as `slurm_longqa_qwen35_27b_candidate_blind_val560.sh`; merge with `scripts/merge_longqa_qwen35_27b_candidate_blind.sh` after completion.
+- **Artifacts:** `runs/egolongqa/qwen35_27b_multievidence_candidate_blind_dev140_2026-08-03/`.
+
+### Candidate-blind Qwen3.5-27B held-out and full result (2026-08-04)
+
+- **SLURM job:** `49377227`; all 560 val questions completed in `14486` seconds.
+- **Held-out result:** `449/560` (`80.18%`) versus `440/560` for the independent-five majority. The model changed 120 answers, with 58 fixes and 49 regressions; 27 fixes supplied a correct answer absent from all five 9B candidates.
+- **Full result:** merging dev and val gives **`569/700` (`81.29%`)**, the strongest independent candidate and four answers above the previous validated `565/700` pipeline. It does not use the old verifier-derived Candidate C.
+- **Runtime:** held-out mean `25.21` seconds per question, maximum `59.57` seconds, and `0/560` above 300 seconds. Context fill remained approximately `57%` of the 49152-token window.
+- **Candidate coverage:** the five independent 9B branches have a `614/700` (`87.71%`) oracle. Adding candidate-blind 27B raises this to **`647/700` (`92.43%`)**, including 33 correct answers unavailable from every 9B branch.
+- **Simple voting:** the best exploratory simple majority is uncertainty-pivot + option-quota + candidate-blind 27B at `572/700` (`81.71%`), only three answers above 27B alone. This combination was identified after inspecting all 700 labels and is not treated as held-out validation.
+- **Router check:** a grouped out-of-fold router using five-model votes, source identity, and the 27B answer falls back to `559/700`; observable agreement alone cannot select the `647/700` oracle. Do not promote it.
+- **Decision:** candidate-blind Qwen3.5-27B becomes the strongest Candidate-C-free standalone result. Its main value is both its `569/700` accuracy and its 33 unique oracle additions; further gains require stronger evidence-aware arbitration, not another naive majority.
+- **Artifacts:** val in `runs/egolongqa/qwen35_27b_multievidence_candidate_blind_val560_2026-08-03/`, full in `runs/egolongqa/qwen35_27b_multievidence_candidate_blind_full_2026-08-03/`, and OOF router analysis in `analysis/egolongqa/qwen35_27b_candidate_blind_router_full_2026-08-04/`.
+
+### Bounded-reasoning Qwen3.5-27B experiment prepared (2026-08-04)
+
+- **Question:** can explicit reasoning improve the `569/700` candidate-blind 27B model without changing its visual evidence or exceeding the 300-second limit?
+- **Controlled change:** retain the same chronological 64-frame input (24 temporal-pivot, 24 global, and 16 uncertainty-prioritized frames), complete question, and four options. Enable Qwen3.5 reasoning with a fixed 1024-token budget and reserve 128 additional generation tokens.
+- **Answer safety:** every response must contain `Final Answer: X`. If the reasoning budget ends first, the runner performs one answer-only completion with thinking disabled; it refuses to write a parser-dependent prediction if the marker is still missing.
+- **Dev launcher:** `slurm_longqa_qwen35_27b_candidate_blind_thinking_dev.sh` evaluates the fixed dev140 split. Compare against the non-thinking result of `120/140`; inspect unique fixes, regressions, final-marker retries, and maximum per-row runtime.
+- **Promotion rule:** submit `slurm_longqa_qwen35_27b_candidate_blind_thinking_val560.sh` only if dev reasoning improves meaningfully over `120/140`, contributes useful new correct answers, and keeps every question below 300 seconds.
+- **Final merge:** after a promoted val560 run, execute `bash scripts/merge_longqa_qwen35_27b_candidate_blind_thinking.sh` to create and evaluate the full 700-row candidate.
+- **Meeting note:** `documentation/LONGQA_MEETING_BRIEF_2026-08-04.md` summarizes the current best model and the final experiment sequence.
+
+### Qwen3.5-27B leaderboard submission export (2026-08-04)
+
+- **Raw-output issue:** the merged candidate-blind artifact contained three empty `mcq_answer` values. In all three cases Qwen3.5-27B began a longer explanation but exhausted the 16-token output allowance before producing an option letter.
+- **Cause:** the intended validity check used Python string membership, for which the empty string is considered a substring of `"ABCD"`. This prevented the recorded independent-five majority fallback from activating. The runner now tests membership in the explicit set `{A, B, C, D}`.
+- **Label-free repair:** `scripts/export_longqa_submission.py` restores the already-recorded fallback answer only for an invalid model output. It does not read annotation answers when choosing a prediction. The repaired video IDs are `438a7c0e65e1ecfd.mp4`, `ce5f716477b5bf44.mp4`, and `dd33e427eabbe593.mp4`.
+- **Corrected result:** all three fixed fallback answers are correct, raising the submission-ready pipeline from `569/700` to **`572/700` (`81.71%`)**.
+- **Submission artifact:** `submissions/egolongqa/qwen35_27b_multievidence_candidate_blind_2026-08-04/predictions.jsonl` contains exactly 700 rows in annotation order and only the official `video_path` and `mcq_answer` fields.
+
+### Bounded-reasoning runs stopped safely and made resumable (2026-08-04)
+
+- **Dev attempt:** job `49410355` wrote 43/140 valid rows, then stopped when an answer-only retry did not satisfy the strict `Final Answer: X` marker check.
+- **Val attempt:** job `49413748` independently reached 57/560 valid rows and stopped for the same reason. This is not a completed val560 result and must not be merged or evaluated yet.
+- **Cause:** Qwen can return an unambiguous answer-only letter during the non-thinking completion retry. The validator accepted only the longer marker form, so a valid short retry could terminate the job. A genuinely unfinished retry would also terminate the complete multi-hour run instead of using the configured fallback.
+- **Fix:** answer-only `A`/`B`/`C`/`D` retries are canonicalized to `Final Answer: X`. If both reasoning and retry remain incomplete, the multicandidate runner now records the completion error and uses the predetermined independent-five majority fallback for that row.
+- **Resume state:** both output files retain their valid prefixes and unchanged fingerprints. Resubmitting the same launchers resumes dev at 43/140 and val at 57/560 rather than restarting.
+- **Validation:** Python compilation, shell syntax, and 14 focused thinking/final-answer tests pass.
+
+### Timestamp-aware bounded-reasoning ablation prepared (2026-08-04)
+
+- **Controlled change:** keep the same Qwen3.5-27B model, 1024-token reasoning budget, and chronological 64-frame pack. Add a textual index mapping each image ordinal to seconds from the start of the video, then explicitly ask the model to use it for repeated events and temporal order.
+- **Isolation:** timestamp injection is opt-in and is included in the run fingerprint only when enabled. Existing partial non-timestamp dev and val jobs therefore retain their original fingerprints and resume positions.
+- **Launchers:** `slurm_longqa_qwen35_27b_candidate_blind_thinking_timestamps_dev.sh` runs dev140; `slurm_longqa_qwen35_27b_candidate_blind_thinking_timestamps_val560.sh` is the held-out counterpart.
+- **Validation:** shell syntax, dry-run argument propagation, Python compilation, and 15 focused thinking/timestamp tests pass.
+
+### VideoJudge-7B multimodal arbitration prepared (2026-08-04)
+
+- **Purpose:** test a video-specialized MLLM judge on disagreements among the five independent Qwen3.5-9B branches and the candidate-blind Qwen3.5-27B primary. This does not reuse any verifier-derived answer as a candidate.
+- **Checkpoint:** `VideoJudge/Qwen2.5-VL-7B-Instruct-VideoJudgeWithRubric-RS-20K`. Each complete candidate answer is scored independently against identical chronological visual evidence using the checkpoint's rubric, reasoning, and `1-5` score format. Equal top scores retain the 27B primary answer.
+- **Visual transport:** selected frames are encoded as one in-memory JPEG video sequence and sent through vLLM's video input path. This preserves the checkpoint's video modality without writing temporary media into the repository.
+- **Evidence ablations:** `primary64` reuses the exact 64-frame 27B pack. `union120` keeps those 64 frames and adds 56 temporally distributed, deduplicated frames from pivot, option-quota, uncertainty, uniform, and endpoint evidence.
+- **Candidate ablations:** `unique` scores only answers proposed by independent branches; `alloptions` scores all four full option texts on the same disagreement rows and can therefore select an answer absent from the candidate set.
+- **Launch order:** first run `slurm_longqa_videojudge7b_rubric64_dev20.sh`. After it validates model loading and output tags, the 64-frame and 120-frame unique-candidate dev140 jobs may run in parallel. Run the 120-frame all-option job only after confirming that the pointwise scores are discriminative and runtime remains below 300 seconds per question.
+- **Validation:** Python compilation, shell syntax, launcher dry run, score-parser checks, and exact 120-frame evidence-cap checks pass. Full inference requires the scheduled GPU smoke test.
+
+### VideoJudge-7B first smoke attempt (2026-08-04)
+
+- **SLURM job:** `49421239` stopped before model loading and produced no predictions. The vLLM child process could not import `psutil` because that dependency is installed in the Python user site.
+- **Fix:** the shared VideoJudge launcher now propagates the user-site path to the isolated vLLM subprocess and performs a `psutil`/`vllm` import preflight before starting inference. The corrected smoke launcher is unchanged and can be resubmitted safely.
+
+### VideoJudge-7B smoke and dev140 results (2026-08-05)
+
+- **Completed jobs:** corrected smoke job `49421270`, 64-frame dev140 job `49421304`, and 120-frame union dev140 job `49421321` all completed and were archived. The small `.err` files contain only expected warnings from matching subset predictions against the 700-row annotation file; there were no inference failures.
+- **Smoke:** all 11 requested candidate scores parsed successfully. The run completed in `420` seconds and produced `12/20`; this subset was used only to validate loading and output structure.
+- **Primary baseline on dev140:** after applying the already defined invalid-output fallback, the candidate-blind 27B prediction is `121/140` (`86.43%`). Both VideoJudge experiments acted on the same 39 disagreement rows and made 83 pointwise candidate-scoring calls.
+- **Primary64 result:** `114/140` (`81.43%`). VideoJudge changed 14 answers, producing only 3 fixes versus 10 regressions and one both-wrong change. All 83 scores parsed; 13/39 judged rows tied for the highest integer score. Mean judged-row time was `54.27` seconds, p95 `86.90`, maximum `103.98`, and no row exceeded 300 seconds.
+- **Union120 result:** `113/140` (`80.71%`). It changed 11 answers, with 1 fix, 9 regressions, and one both-wrong change. All scores parsed, but 15/39 rows tied at the top. Mean judged-row time increased to `99.52` seconds, p95 `155.54`, maximum `190.09`, still with no 300-second violation.
+- **Interpretation:** the specialized checkpoint runs reliably but its pointwise 1-5 quality scores are not calibrated well enough to arbitrate EgoLongQA answer options. More frames do not repair this and nearly double judged-row latency. Do not promote either unique-candidate configuration to val560.
+- **Next gate:** do not run the expensive 120-frame all-option dev job as currently configured. If VideoJudge is revisited, restrict it to a pairwise, order-swapped comparison or use score-token probabilities to resolve integer-score ties, and first test that intervention only on the 39 dev disagreements.
+
+### Routing diagnosis and sparse-evidence experiments prepared (2026-08-05)
+
+- **Ceiling diagnosis:** on held-out val560, candidate-blind 27B scores `449/560` while the six direct candidates have an oracle of `517/560` (`92.32%`). Across all 700 rows, adding the completed reasoning-enabled 27B candidate raises the seven-candidate oracle to `652/700` (`93.14%`). Crossing 90% is therefore compatible with answers already produced by the current models; candidate selection and evidence presentation are the main unresolved problems.
+- **Agreement diagnosis:** on val560, 346 rows have unanimous support for the 27B answer and it is correct on 321 (`92.77%`). On the 214 disagreement rows, however, 27B is correct on only 128 while at least one direct candidate is correct on 196. Simple plurality routing does not recover this gap.
+- **Category routing rejected:** choosing the best model per category from dev140 reaches `125/140` but only `436/560` held out, below the 27B result. A question-type route reaches `454/560`, a five-answer improvement but far below the available oracle. Category alone is not a reliable router.
+- **Semantic router rejected:** a five-fold out-of-fold linear router using frozen MiniLM question/candidate embeddings, candidate support patterns, categories, and question types reaches `574/700` (`82.00%`). It fixes 24 primary errors but causes 19 regressions and does not beat the fixed three-model ensemble.
+- **Option-retrieval audit corrected:** `157/700` existing option-quota proof packs have no option-specific centers, but `152` are `GLOBAL` questions that intentionally returned through the old generic event-retrieval path; only three `AFTER` and two `BEFORE` rows expose the empty-direction defect. The first fallback dev140 run likewise leaves 27 `GLOBAL` rows without quotas. The selector now applies option-specific retrieval to `GLOBAL` questions as well, skips meaningless temporal pivots on those rows, retries genuinely empty directional searches without the restriction, and fails loudly if any option quota remains empty.
+- **Corrected retrieval prerequisite:** rerun `slurm_longqa_qwen35_option_quota_fallback_dev.sh`; it now writes the fresh `qwen35_9b_vllm_siglip2_option_quota_globalfix_dev140_2026-08-05` artifact so resume logic cannot reuse the incomplete proof pack. Balanced sparse32 and sparse option support reference this new artifact and deliberately wait for it.
+- **New no-GPU ensemble:** the majority of repaired plain 27B, reasoning-enabled 27B, and endpoint-uniform 9B reaches **`582/700` (`83.14%`)**. The tie order is intentionally 27B first for all-different rows. Artifact: `runs/egolongqa/qwen35_q27_thinking_endpoint_majority_full_2026-08-05/`.
+- **Mixed32 ablation completed:** job `49427671` finished all 140 rows in `3855` seconds with no stderr and no row above 300 seconds. It scores `111/140` (`79.29%`) versus its `119/140` fallback: 9 fixes, 17 regressions, net `-8`. Simply shrinking a mixed evidence pack does not solve distractor sensitivity.
+- **First fallback run completed but superseded:** job `49427663` finishes at `116/140` (`82.86%`) in `5931` seconds, but inspection shows its 27 `GLOBAL` dev rows still used generic event retrieval. Keep it for audit only; downstream sparse experiments must use the new `globalfix` artifact.
+- **Global option-quota correction completed:** job `49431158` finishes all 140 rows in `5905` seconds at `115/140` (`82.14%`). The stderr contains only benign Hugging Face metadata probes and evaluation subset warnings. Audit confirms 140 predictions and proof packs, zero missing A/B/C/D quotas, and zero artificial pivot centers on all 27 `GLOBAL` rows. The correction is not a stronger direct 9B answerer, but it is a valid prerequisite for the balanced sparse32 and per-option support tests.
+- **Balanced sparse32 ablation:** `slurm_longqa_qwen35_27b_balanced_sparse32_dev.sh` allocates at most one retrieval center per answer option, adds equal local context, temporal-pivot evidence, and limited global coverage. It explicitly states that repeated nearby frames are one event rather than multiple votes.
+- **Sparse option-support verifier:** `slurm_longqa_qwen35_27b_sparse_option_support_dev.sh` gives each answer option its own 16-frame evidence pack and obtains next-token probabilities for `SUPPORTED`, `CONTRADICTED`, and `INSUFFICIENT`. It ranks options by support margin only on model-disagreement rows, avoiding both option-order competition and the use of frame quantity as an answer prior.
+- **Validation:** Python compilation, shell syntax, launcher dry runs, a forced empty-direction fallback test, exact frame-budget checks, timestamp prompts, and support-margin calculations pass. Mixed32 can run alongside corrected option retrieval; balanced sparse32 and sparse option support begin only after corrected option retrieval finishes.
+- **Balanced sparse32 result:** job `49443892` completes all 140 calls in `3897` seconds with empty stderr and no row above 300 seconds. It scores `106/140` (`75.71%`) versus the `119/140` fallback, changing 33 answers for 8 fixes and 21 regressions (`-13` net). Equal option quotas and reduced frame density do not provide enough narrative evidence for direct answering and should not be promoted.
+- **Sparse option-support result:** job `49443893` completes 156 option calls across the 39 model-disagreement rows in `2140` seconds with zero scoring errors. It scores `111/140` (`79.29%`). Against the plain 27B predictions it changes 22 answers, with only 2 fixes and 12 regressions. `INSUFFICIENT` is the highest-probability verdict for 103/156 option evaluations, so selecting the least-insufficient option is badly calibrated. Do not promote or run val560; retain the output only for disagreement analysis.
+
+### Answer-calibration breakthrough (2026-08-05)
+
+- **Missed failure mode:** gold answer positions are strongly and consistently imbalanced: full `A/B/C/D = 8/205/444/43`, dev140 `1/39/91/9`, and val560 `7/166/353/34`. Candidate-blind 27B predicts `A` 72 times but is correct on only 7; all 72 are literal `A` model outputs, not parser fallbacks. Its `C` predictions are correct on 366/378 rows. More than half of the remaining 27B errors therefore come from answer-position miscalibration.
+- **Held-out calibration:** a categorical Bayesian calibrator uses only the candidate-blind 27B and endpoint-uniform 9B answer letters. Its class prior and per-model confusion tables are fitted on dev140 only with additive smoothing (`alpha=16`). Leave-one-out dev selection is `130/140`; the frozen calibrator reaches `489/560` (`87.32%`) on the untouched complement and `619/700` (`88.43%`) when reported together, versus `572/700` for 27B and `582/700` for the previous three-model majority.
+- **Validated artifact:** `runs/egolongqa/qwen35_27b_endpoint_devprior_calibrated_full_2026-08-05/` contains 700 unique valid predictions, summary, and diagnostics. Repository diagnostics confirm `619/700`, non-C accuracy `81.25%`, and temporal accuracy `88.89%`. Implementation: `scripts/calibrate_longqa_answer_prior.py`. Detailed audit: `documentation/LONGQA_CALIBRATION_ANALYSIS_2026-08-05.md`.
+- **Remaining headroom:** the calibrated val560 output has 71 errors; another existing direct candidate is correct on 46 of them. The next targeted GPU test is Qwen3.5-27B cyclic option rotation on only calibrator-ambiguous rows, reusing identical evidence and mapping rotated outputs back to semantic options. This directly measures and removes option-position dependence while leaving high-precision calibrated predictions untouched.
+- **Label-free 27B rotation prepared:** `run_score_longqa_option_rotation.py` reuses the exact 64 recorded frames and candidate-blind prompt, places every answer text once at A/B/C/D, maps next-letter log probabilities back to original semantics, and averages mapped log probabilities. One feature run produces three frozen policies: unconditional rotation average, 3-of-4 semantic consensus, and endpoint-confirmed correction. No policy uses gold labels for selection. Run smoke5, then dev140; keep `slurm_longqa_qwen35_27b_option_rotation_val560.sh` gated until the dev rule is frozen. The runner requests top-100 token log probabilities to prevent a low-probability option letter from being omitted.
+- **27B rotation smoke passed:** job `49455054` completes 20/20 calls over five questions with empty stderr. All rows contain four valid cyclic mappings, 64 unique recorded frames, normalized A/B/C/D probabilities, and no omitted option scores. Per-question four-rotation time is mean `57.09` seconds, maximum `80.43`, with zero rows above 300 seconds. All four rotations agree semantically on each smoke row, so the three policies preserve the primary `3/5`; this validates execution but is too small to measure accuracy. Proceed to dev140, not val560.
+- **27B rotation dev140 completed and rejected:** job `49455914` completes 560/560 scoring calls in `9821` seconds with empty stderr, valid mappings, and no omitted option scores. Mean four-rotation time is `68.62` seconds, p95 `101.75`, maximum `119.14`, and no row exceeds 300 seconds. Unconditional mapped-logprob averaging scores `117/140` versus primary `121/140` (9 changes, 1 fix, 5 regressions); 3-of-4 consensus scores `120/140` (one regression); endpoint confirmation makes no changes and remains `121/140`. Of 140 rows, 116 are unanimous across rotations, yet the primary is wrong on eight of them. Wrong A answers often remain semantically A under every placement, showing that option position is not the main source of the calibration gap. Do not run val560 rotation.
+
+### Final label-free verification and latency experiments prepared (2026-08-06)
+
+- **Frozen baseline:** direct 27B, bounded-reasoning 27B, and endpoint-uniform 9B majority remains `582/700` (`83.14%`) full and `122/140` (`87.14%`) on dev140. The reproducible CPU builder is `scripts/build_longqa_qwen35_final_majority.sh`.
+- **Pairwise scope:** the majority differs from repaired direct 27B on 25/700 rows, including 6/140 dev rows. `run_score_longqa_full_evidence_pairwise.py` reuses the exact 64 recorded direct-27B frames and scores the two complete candidate answer texts in both display orders. An explicit insufficient-evidence choice allows abstention.
+- **Frozen conservative rule:** switch from the majority to direct 27B only when the challenger wins both orders, has at least `0.55` probability in each, insufficient evidence is at most `0.35`, and mean challenger-to-baseline odds are at least `1.5`. The existing majority is retained otherwise. The consensus-only output is diagnostic.
+- **Launchers:** run `slurm_longqa_qwen35_27b_full_evidence_pairwise_dev.sh` first. Gate `slurm_longqa_qwen35_27b_full_evidence_pairwise_full.sh` on improvement over `122/140` or a clearly correct high-confidence change without regression.
+- **Fresh latency smoke:** `slurm_longqa_qwen35_final_pipeline_latency_dev20.sh` sequentially executes fresh SigLIP2 selection, fresh uncertainty scoring, endpoint 9B, direct 27B, reasoning 27B, and final voting on one H100. Model startup is included once per stage, and `latency_summary.json` reports the conservative amortized time against the 300-second limit.
+- **Validation:** Python compilation, shell syntax, four focused pairwise-policy tests, exact 64-frame checks on all 25 target rows, launcher dry run, and a complete CPU rebuild pass. The rebuilt ensemble reproduces all 700 answer letters and `582/700` exactly. Temporary validation artifacts were removed.
+
+### Full-evidence pairwise verifier dev140 result (2026-08-06)
+
+- **SLURM job:** `49499116` completed normally with empty stderr. The scorer processed the six dev140 rows where the `582/700` majority differs from repaired direct Qwen3.5-27B, making 12 model calls with the exact 64 recorded evidence frames.
+- **Conservative policy:** `122/140` (`87.14%`), identical to the majority baseline, with zero switches. No row satisfied the frozen two-order probability, insufficient-evidence, and odds requirements.
+- **Consensus diagnostic:** `121/140` (`86.43%`) with one switch. It changed `88e8cf11f150ba5e.mp4` from the correct majority answer `C` to the incorrect direct-27B answer `B`, so loosening the rule causes a regression.
+- **Missed recoveries:** direct 27B was correct on two of the six disagreements, but the verifier did not recover either. One was judged insufficient in both orders; the other changed its preferred candidate when answer order was reversed. This indicates that the same 64-frame evidence does not let the 27B model reliably identify its own useful minority answers.
+- **Runtime:** pairwise inference took `727` seconds overall. Applied rows averaged `47.42` seconds, had a `75.87`-second maximum, and had zero rows above 300 seconds. Mean context fill was `56.96%` of 49,152 tokens.
+- **Decision:** reject `slurm_longqa_qwen35_27b_full_evidence_pairwise_full.sh`; it failed the predeclared dev gate and should not consume a full run. Retain the existing `582/700` label-free majority and proceed with `slurm_longqa_qwen35_final_pipeline_latency_dev20.sh`.
+
+### Fresh end-to-end latency audit (2026-08-06)
+
+- **SLURM job:** `49499389` completed all six stages on the fixed dev20 subset with fresh SigLIP2 and uncertainty caches. Every component and the final vote produced 20 valid predictions; stderr contains only non-fatal Hugging Face metadata and subset-evaluation warnings.
+- **Measured runtime:** SigLIP2 pivot `3328` seconds, uncertainty selection `5286` seconds, endpoint-uniform 9B `1178` seconds, direct 27B `1474` seconds, reasoning 27B `2698` seconds, and voting below the one-second timer resolution. Total wall time was **`13964` seconds**, or **`698.2` seconds per question** amortized over 20 questions.
+- **Limit check:** the complete sequential pipeline is **not compliant** with the workshop's 300-second per-question limit. Uncertainty selection is the largest cost at `264.3` seconds per question, followed by SigLIP2 pivot at `166.4`; together they consume `430.7` seconds before the three answer branches are complete.
+- **Audit accuracy:** the fresh majority scores `13/20` (`65.00%`). This subset is for timing, not model selection: its always-C baseline is `14/20`, and the cached full-run majority scores `12/20` on the same rows.
+- **Reproducibility:** endpoint-uniform reproduces all 20 cached answers. The fresh direct and reasoning 27B passes differ from their cached counterparts on one and four rows respectively, leading to two final-vote changes. The fresh reasoning pass happens to score `15/20` versus `11/20` cached, but this small, skewed subset and ordinary generation nondeterminism do not establish an accuracy improvement.
+- **Decision:** retain the `582/700` majority as the accuracy reference, but do not describe its current uncached sequential implementation as time-compliant. A compliant submission path must remove or precompute the two retrieval stages, reuse one evidence pack across answer branches, or execute independent branches concurrently under the organizer's accounting rules.
+- **Artifacts:** `runs/egolongqa/latency_qwen35_final_dev20_49499389_*`; authoritative timing is in `latency_qwen35_final_dev20_49499389_majority/latency_summary.json`.

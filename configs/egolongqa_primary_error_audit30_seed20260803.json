@@ -1,0 +1,308 @@
+{
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
+  "audit_source": "/CT/NDF/work/waw-26/analysis/egolongqa/rotation_pivot_error_audit_2026-07-31/questions.jsonl",
+  "n": 30,
+  "seed": 20260803,
+  "samples": [
+    {
+      "index": 463,
+      "key": "a079c1722e263a13.mp4||What item did I take out of the drawer, place on the counter, and later return to the drawer?",
+      "video_path": "a079c1722e263a13.mp4",
+      "question": "What item did I take out of the drawer, place on the counter, and later return to the drawer?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 474,
+      "key": "a4cc59d31c1ff9f5.mp4||After I transferred the chopped cucumber and tomato to the container, what did I retrieve from the cabinet above the microwave and add to the mixture?",
+      "video_path": "a4cc59d31c1ff9f5.mp4",
+      "question": "After I transferred the chopped cucumber and tomato to the container, what did I retrieve from the cabinet above the microwave and add to the mixture?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "candidate_available_not_selected"
+    },
+    {
+      "index": 110,
+      "key": "286ebb5140e19aa3.mp4||What was the last non-food item I interacted with before I started interacting with food items, and what was the first food item I interacted with?",
+      "video_path": "286ebb5140e19aa3.mp4",
+      "question": "What was the last non-food item I interacted with before I started interacting with food items, and what was the first food item I interacted with?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "candidate_available_not_selected"
+    },
+    {
+      "index": 103,
+      "key": "262682622af0eb9d.mp4||I passed a building with exterior stairs three times during my walk. Between the first and second pass, and between the second and third pass, I saw tennis courts. Were the tennis courts on the same side of the path in both intervals?",
+      "video_path": "262682622af0eb9d.mp4",
+      "question": "I passed a building with exterior stairs three times during my walk. Between the first and second pass, and between the second and third pass, I saw tennis courts. Were the tennis courts on the same side of the path in both intervals?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 22,
+      "key": "09ea3872eb883ec1.mp4||Later in my walk, I saw a tram with an illustration on its side. What was the illustration, and which earlier landmark did it correspond to?",
+      "video_path": "09ea3872eb883ec1.mp4",
+      "question": "Later in my walk, I saw a tram with an illustration on its side. What was the illustration, and which earlier landmark did it correspond to?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "candidate_available_not_selected"
+    },
+    {
+      "index": 386,
+      "key": "86cf704fac7bb2ba.mp4||Early in the video, I saw a boarding axe displayed alongside firearms in a case about lock mechanisms. Later, I saw a similar boarding axe in a different exhibit. What was the title of the later exhibit where the boarding axe was displayed?",
+      "video_path": "86cf704fac7bb2ba.mp4",
+      "question": "Early in the video, I saw a boarding axe displayed alongside firearms in a case about lock mechanisms. Later, I saw a similar boarding axe in a different exhibit. What was the title of the later exhibit where the boarding axe was displayed?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 374,
+      "key": "81136397be32b026.mp4||After I finished scrubbing the perforated metal steamer tray, what did I do with the white mug that had been in the sink with liquid since I started?",
+      "video_path": "81136397be32b026.mp4",
+      "question": "After I finished scrubbing the perforated metal steamer tray, what did I do with the white mug that had been in the sink with liquid since I started?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 102,
+      "key": "25f01498bfb69520.mp4||I was near a black iron fence with a water view early on, and later walked along a path with a metal railing by the water. How did I move between these two spots?",
+      "video_path": "25f01498bfb69520.mp4",
+      "question": "I was near a black iron fence with a water view early on, and later walked along a path with a metal railing by the water. How did I move between these two spots?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 462,
+      "key": "a035a49d70ac199e.mp4||After I secured the bottom shelf of the new shelving unit, what did I do with the black clip that I later retrieved from the floor?",
+      "video_path": "a035a49d70ac199e.mp4",
+      "question": "After I secured the bottom shelf of the new shelving unit, what did I do with the black clip that I later retrieved from the floor?",
+      "category": "Daily Activities",
+      "mcq_answer": "D",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 150,
+      "key": "3485bec65fb9c522.mp4||Which store did I first encounter at ground level and later observe from an upper floor through a window?",
+      "video_path": "3485bec65fb9c522.mp4",
+      "question": "Which store did I first encounter at ground level and later observe from an upper floor through a window?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "audit_stratum": "cross_time",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 571,
+      "key": "d0db0bf6b9ab74e5.mp4||What was directly below the first illuminated hot air balloon I observed from an elevated viewpoint, and which store was adjacent to the second hot air balloon I encountered at ground level?",
+      "video_path": "d0db0bf6b9ab74e5.mp4",
+      "question": "What was directly below the first illuminated hot air balloon I observed from an elevated viewpoint, and which store was adjacent to the second hot air balloon I encountered at ground level?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "B",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "candidate_available_not_selected"
+    },
+    {
+      "index": 219,
+      "key": "49488192c066cb19.mp4||Earlier I saw a sign explaining the shoe-covered tree, which mentioned a local hostel responsible for the shoes. Later I passed a building with that hostel's name and a class year on its sign. What was the class year?",
+      "video_path": "49488192c066cb19.mp4",
+      "question": "Earlier I saw a sign explaining the shoe-covered tree, which mentioned a local hostel responsible for the shoes. Later I passed a building with that hostel's name and a class year on its sign. What was the class year?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 324,
+      "key": "6d5b8909cd6e4538.mp4||After I first touched the tomatoes, what fruit did I later pick, and what dairy item was in my basket when I reached the meat section?",
+      "video_path": "6d5b8909cd6e4538.mp4",
+      "question": "After I first touched the tomatoes, what fruit did I later pick, and what dairy item was in my basket when I reached the meat section?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "missing_three_available_extra"
+    },
+    {
+      "index": 174,
+      "key": "3b07bfcac97cf475.mp4||What artwork did I examine in detail early in my visit that was later visible in the background as I prepared to leave the gallery?",
+      "video_path": "3b07bfcac97cf475.mp4",
+      "question": "What artwork did I examine in detail early in my visit that was later visible in the background as I prepared to leave the gallery?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 116,
+      "key": "2a70e7ae5f20bdbb.mp4||What refrigerated product did I examine early in my shopping trip that I later carried out of the store?",
+      "video_path": "2a70e7ae5f20bdbb.mp4",
+      "question": "What refrigerated product did I examine early in my shopping trip that I later carried out of the store?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 236,
+      "key": "4ee6962b7a404ef9.mp4||After I saw the statue with an angel at its base, I later passed a large metallic globe. What word was visible on the building behind the globe?",
+      "video_path": "4ee6962b7a404ef9.mp4",
+      "question": "After I saw the statue with an angel at its base, I later passed a large metallic globe. What word was visible on the building behind the globe?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 346,
+      "key": "77342df1fec5ffff.mp4||What item was the woman in the black jacket and blue mask holding when she made a three-finger gesture, which I had previously seen her pick up in another aisle?",
+      "video_path": "77342df1fec5ffff.mp4",
+      "question": "What item was the woman in the black jacket and blue mask holding when she made a three-finger gesture, which I had previously seen her pick up in another aisle?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "candidate_available_not_selected"
+    },
+    {
+      "index": 119,
+      "key": "2bc7ad352bd4b905.mp4||What clothing item did I pick up in the Women's Plus section that was later visible in my shopping cart while I was in the accessories and cashmere areas?",
+      "video_path": "2bc7ad352bd4b905.mp4",
+      "question": "What clothing item did I pick up in the Women's Plus section that was later visible in my shopping cart while I was in the accessories and cashmere areas?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 587,
+      "key": "d9e802102d6400ba.mp4||I first saw a wall panel about Acadian textile traditions mentioning a special cotton cultivar, and later I saw a display case with textile materials in that color. What was the name of the cotton cultivar?",
+      "video_path": "d9e802102d6400ba.mp4",
+      "question": "I first saw a wall panel about Acadian textile traditions mentioning a special cotton cultivar, and later I saw a display case with textile materials in that color. What was the name of the cotton cultivar?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "candidate_available_not_selected"
+    },
+    {
+      "index": 341,
+      "key": "7593bd8121dcfd39.mp4||Which main structure did I assemble first according to the instruction manual, and what was the last step number I completed for it before switching to a new structure?",
+      "video_path": "7593bd8121dcfd39.mp4",
+      "question": "Which main structure did I assemble first according to the instruction manual, and what was the last step number I completed for it before switching to a new structure?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "audit_stratum": "shopping_or_ocr",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 309,
+      "key": "680244a66d976e3f.mp4||Earlier I walked toward a building with a steeple; later, when I was overlooking an ice skating rink, where was that building in my view?",
+      "video_path": "680244a66d976e3f.mp4",
+      "question": "Earlier I walked toward a building with a steeple; later, when I was overlooking an ice skating rink, where was that building in my view?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 672,
+      "key": "f4d2a0877e75856b.mp4||I painted multiple sections labeled 12 with the same dark paint. Which 12 section did I paint first, and which 12 section did I paint last in the video?",
+      "video_path": "f4d2a0877e75856b.mp4",
+      "question": "I painted multiple sections labeled 12 with the same dark paint. Which 12 section did I paint first, and which 12 section did I paint last in the video?",
+      "category": "Daily Activities",
+      "mcq_answer": "B",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 315,
+      "key": "68f002c1fab08f95.mp4||What did I do with the black jacket I took from the closet and placed on the bed?",
+      "video_path": "68f002c1fab08f95.mp4",
+      "question": "What did I do with the black jacket I took from the closet and placed on the bed?",
+      "category": "Fashion Advice",
+      "mcq_answer": "C",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 191,
+      "key": "40f996a931c65581.mp4||What changed on the laptop screen between the time I pointed at it and the time I later used the trackpad?",
+      "video_path": "40f996a931c65581.mp4",
+      "question": "What changed on the laptop screen between the time I pointed at it and the time I later used the trackpad?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 228,
+      "key": "4b665c6c345137ea.mp4||What structure did I see crossing the stream that I had not seen at the pond earlier in my walk?",
+      "video_path": "4b665c6c345137ea.mp4",
+      "question": "What structure did I see crossing the stream that I had not seen at the pond earlier in my walk?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "B",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 319,
+      "key": "6b4f03af65f82192.mp4||What was I using the smartphone for in the kitchen after it was seen charging on the bedroom nightstand?",
+      "video_path": "6b4f03af65f82192.mp4",
+      "question": "What was I using the smartphone for in the kitchen after it was seen charging on the bedroom nightstand?",
+      "category": "Daily Activities",
+      "mcq_answer": "B",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 117,
+      "key": "2ae6c4477585a8b3.mp4||What item was I holding just before I petted the dog, and what was I holding when the dog walked toward the exit?",
+      "video_path": "2ae6c4477585a8b3.mp4",
+      "question": "What item was I holding just before I petted the dog, and what was I holding when the dog walked toward the exit?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 686,
+      "key": "fa31ca8100085de1.mp4||After marking 'a real inventor gets his/her invention right the first try' as false in the inventing myths quiz, which exhibit did I later see that illustrated this point with multiple product iterations?",
+      "video_path": "fa31ca8100085de1.mp4",
+      "question": "After marking 'a real inventor gets his/her invention right the first try' as false in the inventing myths quiz, which exhibit did I later see that illustrated this point with multiple product iterations?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 257,
+      "key": "55e3e91da83cc21a.mp4||After smoothing out the silicone mat with measurement circles, I later rolled dough on a floured counter instead. What did I do with the parchment paper I prepared in between, and why was it floured?",
+      "video_path": "55e3e91da83cc21a.mp4",
+      "question": "After smoothing out the silicone mat with measurement circles, I later rolled dough on a floured counter instead. What did I do with the parchment paper I prepared in between, and why was it floured?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "B",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    },
+    {
+      "index": 226,
+      "key": "4aa4c810fc8c8a91.mp4||After reading the sign that said 'don't feed waterfowl', where did I later see the waterfowl the sign referred to?",
+      "video_path": "4aa4c810fc8c8a91.mp4",
+      "question": "After reading the sign that said 'don't feed waterfowl', where did I later see the waterfowl the sign referred to?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "B",
+      "audit_stratum": "missed_by_all_runs",
+      "primary_error_bucket": "missing_all_runs"
+    }
+  ]
+}

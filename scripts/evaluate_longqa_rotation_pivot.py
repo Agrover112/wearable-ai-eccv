@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import sys
 
@@ -23,6 +24,39 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--majority-predictions", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--summary-output", required=True)
+    parser.add_argument(
+        "--view",
+        default="pivot",
+        help="Single view in features.jsonl to use (default: pivot).",
+    )
+    parser.add_argument(
+        "--fusion-views",
+        nargs="+",
+        default=None,
+        help="Average log scores from these views before candidate-restricted selection.",
+    )
+    parser.add_argument(
+        "--allow-missing-fusion-views",
+        action="store_true",
+        help="Average only available requested views on rows lacking optional evidence.",
+    )
+    parser.add_argument(
+        "--agreement-policy",
+        choices=("all_disagreements", "all_different_only", "conservative"),
+        default="all_disagreements",
+    )
+    parser.add_argument(
+        "--two-one-min-margin",
+        type=float,
+        default=0.10,
+        help="For conservative routing, minimum fused probability gain over majority.",
+    )
+    parser.add_argument(
+        "--two-one-min-view-support",
+        type=int,
+        default=2,
+        help="For conservative routing, views preferring the dissenting answer.",
+    )
     return parser.parse_args()
 
 
@@ -38,6 +72,76 @@ def set_answer(row: dict, selected: str) -> dict:
     updated["mcq_answer_raw"] = selected
     updated["mcq_answer_parsed"] = selected
     return updated
+
+
+def normalized_probabilities(logprobs: dict[str, float]) -> dict[str, float]:
+    maximum = max(logprobs.values())
+    weights = {
+        letter: math.exp(float(value) - maximum)
+        for letter, value in logprobs.items()
+    }
+    denominator = sum(weights.values())
+    return {
+        letter: value / max(denominator, 1e-12)
+        for letter, value in weights.items()
+    }
+
+
+def select_view_probabilities(feature: dict, args: argparse.Namespace) -> dict[str, float]:
+    view_scores = feature["view_scores"]
+    if args.fusion_views:
+        missing = set(args.fusion_views) - set(view_scores)
+        if missing and not args.allow_missing_fusion_views:
+            raise RuntimeError(f"Feature row is missing fusion views: {sorted(missing)}")
+        available = [view for view in args.fusion_views if view in view_scores]
+        if not available:
+            raise RuntimeError("Feature row has none of the requested fusion views")
+        averaged = {
+            letter: sum(
+                float(view_scores[view]["logprobs"][letter])
+                for view in available
+            )
+            / len(available)
+            for letter in "ABCD"
+        }
+        return normalized_probabilities(averaged)
+    if args.view not in view_scores:
+        raise RuntimeError(f"Feature row is missing requested view: {args.view}")
+    return {
+        letter: float(probability)
+        for letter, probability in view_scores[args.view]["probabilities"].items()
+    }
+
+
+def should_apply_selection(
+    feature: dict,
+    previous: str,
+    selected: str,
+    probabilities: dict[str, float],
+    args: argparse.Namespace,
+) -> bool:
+    if selected == previous:
+        return False
+    pattern = feature.get("agreement_pattern")
+    if args.agreement_policy == "all_disagreements":
+        return True
+    if pattern == "all_different":
+        return True
+    if args.agreement_policy == "all_different_only":
+        return False
+    margin = probabilities[selected] - probabilities[previous]
+    if margin < args.two_one_min_margin:
+        return False
+    requested = args.fusion_views or [args.view]
+    support = 0
+    for view in requested:
+        scores = feature.get("view_scores", {}).get(view)
+        if scores and (
+            float(scores["probabilities"][selected])
+            > float(scores["probabilities"][previous])
+        ):
+            support += 1
+    return support >= args.two_one_min_view_support
 
 
 def main() -> None:
@@ -78,14 +182,18 @@ def main() -> None:
         candidate_probabilities = None
         if feature is not None:
             candidates = sorted(set(feature["candidate_answers"].values()))
-            pivot_scores = feature["view_scores"]["pivot"]
+            view_probabilities = select_view_probabilities(feature, args)
             candidate_probabilities = {
-                candidate: float(pivot_scores["probabilities"][candidate])
+                candidate: float(view_probabilities[candidate])
                 for candidate in candidates
             }
-            selected = max(
+            proposed = max(
                 candidates, key=candidate_probabilities.get
             )
+            if should_apply_selection(
+                feature, previous, proposed, candidate_probabilities, args
+            ):
+                selected = proposed
         truth = gold[key]
         majority_is_correct = previous == truth
         pivot_is_correct = selected == truth
@@ -111,6 +219,8 @@ def main() -> None:
                 "rotation_pivot_option_rotations": (
                     feature.get("option_rotations") if feature else None
                 ),
+                "rotation_score_view": args.view if not args.fusion_views else None,
+                "rotation_fusion_views": args.fusion_views,
             }
         )
         output_rows.append(prediction)
@@ -128,7 +238,18 @@ def main() -> None:
         "fixes": fixes,
         "regressions": regressions,
         "both_wrong_changes": both_wrong_changes,
-        "policy": "candidate_restricted_rotation_averaged_pivot_argmax",
+        "policy": (
+            "candidate_restricted_rotation_averaged_"
+            + (
+                "fusion_" + "_".join(args.fusion_views)
+                if args.fusion_views
+                else args.view
+            )
+            + "_argmax"
+        ),
+        "agreement_policy": args.agreement_policy,
+        "two_one_min_margin": args.two_one_min_margin,
+        "two_one_min_view_support": args.two_one_min_view_support,
         "uses_labels": False,
     }
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)

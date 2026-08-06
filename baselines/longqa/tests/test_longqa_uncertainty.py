@@ -8,6 +8,7 @@ from run_generate_longqa_uncertainty import (
     _letter_probability,
     fill_with_uniform,
     select_segmented_positions,
+    should_run_uncertainty_gate,
 )
 
 
@@ -95,3 +96,9 @@ def test_uniform_fill_is_unique_and_reaches_budget():
     assert len(selected) == 16
     assert len(set(selected)) == 16
     assert {1, 3, 5}.issubset(selected)
+
+
+def test_uncertainty_gate_runs_only_on_disagreement():
+    assert not should_run_uncertainty_gate(["B", "B", "B"])
+    assert should_run_uncertainty_gate(["B", "C"])
+    assert should_run_uncertainty_gate([])

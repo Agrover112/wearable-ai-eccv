@@ -14,7 +14,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 STARTER_KIT = REPO_ROOT / "baselines" / "longqa"
 sys.path.insert(0, str(STARTER_KIT))
 
-from longqa_utils import build_prediction_row, compute_diagnostics, load_jsonl, normalize_answer, sample_key
+from longqa_utils import (
+    apply_subset,
+    build_prediction_row,
+    compute_diagnostics,
+    load_jsonl,
+    normalize_answer,
+    sample_key,
+)
 
 HYBRID_CATEGORIES = {
     "Travel-Sightseeing (Outdoors)",
@@ -37,6 +44,11 @@ UNIFORM_CATEGORIES = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ensemble LongQA predictions.")
     parser.add_argument("--annotations", required=True)
+    parser.add_argument(
+        "--subset-file",
+        default=None,
+        help="Optional JSON subset; only these annotation rows are ensembled.",
+    )
     parser.add_argument(
         "--pred",
         action="append",
@@ -96,8 +108,26 @@ def choose_route(row: dict, names: list[str], preds: dict[str, dict[str, dict]])
 
 def main() -> None:
     args = parse_args()
-    golden = load_jsonl(args.annotations)
+    golden = apply_subset(load_jsonl(args.annotations), args.subset_file)
     names, preds = load_named_preds(args.pred)
+    missing_by_model = {
+        name: [
+            sample_key(row)
+            for row in golden
+            if sample_key(row) not in preds[name]
+        ]
+        for name in names
+    }
+    missing_by_model = {
+        name: keys for name, keys in missing_by_model.items() if keys
+    }
+    if missing_by_model:
+        details = ", ".join(
+            f"{name}={len(keys)}" for name, keys in missing_by_model.items()
+        )
+        raise RuntimeError(
+            f"Prediction inputs do not cover the selected rows: {details}"
+        )
     out_rows = []
     disagreements = 0
     for row in golden:

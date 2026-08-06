@@ -22,6 +22,7 @@ from longqa_utils import (
     apply_subset,
     build_longqa_prompt,
     build_prediction_row,
+    normalize_answer,
 )
 
 logger = logging.getLogger(__name__)
@@ -584,6 +585,19 @@ def has_final_answer_marker(response: object) -> bool:
     )
 
 
+def has_unambiguous_final_answer(response: object) -> bool:
+    """Accept either the requested marker or an answer-only option letter."""
+    if has_final_answer_marker(response):
+        return True
+    return bool(
+        re.fullmatch(
+            r"\s*\(?[A-D]\)?[\.:]?\s*",
+            str(response),
+            re.IGNORECASE,
+        )
+    )
+
+
 def _complete_missing_final_answers(
     model: object,
     batch_frames: list[list[object]],
@@ -596,7 +610,7 @@ def _complete_missing_final_answers(
     missing = [
         index
         for index, response in enumerate(responses)
-        if not has_final_answer_marker(response)
+        if not has_unambiguous_final_answer(response)
     ]
     if not missing:
         return responses
@@ -630,9 +644,16 @@ def _complete_missing_final_answers(
         )
     completed = list(responses)
     for index, retry in zip(missing, retry_responses):
-        completed[index] = f"{responses[index]}\n\n{retry}"
+        retry_text = str(retry)
+        if not has_final_answer_marker(retry_text) and has_unambiguous_final_answer(
+            retry_text
+        ):
+            retry_text = f"Final Answer: {normalize_answer(retry_text)}"
+        completed[index] = f"{responses[index]}\n\n{retry_text}"
     still_missing = [
-        index for index, response in enumerate(completed) if not has_final_answer_marker(response)
+        index
+        for index, response in enumerate(completed)
+        if not has_unambiguous_final_answer(response)
     ]
     if still_missing:
         raise RuntimeError(

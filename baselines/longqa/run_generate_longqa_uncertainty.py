@@ -102,6 +102,18 @@ def _answer(row: dict[str, Any]) -> str:
     return str(row.get("mcq_answer_parsed") or row.get("mcq_answer", "")).strip().upper()
 
 
+def gate_answers(
+    key: str,
+    prediction_sets: list[dict[str, dict[str, Any]]],
+) -> list[str]:
+    return [_answer(predictions[key]) for predictions in prediction_sets]
+
+
+def should_run_uncertainty_gate(answers: list[str]) -> bool:
+    """Run expensive evidence selection only when configured predictors disagree."""
+    return not answers or len(set(answers)) > 1
+
+
 def build_entropy_prompt(row: dict[str, Any]) -> str:
     return (
         "Use only the supplied chronological visual evidence. Answer the "
@@ -740,6 +752,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--primary-predictions", default=None)
     parser.add_argument("--secondary-predictions", default=None)
     parser.add_argument("--tertiary-predictions", default=None)
+    parser.add_argument(
+        "--gate-predictions",
+        action="append",
+        default=[],
+        help=(
+            "Prediction file used by the disagreement gate. Repeat at least twice. "
+            "Rows on which all files agree copy the first prediction without visual calls."
+        ),
+    )
 
     parser.add_argument("--tcot-segments", type=int, default=4)
     parser.add_argument("--max-selected-per-segment", type=int, default=6)
@@ -774,6 +795,8 @@ def parse_args() -> argparse.Namespace:
             parser.error(f"{', '.join(missing)} required for disagreement_router")
     if args.mode == "dynamic_tcot" and not args.tcot_cache_dir:
         parser.error("--tcot-cache-dir is required for dynamic_tcot")
+    if len(args.gate_predictions) == 1:
+        parser.error("--gate-predictions must be omitted or repeated at least twice")
     return args
 
 
@@ -791,6 +814,9 @@ def main() -> None:
     selection_output = _resolve_path(args.selection_output)
     args.score_cache_dir = _resolve_path(args.score_cache_dir)
     args.tcot_cache_dir = _resolve_path(args.tcot_cache_dir)
+    args.gate_predictions = [
+        _resolve_path(path) for path in args.gate_predictions
+    ]
     rows = apply_subset(load_jsonl(input_path), args.subset_file)
     if args.max_samples is not None:
         rows = rows[: args.max_samples]
@@ -813,6 +839,9 @@ def main() -> None:
             "uniform": _index_jsonl(_resolve_path(args.secondary_predictions)),
             "crop": _index_jsonl(_resolve_path(args.tertiary_predictions)),
         }
+    gate_prediction_sets = [
+        _index_jsonl(path) for path in args.gate_predictions
+    ]
 
     required_keys = {sample_key(row) for row in rows}
     auxiliary_indices: dict[str, dict[str, dict[str, Any]]] = {}
@@ -824,6 +853,12 @@ def main() -> None:
         {
             f"{name} predictions": predictions
             for name, predictions in prediction_sets.items()
+        }
+    )
+    auxiliary_indices.update(
+        {
+            f"gate predictions {index + 1}": predictions
+            for index, predictions in enumerate(gate_prediction_sets)
         }
     )
     for label, indexed in auxiliary_indices.items():
@@ -886,6 +921,53 @@ def main() -> None:
     ):
         for row_index, row in enumerate(rows[start:], start=start):
             key = sample_key(row)
+            current_gate_answers = gate_answers(key, gate_prediction_sets)
+            gate_active = should_run_uncertainty_gate(current_gate_answers)
+            if gate_prediction_sets and not gate_active:
+                fallback = current_gate_answers[0]
+                prediction = build_prediction_row(
+                    row,
+                    fallback,
+                    prompt_variant=f"uncertainty_{args.mode}_agreement_fallback",
+                )
+                metadata = {
+                    "gate_active": False,
+                    "gate_answers": current_gate_answers,
+                    "fallback_answer": fallback,
+                }
+                selection_record = {
+                    "index": row_index,
+                    "sample_key": key,
+                    "video_path": row["video_path"],
+                    "uncertainty_schema": SCHEMA_VERSION,
+                    "uncertainty_fingerprint": fingerprint,
+                    "uncertainty_mode": args.mode,
+                    "scoring_method": "topk_entropy_lower_bound",
+                    "top_logprobs": args.top_logprobs,
+                    "gate_active": False,
+                    "final_indices": [],
+                    "final_frames": 0,
+                    "metadata": metadata,
+                }
+                selection_handle.write(json.dumps(selection_record) + "\n")
+                selection_handle.flush()
+                prediction.update(
+                    {
+                        "uncertainty_schema": SCHEMA_VERSION,
+                        "uncertainty_fingerprint": fingerprint,
+                        "uncertainty_mode": args.mode,
+                        "uncertainty_gate_active": False,
+                        "uncertainty_gate_answers": current_gate_answers,
+                        "uncertainty_final_frames": 0,
+                    }
+                )
+                prediction_handle.write(json.dumps(prediction) + "\n")
+                prediction_handle.flush()
+                print(
+                    f"  Uncertainty progress: {row_index + 1}/{len(rows)} "
+                    "(agreement fallback)"
+                )
+                continue
             video_path = os.path.join(video_folder, str(row["video_path"]))
             fps, total_frames = _video_metadata(video_path)
             if fps <= 0 or total_frames <= 0:
@@ -1023,6 +1105,8 @@ def main() -> None:
                 "uncertainty_mode": args.mode,
                 "scoring_method": "topk_entropy_lower_bound",
                 "top_logprobs": args.top_logprobs,
+                "gate_active": bool(gate_prediction_sets),
+                "gate_answers": current_gate_answers,
                 "final_indices": final_indices,
                 "final_frames": (
                     len(final_frames)
@@ -1040,6 +1124,8 @@ def main() -> None:
                     "uncertainty_mode": args.mode,
                     "uncertainty_scoring_method": "topk_entropy_lower_bound",
                     "uncertainty_top_logprobs": args.top_logprobs,
+                    "uncertainty_gate_active": bool(gate_prediction_sets),
+                    "uncertainty_gate_answers": current_gate_answers,
                     "uncertainty_final_frames": (
                         len(final_frames)
                         if args.mode != "disagreement_router"
