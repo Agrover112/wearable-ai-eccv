@@ -929,6 +929,8 @@ def _generate_longqa_preds(
     uniform_sampling: str = "legacy",
     include_frame_timestamps: bool = False,
     media_mode: str = "images",
+    longqa_max_new_tokens: int = 16,
+    require_final_answer_marker: bool = False,
     no_resume_predictions: bool = False,
     backend: str = "hf",
     tp: int | None = None,
@@ -963,6 +965,8 @@ def _generate_longqa_preds(
         uniform_sampling=uniform_sampling,
         include_frame_timestamps=include_frame_timestamps,
         media_mode=media_mode,
+        longqa_max_new_tokens=longqa_max_new_tokens,
+        require_final_answer_marker=require_final_answer_marker,
         subset_file=subset_file,
         no_resume_predictions=no_resume_predictions,
     )
@@ -1290,6 +1294,20 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=("images", "video"),
         default="images",
         help="LongQA only: send sampled frames as images or one video payload.",
+    )
+    parser.add_argument(
+        "--longqa-max-new-tokens",
+        type=int,
+        default=16,
+        help="LongQA only: maximum generated tokens per answer call.",
+    )
+    parser.add_argument(
+        "--require-final-answer-marker",
+        action="store_true",
+        help=(
+            "LongQA only: require `Final Answer: X` and request a short "
+            "continuation when the first response omits it."
+        ),
     )
     parser.add_argument(
         "--max-history-turns",
@@ -1796,6 +1814,12 @@ def _build_slurm_extra_args(
             extra.append("--include-frame-timestamps")
         if args.media_mode != "images":
             extra.extend(["--media-mode", args.media_mode])
+        if args.longqa_max_new_tokens != 16:
+            extra.extend(
+                ["--longqa-max-new-tokens", str(args.longqa_max_new_tokens)]
+            )
+        if args.require_final_answer_marker:
+            extra.append("--require-final-answer-marker")
         if args.no_resume_predictions:
             extra.append("--no-resume-predictions")
     if args.num_gpus is not None:
@@ -1993,6 +2017,8 @@ def _run_task(
             args.uniform_sampling,
             args.include_frame_timestamps,
             args.media_mode,
+            args.longqa_max_new_tokens,
+            args.require_final_answer_marker,
             args.no_resume_predictions,
             backend=args.backend,
             tp=args.tp,

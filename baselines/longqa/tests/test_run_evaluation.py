@@ -68,6 +68,21 @@ def test_uniform_sampling_phases_are_distinct_and_capped():
     assert len({tuple(endpoint), tuple(legacy), tuple(midpoint)}) == 3
 
 
+def test_longqa_reasoning_controls_are_available_from_unified_cli():
+    args = ev._build_parser().parse_args(
+        [
+            "--task",
+            "longqa",
+            "--longqa-max-new-tokens",
+            "1152",
+            "--require-final-answer-marker",
+        ]
+    )
+
+    assert args.longqa_max_new_tokens == 1152
+    assert args.require_final_answer_marker is True
+
+
 @pytest.fixture
 def longqa_golden_data():
     return [
