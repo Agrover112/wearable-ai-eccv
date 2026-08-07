@@ -39,6 +39,7 @@ EVAL_SCRIPT = os.path.join(STARTER_KIT_DIR, "run_evaluation.py")
 
 sys.path.insert(0, STARTER_KIT_DIR)
 import run_evaluation as ev
+from model import uniform_full_video_indices
 
 
 # ---------------------------------------------------------------------------
@@ -50,6 +51,21 @@ import run_evaluation as ev
 def tmp_dir():
     with tempfile.TemporaryDirectory() as d:
         yield d
+
+
+def test_midpoint_uniform_sampling_uses_bin_centers():
+    assert uniform_full_video_indices(100, 4, 4, "midpoint") == [12, 37, 62, 87]
+
+
+def test_uniform_sampling_phases_are_distinct_and_capped():
+    endpoint = uniform_full_video_indices(1000, 64, 64, "endpoint_inclusive")
+    legacy = uniform_full_video_indices(1000, 64, 64, "legacy")
+    midpoint = uniform_full_video_indices(1000, 64, 64, "midpoint")
+    assert len(endpoint) == len(legacy) == len(midpoint) == 64
+    assert endpoint[0] == 0 and endpoint[-1] == 999
+    assert legacy[0] == 0 and legacy[-1] < 999
+    assert midpoint[0] > 0 and midpoint[-1] < 999
+    assert len({tuple(endpoint), tuple(legacy), tuple(midpoint)}) == 3
 
 
 @pytest.fixture
@@ -787,6 +803,30 @@ class TestE2ELongqa:
         assert results["total"] == 2
         # Verify correct video_path filtering produces perfect accuracy,
         # not just naive truncation of first N entries
+        assert results["accuracy"] == 1.0
+
+    def test_equal_length_predictions_are_aligned_by_identity(
+        self, tmp_dir, longqa_golden_data
+    ):
+        golden_path = os.path.join(tmp_dir, "golden.jsonl")
+        preds_path = os.path.join(tmp_dir, "preds.jsonl")
+        output_path = os.path.join(tmp_dir, "results.json")
+        predictions = [
+            {
+                "video_path": row["video_path"],
+                "question": row["question"],
+                "mcq_answer": row["mcq_answer"],
+            }
+            for row in reversed(longqa_golden_data)
+        ]
+        write_jsonl(golden_path, longqa_golden_data)
+        write_jsonl(preds_path, predictions)
+
+        ev._run_longqa(golden_path, preds_path, output_path)
+
+        with open(output_path) as f:
+            results = json.load(f)
+        assert results["total"] == len(longqa_golden_data)
         assert results["accuracy"] == 1.0
 
     def test_subset_unknown_video_path(self, tmp_dir, longqa_golden_data):
@@ -1738,31 +1778,6 @@ class TestVLLMModel:
 # ---------------------------------------------------------------------------
 
 
-class TestInternVideo3Model:
-    def test_frames_are_one_video_in_first_user_turn(self):
-        model = mdl.InternVideo3Model.__new__(mdl.InternVideo3Model)
-        model.min_pixels = 262144
-        model.max_pixels = 451584
-        frames = [object(), object()]
-        messages = [
-            {"role": "user", "content": "Choose an answer."},
-            {"role": "assistant", "content": "B"},
-            {"role": "user", "content": "Are you sure?"},
-        ]
-
-        converted = model._to_multimodal_messages(frames, messages)
-
-        video = converted[0]["content"][0]
-        assert video["type"] == "video"
-        assert video["video"] == frames
-        assert converted[0]["content"][1] == {
-            "type": "text",
-            "text": "Choose an answer.",
-        }
-        assert converted[1] == messages[1]
-        assert converted[2] == messages[2]
-
-
 class TestCreateModelBackend:
     def test_create_model_vllm_returns_vllm_model(self):
         model = mdl.create_model("llama4", backend="vllm")
@@ -1789,17 +1804,6 @@ class TestCreateModelBackend:
             model = mdl.create_model("qwen", backend="hf")
             assert isinstance(model, mdl.Qwen2VLModel)
 
-    def test_create_model_hf_dispatches_internvideo3(self):
-        with unittest.mock.patch.object(
-            mdl.InternVideo3Model, "__init__", return_value=None
-        ):
-            model = mdl.create_model("internvideo3", backend="hf")
-            assert isinstance(model, mdl.InternVideo3Model)
-
-    def test_create_model_rejects_internvideo3_vllm(self):
-        with pytest.raises(ValueError, match="vLLM does not support"):
-            mdl.create_model("internvideo3", backend="vllm")
-
     def test_create_model_default_backend_is_hf(self):
         """Without backend param, create_model should return HF model instance."""
         with unittest.mock.patch.object(
@@ -1825,7 +1829,7 @@ class TestCreateModelBackend:
 class TestDefaultTPSizes:
     @pytest.mark.parametrize(
         "model_type, expected_tp",
-        [("llama4", 8), ("qwen", 1), ("internvideo3", 1)],
+        [("llama4", 8), ("qwen", 1)],
     )
     def test_tp_size(self, model_type, expected_tp):
         assert mdl.DEFAULT_TP_SIZES[model_type] == expected_tp

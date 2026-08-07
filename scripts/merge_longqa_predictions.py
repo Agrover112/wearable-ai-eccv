@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STARTER_KIT = REPO_ROOT / "baselines" / "longqa"
+STARTER_KIT = REPO_ROOT / "data" / "wearable-ai" / "starter_kit"
 sys.path.insert(0, str(STARTER_KIT))
 
 from longqa_utils import load_jsonl, sample_key
@@ -46,7 +46,7 @@ def main() -> None:
     output_rows = []
     for key in annotation_keys:
         row = dict(indexed[key])
-        row["rotation_pivot_subset_source"] = source_by_key[key]
+        row["prediction_subset_source"] = source_by_key[key]
         output_rows.append(row)
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)

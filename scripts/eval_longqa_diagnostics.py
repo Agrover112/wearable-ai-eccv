@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STARTER_KIT = REPO_ROOT / "baselines" / "longqa"
+STARTER_KIT = REPO_ROOT / "data" / "wearable-ai" / "starter_kit"
 sys.path.insert(0, str(STARTER_KIT))
 
 from longqa_utils import compute_diagnostics, load_jsonl, sample_key
@@ -22,7 +22,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--annotations",
         default=str(
-            REPO_ROOT / "data/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl"
+            REPO_ROOT
+            / "data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl"
         ),
     )
     parser.add_argument("--output", default=None)
@@ -34,16 +35,19 @@ def main() -> None:
     args = parse_args()
     golden = load_jsonl(args.annotations)
     preds = load_jsonl(args.predictions)
-    if len(golden) != len(preds):
-        golden_by_key = {sample_key(row): row for row in golden}
-        aligned_golden = []
-        aligned_preds = []
-        for pred in preds:
-            key = sample_key(pred)
-            if key in golden_by_key:
-                aligned_golden.append(golden_by_key[key])
-                aligned_preds.append(pred)
-        golden, preds = aligned_golden, aligned_preds
+    golden_by_key = {sample_key(row): row for row in golden}
+    aligned_golden = []
+    aligned_preds = []
+    seen = set()
+    for pred in preds:
+        key = sample_key(pred)
+        if key in golden_by_key and key not in seen:
+            aligned_golden.append(golden_by_key[key])
+            aligned_preds.append(pred)
+            seen.add(key)
+    golden, preds = aligned_golden, aligned_preds
+    if not preds:
+        raise RuntimeError("No prediction rows matched the annotations")
     result = compute_diagnostics(golden, preds, run_id=args.run_id)
     print(
         f"accuracy={result['accuracy_raw']:.4f} "

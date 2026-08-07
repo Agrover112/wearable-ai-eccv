@@ -173,6 +173,41 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def uniform_full_video_indices(
+    total_frames: int,
+    frames_per_interval: int,
+    max_frames: int,
+    sampling_mode: str = "legacy",
+) -> list[int]:
+    """Return the exact full-video indices used by ``extract_frames``."""
+    if total_frames <= 0 or frames_per_interval <= 0 or max_frames <= 0:
+        return []
+    start_frame = 0
+    end_frame = total_frames - 1
+    n = min(frames_per_interval, total_frames)
+    if sampling_mode == "endpoint_inclusive" and n > 1:
+        step = (end_frame - start_frame) / (n - 1)
+        frame_indices = [round(start_frame + i * step) for i in range(n)]
+    elif sampling_mode == "endpoint_inclusive":
+        frame_indices = [round((start_frame + end_frame) / 2)]
+    elif sampling_mode == "midpoint":
+        # Divide [0, total_frames) into equal temporal bins and sample each
+        # bin's center. This is a phase-shifted grid with no endpoint bias.
+        frame_indices = [
+            round((i + 0.5) * total_frames / n - 0.5) for i in range(n)
+        ]
+    elif sampling_mode == "legacy":
+        step = (end_frame - start_frame) / n
+        frame_indices = [int(start_frame + i * step) for i in range(n)]
+    else:
+        raise ValueError(f"Unknown frame sampling mode: {sampling_mode}")
+    frame_indices = sorted(set(frame_indices))
+    if len(frame_indices) > max_frames:
+        stride = len(frame_indices) / max_frames
+        frame_indices = [frame_indices[int(i * stride)] for i in range(max_frames)]
+    return frame_indices
+
+
 def extract_frames(
     video_path: str,
     intervals: list[tuple[float, float]] | None = None,
@@ -213,33 +248,44 @@ def extract_frames(
         duration = total_frames / fps
 
         if intervals is None:
-            intervals = [(0.0, duration)]
-
-        frame_indices: list[int] = []
-        for start, end in intervals:
-            start_frame = int(start * fps)
-            end_frame = min(int(end * fps), total_frames - 1)
-            if end_frame <= start_frame:
-                continue
-            n = min(frames_per_interval, end_frame - start_frame + 1)
-            if sampling_mode == "endpoint_inclusive" and n > 1:
-                step = (end_frame - start_frame) / (n - 1)
-                frame_indices.extend(
-                    round(start_frame + i * step) for i in range(n)
-                )
-            elif sampling_mode == "endpoint_inclusive":
-                frame_indices.append(round((start_frame + end_frame) / 2))
-            elif sampling_mode == "legacy":
-                step = (end_frame - start_frame) / n
-                frame_indices.extend(int(start_frame + i * step) for i in range(n))
-            else:
-                raise ValueError(f"Unknown frame sampling mode: {sampling_mode}")
-
-        frame_indices = sorted(set(frame_indices))
-
-        if len(frame_indices) > max_frames:
-            stride = len(frame_indices) / max_frames
-            frame_indices = [frame_indices[int(i * stride)] for i in range(max_frames)]
+            frame_indices = uniform_full_video_indices(
+                total_frames,
+                frames_per_interval,
+                max_frames,
+                sampling_mode,
+            )
+        else:
+            frame_indices = []
+            for start, end in intervals:
+                start_frame = int(start * fps)
+                end_frame = min(int(end * fps), total_frames - 1)
+                if end_frame <= start_frame:
+                    continue
+                n = min(frames_per_interval, end_frame - start_frame + 1)
+                if sampling_mode == "endpoint_inclusive" and n > 1:
+                    step = (end_frame - start_frame) / (n - 1)
+                    frame_indices.extend(
+                        round(start_frame + i * step) for i in range(n)
+                    )
+                elif sampling_mode == "endpoint_inclusive":
+                    frame_indices.append(round((start_frame + end_frame) / 2))
+                elif sampling_mode == "midpoint":
+                    span = end_frame - start_frame + 1
+                    frame_indices.extend(
+                        round(start_frame + (i + 0.5) * span / n - 0.5)
+                        for i in range(n)
+                    )
+                elif sampling_mode == "legacy":
+                    step = (end_frame - start_frame) / n
+                    frame_indices.extend(int(start_frame + i * step) for i in range(n))
+                else:
+                    raise ValueError(f"Unknown frame sampling mode: {sampling_mode}")
+            frame_indices = sorted(set(frame_indices))
+            if len(frame_indices) > max_frames:
+                stride = len(frame_indices) / max_frames
+                frame_indices = [
+                    frame_indices[int(i * stride)] for i in range(max_frames)
+                ]
 
         frames: list[object] = []
         for idx in frame_indices:
@@ -247,10 +293,7 @@ def extract_frames(
             ret, frame = cap.read()
             if ret:
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                image = Image.fromarray(frame_rgb)
-                image.info["source_frame_index"] = idx
-                image.info["source_fps"] = fps
-                frames.append(image)
+                frames.append(Image.fromarray(frame_rgb))
 
         return frames
     finally:
@@ -633,111 +676,6 @@ class Qwen2VLModel(VideoQAModel):
         return mm_messages
 
 
-class InternVideo3Model(VideoQAModel):
-    """InternVideo3 inference through its Hugging Face checkpoint code."""
-
-    REVISION = "c4602918b65225650d152db2850fe34e01d21fcd"
-
-    def __init__(
-        self,
-        model_id: str = "yanziang/InternVideo3-8B-Instruct",
-    ) -> None:
-        import torch
-        from transformers import AutoModelForCausalLM, AutoProcessor
-
-        logger.info("Loading model: %s ...", model_id)
-        revision = os.environ.get("INTERNVIDEO3_REVISION", self.REVISION)
-        self.min_pixels = _env_int("VISION_MIN_PIXELS", 262144)
-        self.max_pixels = _env_int("VISION_MAX_PIXELS", 524288)
-        self.processor = AutoProcessor.from_pretrained(
-            model_id,
-            revision=revision,
-            trust_remote_code=True,
-        )
-        self.processor.tokenizer.padding_side = "left"
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            dtype=torch.bfloat16,
-            attn_implementation="sdpa",
-            device_map="auto",
-            revision=revision,
-            trust_remote_code=True,
-        )
-        logger.info("Model loaded.")
-
-    def generate(
-        self,
-        frames: list[object],
-        messages: list[dict[str, str]],
-        max_new_tokens: int = 256,
-    ) -> str:
-        import torch
-        from transformers.video_utils import VideoMetadata
-
-        mm_messages = self._to_multimodal_messages(frames, messages)
-        processor_kwargs: dict[str, object] = {"do_sample_frames": False}
-        if frames:
-            processor_kwargs["video_metadata"] = VideoMetadata(
-                total_num_frames=len(frames),
-                fps=float(frames[0].info["source_fps"]),
-                frames_indices=[
-                    int(frame.info["source_frame_index"]) for frame in frames
-                ],
-            )
-            self.processor.video_processor.size = {
-                "shortest_edge": self.min_pixels * len(frames),
-                "longest_edge": self.max_pixels * len(frames),
-            }
-        inputs = self.processor.apply_chat_template(
-            mm_messages,
-            tokenize=True,
-            add_generation_prompt=True,
-            return_dict=True,
-            return_tensors="pt",
-            **processor_kwargs,
-        )
-        record_prompt_token_counts(
-            _attention_lengths(inputs),
-            _infer_context_window_from_model(self.model, self.processor),
-        )
-        inputs = inputs.to(self.model.device)
-
-        with torch.no_grad():
-            output_ids = self.model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                use_cache=True,
-            )
-
-        new_tokens = output_ids[0][inputs["input_ids"].shape[1] :]
-        return self.processor.decode(new_tokens, skip_special_tokens=True).strip()
-
-    def _to_multimodal_messages(
-        self,
-        frames: list[object],
-        messages: list[dict[str, str]],
-    ) -> list[dict[str, object]]:
-        """Insert the sampled frames as one ordered video in the first user turn."""
-        mm_messages: list[dict[str, object]] = []
-        video_inserted = False
-
-        for msg in messages:
-            role = msg["role"]
-            text = msg["content"]
-            if role == "user" and not video_inserted and frames:
-                content = [
-                    {"type": "video", "video": frames},
-                    {"type": "text", "text": text},
-                ]
-                mm_messages.append({"role": "user", "content": content})
-                video_inserted = True
-            else:
-                mm_messages.append({"role": role, "content": text})
-
-        return mm_messages
-
-
 def find_free_port() -> int:
     """Find a free port by binding to port 0 and letting the OS assign one.
 
@@ -798,8 +736,13 @@ class VLLMModel(VideoQAModel):
             "VLLM_QWEN_MEDIA_MODE", "images"
         ).strip().lower()
         if self._qwen_media_mode not in {"images", "video"}:
-            raise ValueError("VLLM_QWEN_MEDIA_MODE must be `images` or `video`")
+            raise ValueError(
+                "VLLM_QWEN_MEDIA_MODE must be `images` or `video`"
+            )
         if self._is_qwen35 and not self._gdn_prefill_backend:
+            # FlashInfer JIT-compiles Qwen3.5's GDN prefill kernel on the first
+            # request. The cluster runtime nodes expose a driver but no matching
+            # CUDA toolkit, so use vLLM's supported non-JIT implementation.
             self._gdn_prefill_backend = "triton"
         if self._gdn_prefill_backend not in {None, "triton", "flashinfer"}:
             raise ValueError(
@@ -1223,7 +1166,12 @@ class VLLMModel(VideoQAModel):
         messages: list[dict[str, str]],
         max_new_tokens: int = 4096,
     ) -> str:
-        """Generate with selected frames encoded as one chronological video."""
+        """Generate with selected frames encoded as one chronological video.
+
+        vLLM's JPEG-sequence video transport avoids creating temporary MP4
+        files while preserving the Qwen video-token path used by video-tuned
+        checkpoints such as VideoJudge.
+        """
         import base64
         import io
         import json
@@ -1249,7 +1197,10 @@ class VLLMModel(VideoQAModel):
                     {
                         "role": "user",
                         "content": [
-                            {"type": "video_url", "video_url": {"url": video_url}},
+                            {
+                                "type": "video_url",
+                                "video_url": {"url": video_url},
+                            },
                             {"type": "text", "text": message["content"]},
                         ],
                     }
@@ -1272,9 +1223,7 @@ class VLLMModel(VideoQAModel):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(
-                request, timeout=self.request_timeout
-            ) as response:
+            with urllib.request.urlopen(request, timeout=self.request_timeout) as response:
                 result = json.loads(response.read())
         except urllib.error.HTTPError as error:
             body = error.read().decode("utf-8", errors="replace")
@@ -1283,9 +1232,7 @@ class VLLMModel(VideoQAModel):
             raise RuntimeError(f"vLLM returned error: {result['error']}")
         usage = result.get("usage", {})
         if isinstance(usage, dict) and usage.get("prompt_tokens") is not None:
-            record_prompt_token_counts(
-                [int(usage["prompt_tokens"])], self._context_window
-            )
+            record_prompt_token_counts([int(usage["prompt_tokens"])], self._context_window)
         try:
             message = result["choices"][0]["message"]
         except (KeyError, IndexError) as error:
@@ -1835,34 +1782,26 @@ class VLLMModel(VideoQAModel):
 MODEL_REGISTRY: dict[str, type[VideoQAModel]] = {
     "llama4": Llama4ScoutModel,
     "qwen": Qwen2VLModel,
-    "internvideo3": InternVideo3Model,
 }
 
 DEFAULT_MODEL_IDS: dict[str, str] = {
     "llama4": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
     "qwen": "Qwen/Qwen2.5-VL-7B-Instruct",
-    "internvideo3": "yanziang/InternVideo3-8B-Instruct",
 }
-
-MODEL_TYPES = tuple(DEFAULT_MODEL_IDS)
-VLLM_MODEL_TYPES = ("llama4", "qwen")
 
 DEFAULT_BATCH_SIZES: dict[str, int] = {
     "llama4": 4,
     "qwen": 8,
-    "internvideo3": 1,
 }
 
 DEFAULT_GPU_COUNTS: dict[str, int] = {
     "llama4": 8,
     "qwen": 1,
-    "internvideo3": 1,
 }
 
 DEFAULT_TP_SIZES: dict[str, int] = {
     "llama4": 8,
     "qwen": 1,
-    "internvideo3": 1,
 }
 
 
@@ -1959,7 +1898,7 @@ def create_model(
     """Factory to create a model by type name.
 
     Args:
-        model_type: One of "llama4", "qwen", "internvideo3".
+        model_type: One of "llama4", "qwen".
         model_id: HuggingFace model ID override. If None, uses the default
             for the given model_type.
         backend: "hf" for HuggingFace, "vllm" for vLLM server backend.
@@ -1975,11 +1914,6 @@ def create_model(
             raise ValueError(
                 f"Unknown model type '{model_type}'. "
                 f"Available: {list(DEFAULT_MODEL_IDS.keys())}"
-            )
-        if model_type not in VLLM_MODEL_TYPES:
-            raise ValueError(
-                f"vLLM does not support model type '{model_type}'. "
-                f"Supported vLLM model types: {list(VLLM_MODEL_TYPES)}"
             )
         effective_id = model_id or DEFAULT_MODEL_IDS[model_type]
         effective_tp = (

@@ -1,0 +1,288 @@
+{
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
+  "parent_subset": "/CT/NDF/work/waw-26/configs/egolongqa_dev140_seed20260709.json",
+  "selection": "semantic disagreement among supplied predictions",
+  "n": 35,
+  "samples": [
+    {
+      "video_path": "016c4ad8fda54a97.mp4",
+      "question": "What type of recreational area did I encounter after passing the child on the scooter and descending the stairs?",
+      "answer": "A fenced playground with swings.",
+      "mcq_options": "A. A picnic area with tables and a solar-powered trailer. B. A fenced playground with swings. C. A fenced sports field with a turf surface. D. A stone-walled plaza with benches and a birdbath.",
+      "mcq_answer": "B",
+      "category": "Travel-Tourism"
+    },
+    {
+      "video_path": "07092e5a5ee9579c.mp4",
+      "question": "What was the name of the store with the red awning that I passed before I reached the bus stop at 8 Avenue & 60 Street?",
+      "answer": "G.E.DIGITAL PHOTO",
+      "mcq_options": "A. SUNRIDER FASHION B. JIA JIE DISCOUNT MART C. G.E.DIGITAL PHOTO D. GREEN PINE MARKET",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "112df40f97bbcd42.mp4",
+      "question": "What did I do with the paper that had 'Wanderers' written on it after I had previously interacted with the rainbow ribbon wand?",
+      "answer": "I picked it up from the floor and folded it.",
+      "mcq_options": "A. I picked it up from the floor and folded it. B. I used it to wrap the blue satin ribbon and put it in the green cardboard box. C. I placed it on the white table next to the 'BUSINESS CYCLES' book. D. I tore it into small pieces and scattered them on the gray mat.",
+      "mcq_answer": "A",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "1eeba816eee3ed2e.mp4",
+      "question": "What circus did I see a tent for in the distance before later seeing its box office up close?",
+      "answer": "Big Apple Circus",
+      "mcq_options": "A. Magical Lights Circus B. Holiday Magic Circus C. Big Apple Circus D. Revival New York Circus",
+      "mcq_answer": "C",
+      "category": "Travel-Sightseeing (Outdoors)"
+    },
+    {
+      "video_path": "204df747cf88e632.mp4",
+      "question": "After I rode the escalator down to the lower level and passed a large bear-shaped clothing display, what was the name on the tag of the plush bear I later picked up in that same department?",
+      "answer": "Brannan",
+      "mcq_options": "A. Brennan B. Mickey C. Cash D. Brannan",
+      "mcq_answer": "D",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "32d790a85a4b9997.mp4",
+      "question": "Which two albums that I cleaned are now placed outside the box, and in what order did I clean them?",
+      "answer": "Queen Greatest Hits and Swan Lake; Queen was cleaned first, then Swan Lake.",
+      "mcq_options": "A. The Who and Queen Greatest Hits; The Who was cleaned first, then Queen. B. David Bowie Diamond Dogs and Swan Lake; Diamond Dogs was cleaned first, then Swan Lake. C. Queen Greatest Hits and Swan Lake; Queen was cleaned first, then Swan Lake. D. Simon and Garfunkel Parsley, Sage, Rosemary and Thyme and The Monkees; Simon and Garfunkel was cleaned first, then The Monkees.",
+      "mcq_answer": "C",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "3305f03f9d1f59cb.mp4",
+      "question": "Earlier I saw a person in an orange shirt standing near a building with a ramp. Where did I see that same person again later in the video?",
+      "answer": "Walking in the parking lot among the parked cars.",
+      "mcq_options": "A. Sitting on a bench near the chain-link fence by the water. B. Standing near the ice cream truck with a group of people. C. Walking in the parking lot among the parked cars. D. Walking along the brick-paved promenade near the metal railing.",
+      "mcq_answer": "C",
+      "category": "Travel-Tourism"
+    },
+    {
+      "video_path": "3da36f3a8b3881c3.mp4",
+      "question": "What city name on a T-shirt in the bead store corresponds to the region mentioned on a sign I saw in the art gallery earlier?",
+      "answer": "Gatlinburg, TN",
+      "mcq_options": "A. Highland, TN B. Nelson, TN C. Gatlinburg, TN D. Mountain City, TN",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "461825ec4f8e89d4.mp4",
+      "question": "After I finished scrubbing the sink with a sponge, what was the last surface I wiped with disinfectant wipes?",
+      "answer": "The countertop beside the stove.",
+      "mcq_options": "A. The countertop near the sink. B. The countertop beside the stove. C. The countertop with the charging cable. D. The stovetop surface.",
+      "mcq_answer": "B",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "5910dd06ac368119.mp4",
+      "question": "Which tulip did I add black shading to first, and which one last?",
+      "answer": "The bottom left tulip first, the top left tulip last.",
+      "mcq_options": "A. The central tulip first, the bottom right tulip last. B. The bottom left tulip first, the bottom right tulip last. C. The bottom left tulip first, the top left tulip last. D. The top right tulip first, the top left tulip last.",
+      "mcq_answer": "C",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "67a66bcb4de5fffa.mp4",
+      "question": "After walking over the circular pavement designs multiple times, what building feature did I later notice that they were designed to match?",
+      "answer": "The circular windows of the L May Engelberg Center for Arts Education.",
+      "mcq_options": "A. The dome-shaped skylights nestled in the ivy planters beside the museum's walkway. B. The concentric circular motifs on the temporary metal gates near the construction site. C. The circular windows of the L May Engelberg Center for Arts Education. D. The small circular recessed lights lining the curved exterior walls of the Guggenheim.",
+      "mcq_answer": "C",
+      "category": "Travel-Sightseeing (Outdoors)"
+    },
+    {
+      "video_path": "68db3e8d1d963162.mp4",
+      "question": "What time was displayed on my phone when I was near the lifeguard tower, and what activity did I capture on video with my phone later on the beach?",
+      "answer": "12:42; people riding bicycles on the beach.",
+      "mcq_options": "A. 12:42; people walking along the coastal pathway near the cliffs. B. 1:15; people riding bicycles on the beach. C. 12:42; people riding bicycles on the beach. D. 12:42; a group of people with surfboards gathered on the pathway.",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "68f002c1fab08f95.mp4",
+      "question": "What did I do with the black jacket I took from the closet and placed on the bed?",
+      "answer": "I wore it, as seen in the mirror reflection later in the video.",
+      "mcq_options": "A. I folded the black jacket and stored it in the dresser drawer, as shown in the close-up of the dresser. B. I left the black jacket on the bed and later covered it with the brown puffer jacket, visible in the final frames. C. I wore it, as seen in the mirror reflection later in the video. D. I hung the black jacket on the door hook with the other clothes, as reflected in the dresser mirror.",
+      "mcq_answer": "C",
+      "category": "Fashion Advice"
+    },
+    {
+      "video_path": "77342df1fec5ffff.mp4",
+      "question": "What item was the woman in the black jacket and blue mask holding when she made a three-finger gesture, which I had previously seen her pick up in another aisle?",
+      "answer": "Glue sticks",
+      "mcq_options": "A. Tissue paper B. Gift boxes C. Glue sticks D. Red bows",
+      "mcq_answer": "C",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "88683ac7ab86baf2.mp4",
+      "question": "After the balls scattered across the table, what action did I take to help reset the game and which tray was I working on?",
+      "answer": "I placed balls back into the left long tray.",
+      "mcq_options": "A. I placed balls back into the right long tray. B. I gathered the scattered balls into the square tray at the bottom center. C. I placed balls back into the left long tray. D. I adjusted the position of the left long tray on the table.",
+      "mcq_answer": "C",
+      "category": "Pets, social gatherings with friends and family"
+    },
+    {
+      "video_path": "88e8cf11f150ba5e.mp4",
+      "question": "After I finished decorating the first pumpkin pi\u00f1ata, what facial feature did I add to the second one to make their faces match?",
+      "answer": "The small triangular nose.",
+      "mcq_options": "A. The jagged mouth. B. The second triangular eye. C. The small triangular nose. D. The black fringe around the top.",
+      "mcq_answer": "C",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "91eb47c80caaa8bb.mp4",
+      "question": "What was in the small covered saucepan on the left burner that I had left there since the start, when I finally uncovered it to add to the main pot?",
+      "answer": "Black beans.",
+      "mcq_options": "A. Shredded chicken from the zip-top bag. B. Black beans. C. Melted lard from the glass jar. D. Diced green bell peppers.",
+      "mcq_answer": "B",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "94714c62fc69e703.mp4",
+      "question": "What was I pointing toward on the path, and what was the dog doing when we reached that location?",
+      "answer": "the playground with shade structures and slides; running on the grass",
+      "mcq_options": "A. the concrete drainage channel; sniffing the dirt near the trail B. the playground with shade structures and slides; running on the grass C. the mountain range in the distance; walking on the paved path D. the parking lot with several vehicles; sitting by the black metal fence",
+      "mcq_answer": "B",
+      "category": "Outdoor Activities and Sports"
+    },
+    {
+      "video_path": "985053519dfa50d5.mp4",
+      "question": "Where did I install the flooring plank that I cut a notch into using the table saw in the garage?",
+      "answer": "In the corner of the main room near the staircase railing.",
+      "mcq_options": "A. Along the far wall of the main room where the extra planks were stacked. B. In the corner of the main room near the staircase railing. C. In the garage next to the red car, near the trash bins with 'ASPEN' stickers. D. In the background room visible from the main room, where tools were scattered on the floor.",
+      "mcq_answer": "B",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "9e67e002962b2b7b.mp4",
+      "question": "What was the price of the appliance I opened after holding the outdoor grill box?",
+      "answer": "$999.99",
+      "mcq_options": "A. $369.99 B. $1,899.99 C. $999.99 D. $6,000.00",
+      "mcq_answer": "C",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "a65dec1048bd5e15.mp4",
+      "question": "After using the mower to line up leaves along the fence, what tool did I later use to consolidate them into a larger pile?",
+      "answer": "a rake",
+      "mcq_options": "A. a shovel B. a rake C. a wheelbarrow D. a branch",
+      "mcq_answer": "B",
+      "category": "Gardening"
+    },
+    {
+      "video_path": "b0f5fc37b845b78a.mp4",
+      "question": "I first noticed a Valentine's display with items priced at $5 near the fish tanks. Later, I interacted with another Valentine's item. What was the price of the item I interacted with, and which animal section had I just come from before that interaction?",
+      "answer": "$19.99, the fish section",
+      "mcq_options": "A. $12.99, the fish section B. $19.99, the reptile section C. $19.99, the fish section D. $12.99, the bird section",
+      "mcq_answer": "C",
+      "category": "Pets, social gatherings with friends and family"
+    },
+    {
+      "video_path": "b272a41741a986ac.mp4",
+      "question": "Earlier I walked past metal grates on the sidewalk next to a large truck; when I encountered similar grates later, what vehicle was parked on the adjacent street instead?",
+      "answer": "A white van, unlike the large truck present the first time.",
+      "mcq_options": "A. A black SUV, unlike the large truck present the first time. B. A red pickup truck, unlike the large truck present the first time. C. A white van, unlike the large truck present the first time. D. A green SUV, unlike the large truck present the first time.",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "b27d074aca964ba7.mp4",
+      "question": "What specific book title was visible on the stack of books I received from the Hare Krishna member in the yellow beanie, which I was flipping through while their group was still set up in the background?",
+      "answer": "Bhagavad Gita",
+      "mcq_options": "A. Hare Krishna Chanting Guide B. Spiritual Knowledge for Beginners C. Bhagavad Gita D. The Science of Self-Realization",
+      "mcq_answer": "C",
+      "category": "Travel-Tourism"
+    },
+    {
+      "video_path": "bde055e6fe9d2c08.mp4",
+      "question": "Where were the flooring planks stored before I installed them in the hallway?",
+      "answer": "In the garage, stacked vertically against the wall.",
+      "mcq_options": "A. In the hallway, laid flat on the subfloor near the vacuum cleaner. B. In the garage, stacked horizontally on the folding table beside the table saw. C. In the garage, stacked vertically against the wall. D. In the bathroom area, leaning against the wall near the toilet flange.",
+      "mcq_answer": "C",
+      "category": "Daily Activities"
+    },
+    {
+      "video_path": "cf2bd89a7b5d37d8.mp4",
+      "question": "What sporting goods store did I see across the street from the Barclays Center later that was in the same complex as the Best Buy I had passed earlier?",
+      "answer": "Modell's Sporting Goods",
+      "mcq_options": "A. Burlington Sporting Goods B. Best Buy Athletics C. Modell's Sporting Goods D. Macy's Sports Outlet",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "d89f42607516218a.mp4",
+      "question": "After I descended in the elevator from the 8th floor and exited the building, what was the next vertical movement I made and what type of area did it lead to?",
+      "answer": "I climbed stairs that led to an elevated pedestrian plaza.",
+      "mcq_options": "A. I climbed stairs that led to a pedestrian overpass above the Lincoln Tunnel. B. I climbed stairs that led to an elevated pedestrian plaza. C. I descended stairs that led to an underground subway entrance. D. I climbed stairs that led to an outdoor garden with seating areas.",
+      "mcq_answer": "B",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "dbc5348e4a5ed4da.mp4",
+      "question": "After I passed through the market, I saw a man walking a dog in the park; where had I previously seen him?",
+      "answer": "Near a monument at the park entrance earlier in the video.",
+      "mcq_options": "A. Crossing the street near the Park West Pharmacy before entering the park. B. Standing by the Chipotle restaurant near the subway entrance. C. Near a monument at the park entrance earlier in the video. D. Browsing the farmers market stall with apples and squash.",
+      "mcq_answer": "C",
+      "category": "Travel-Tourism"
+    },
+    {
+      "video_path": "e174f252b4965685.mp4",
+      "question": "What were the colors of the first and last animal sculptures I saw while driving down Rodeo Drive?",
+      "answer": "orange and blue",
+      "mcq_options": "A. red and orange B. orange and blue C. blue and red D. orange and silver",
+      "mcq_answer": "B",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "e373a6d763abf3e5.mp4",
+      "question": "Early in my walk, I passed a carriage pulled by a horse. What color was that horse, and what event was being prepared in the area I entered later with bleachers and branded barriers?",
+      "answer": "The horse was white, and the TCS New York City Marathon was being prepared.",
+      "mcq_options": "A. The horse was brown, and the TCS New York City Marathon was being prepared. B. The horse was white, and a seasonal food and craft fair was being prepared. C. The horse was white, and the TCS New York City Marathon was being prepared. D. The horse was brown, and an international flag ceremony was being prepared.",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "e80db9b80583d44e.mp4",
+      "question": "When I first encountered the vendor at the Peaceful Stone Lights shop, what was she doing and where was she, and where was she when I last saw her near the shop?",
+      "answer": "She was yawning inside the shop when first seen, and standing outside the shop with arms crossed when last seen.",
+      "mcq_options": "A. She was checking her phone inside the shop when first seen, and standing outside the shop with arms crossed when last seen. B. She was yawning inside the shop when first seen, and standing outside the shop with arms crossed when last seen. C. She was yawning inside the shop when first seen, and sitting on a low stone wall outside the shop when last seen. D. She was arranging merchandise on a shelf inside the shop when first seen, and yawning outside the shop when last seen.",
+      "mcq_answer": "B",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "ea24fc0365d5498a.mp4",
+      "question": "After I stopped using the map and passed the sundial, what was the next water feature I saw and what building was behind it?",
+      "answer": "The rectangular reflecting pond with the glass conservatory behind it.",
+      "mcq_options": "A. The circular fountain with the light-colored building with a green roof behind it. B. The lily-filled pond near the Yellow Magnolia Cafe. C. The rectangular reflecting pond with the glass conservatory behind it. D. The stone basin fountain with the greenhouse complex in the background.",
+      "mcq_answer": "C",
+      "category": "Gardening"
+    },
+    {
+      "video_path": "edaffe97b6620535.mp4",
+      "question": "After the person in the Harry Potter robe entered the gym, did I see them again, and if not, what other costumed character did I see that was also wearing a robe?",
+      "answer": "No, the Harry Potter robe person was not seen again; later, a person in a witch costume (dark robe) was seen interacting with the pickle-costumed individual.",
+      "mcq_options": "A. Yes, the Harry Potter robe person was seen again near the VEX IQ backdrop, and later a person in a Jedi robe (tan outfit) was seen observing the robots. B. No, the Harry Potter robe person was not seen again; later, a person in a witch costume (dark robe) was seen interacting with the pickle-costumed individual. C. No, the Harry Potter robe person was not seen again; later, a person in a dinosaur costume (green inflatable) was seen wearing a robe-like garment near the bleachers. D. No, the Harry Potter robe person was not seen again; later, a person in a Buzz Lightyear costume (with a cape-like wing) was seen interacting with Woody near the robotics mat.",
+      "mcq_answer": "B",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "f11fb6958943a777.mp4",
+      "question": "What was different about the white SUV's surroundings the second time I saw it compared to the first time?",
+      "answer": "First it was next to a camper truck with a person standing nearby; later it was next to a red truck with no person visible.",
+      "mcq_options": "A. First it was next to a camper truck with no person visible; later it was next to a red truck with a person standing nearby. B. First it was next to a large boulder with a person and a dog nearby; later it was next to a red truck with no person visible. C. First it was next to a camper truck with a person standing nearby; later it was next to a red truck with no person visible. D. First it was next to a camper truck with a person standing nearby; later it was alone on the gravel with no other vehicles or people around.",
+      "mcq_answer": "C",
+      "category": "Outdoor Activities and Sports"
+    },
+    {
+      "video_path": "f5cd22aab57406dc.mp4",
+      "question": "What did I do with the branches I first saw scattered on the ground by the end of the video?",
+      "answer": "I cut them into logs and loaded them into the white Bobcat's bucket.",
+      "mcq_options": "A. I used the yellow skid steer's pallet forks to move the branches to the stack of pallets by the shed. B. I left the branches scattered and instead cleared the concrete blocks near the blue tarp. C. I cut them into logs and loaded them into the white Bobcat's bucket. D. I gathered the branches by hand and stacked them next to the white trailer in the background.",
+      "mcq_answer": "C",
+      "category": "Outdoor Activities and Sports"
+    }
+  ]
+}

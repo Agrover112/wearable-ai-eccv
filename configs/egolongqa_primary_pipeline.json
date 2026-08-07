@@ -1,27 +1,29 @@
 {
-  "name": "qwen35_rotation_averaged_temporal_pivot",
+  "name": "qwen35_27b_endpoint_optionquota_temporal_route",
   "status": "primary",
-  "set_on": "2026-07-31",
+  "set_on": "2026-08-07",
   "evaluation": {
     "split": "wearable_ai_2026_egolongqa_val_700",
-    "correct": 565,
+    "correct": 613,
     "total": 700,
-    "accuracy": 0.807143
+    "accuracy": 0.875714
   },
-  "predictions": "runs/egolongqa/qwen35_9b_vllm_rotation_avg_pivot_full_2026-07-31/predictions.jsonl",
-  "result_summary": "runs/egolongqa/qwen35_9b_vllm_rotation_avg_pivot_full_2026-07-31/results_summary.json",
+  "predictions": "runs/egolongqa/qwen35_27b_endpoint_optionquota_temporal_route_full_2026-08-07/predictions.jsonl",
+  "result_summary": "runs/egolongqa/qwen35_27b_endpoint_optionquota_temporal_route_full_2026-08-07/summary.json",
   "policy": {
     "base_predictions": [
-      "runs/egolongqa/qwen35_9b_vllm_siglip2_temporal_pivot_anc24_final64_px451584_full_2026-07-29/predictions.jsonl",
-      "runs/egolongqa/qwen35_9b_vllm_uniform64_px451584_full_2026-07-30/predictions.jsonl",
-      "runs/egolongqa/qwen3_vl_8b_vllm_pivot_uniform_disagreement_verifier_px451584_full_2026-07-12/predictions.jsonl"
+      "runs/egolongqa/qwen35_27b_vllm_uniform64_endpoint_px451584_full_2026-08-07/predictions.jsonl",
+      "runs/egolongqa/qwen35_27b_option_quota_globalfix_full_2026-08-07/predictions.jsonl"
     ],
-    "initial_decision": "majority vote",
-    "disagreement_decision": "Score only proposed candidate answers on the temporal-pivot frames under four cyclic option rotations, average probabilities by answer text, and select the highest mean probability.",
-    "uses_ground_truth_labels": false
+    "initial_decision": "use endpoint-inclusive Qwen3.5-27B",
+    "disagreement_decision": "when the two direct answerers disagree, use option-quota Qwen3.5-27B only for compiler-v2 BEFORE and MULTI_TIME questions; otherwise retain endpoint Qwen3.5-27B",
+    "uses_ground_truth_labels": false,
+    "uses_fitted_calibration": false,
+    "uses_verifier_derived_candidate": false,
+    "rule_frozen_before_val560_completion": true
   },
   "known_limitations": [
-    "The cached temporal-pivot evidence was selected with a SigLIP2 text encoder limited to 64 positions.",
-    "The original question-and-options retrieval query can truncate later answer options; Qwen answer generation still receives all options."
+    "The route requires two Qwen3.5-27B answer passes and SigLIP2 frame selection for the option-quota branch.",
+    "The historical option-quota strategy retrieves one center per answer option and fills the remaining center budget from the combined question-and-options query; it is not the later balanced multi-center strategy."
   ]
 }

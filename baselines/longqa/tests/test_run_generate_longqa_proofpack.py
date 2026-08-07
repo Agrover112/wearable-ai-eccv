@@ -12,6 +12,7 @@ from run_generate_longqa_proofpack import (
     combine_balanced_retrieval_scores,
     select_adaq_pack,
     select_eventlet_hybrid,
+    select_endpoint_mmr_hybrid,
     select_focus_pack,
     select_mixed_resolution_pack,
     select_option_contrastive_eventlets,
@@ -94,6 +95,31 @@ def test_eventlet_hybrid_is_chronological_unique_and_capped():
     assert len(indices) == 16
     assert len(indices) == len(set(indices))
     assert timestamps == sorted(timestamps)
+
+
+def test_endpoint_mmr_hybrid_preserves_anchors_and_exact_budget():
+    candidates = _candidates(count=128)
+    features = _features(count=128)
+    scores = [float((index * 17) % 31) for index in range(128)]
+    selected, meta = select_endpoint_mmr_hybrid(
+        candidates,
+        scores,
+        features,
+        anchor_k=48,
+        retrieval_k=16,
+        mmr_lambda=0.7,
+        final_max_frames=64,
+        temporal_nms_seconds=10.0,
+    )
+    assert len(selected) == 64
+    assert len(meta["endpoint_anchor_frames"]) == 48
+    assert len(meta["mmr_retrieval_frames"]) == 16
+    assert meta["endpoint_anchor_frames"][0] == candidates[0].index
+    assert meta["endpoint_anchor_frames"][-1] == candidates[-1].index
+    assert len({frame.candidate.index for frame in selected}) == 64
+    assert [frame.candidate.timestamp for frame in selected] == sorted(
+        frame.candidate.timestamp for frame in selected
+    )
 
 
 def test_option_contrastive_eventlets_balance_options_and_cap_frames():
@@ -237,6 +263,39 @@ def test_temporal_pivot_uniform_coverage_fill_avoids_boundary_frames():
     assert "coverage_fill" in sources
     assert "semantic_boundary" not in sources
     assert meta["fill_mode"] == "uniform_coverage"
+
+
+def test_balanced_option_quota_honors_multiple_centers_per_option():
+    candidates = _candidates()
+    count = len(candidates)
+    option_scores = {}
+    for label, first in zip(("A", "B", "C", "D"), (1, 7, 13, 19)):
+        scores = [-100.0] * count
+        scores[first] = 2.0
+        scores[first + 2] = 1.0
+        option_scores[f"option_{label}"] = scores
+    selected, meta = select_temporal_pivot_pack(
+        candidates,
+        [0.0] * count,
+        [0.0] * count,
+        _features(),
+        TemporalProgram("GLOBAL", "", "global", "question"),
+        pivot_centers=0,
+        target_centers=8,
+        eventlet_radius=0,
+        anchor_k=4,
+        bridge_k=0,
+        final_max_frames=16,
+        temporal_nms_seconds=5.0,
+        target_component_scores=option_scores,
+        target_centers_per_option=2,
+    )
+    assert all(
+        len(meta["target_quota_centers"][f"option_{label}"]) == 2
+        for label in "ABCD"
+    )
+    assert len(meta["target_centers"]) == 8
+    assert len(selected) == 16
 
 
 def test_option_hypotheses_are_separate_queries():

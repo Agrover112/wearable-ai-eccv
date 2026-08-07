@@ -23,6 +23,7 @@ from longqa_utils import (
     build_longqa_prompt,
     build_prediction_row,
     normalize_answer,
+    sample_key,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,9 +47,29 @@ def load_jsonl_if_exists(path: str) -> list[dict[str, object]]:
     return load_jsonl(path)
 
 
-def main() -> None:
-    from model import MODEL_TYPES
+def _build_prompt_with_timestamps(
+    row: dict[str, object],
+    prompt_variant: str,
+    timestamps: list[float],
+) -> str:
+    prompt = build_longqa_prompt(
+        row["question"], row["mcq_options"], prompt_variant=prompt_variant
+    )
+    if not timestamps:
+        return prompt
+    timestamp_index = ", ".join(
+        f"image {index}={timestamp:.1f}s"
+        for index, timestamp in enumerate(timestamps, start=1)
+    )
+    return (
+        "The images are in chronological order. Their timestamps from the "
+        f"start of the video are: {timestamp_index}. Use them to distinguish "
+        "repeated events and verify temporal order.\n\n"
+        + prompt
+    )
 
+
+def main() -> None:
     parser = argparse.ArgumentParser(description="Generate LongQA MCQ predictions.")
     parser.add_argument(
         "--input",
@@ -78,7 +99,7 @@ def main() -> None:
         "--model-type",
         type=str,
         default="llama4",
-        choices=MODEL_TYPES,
+        choices=["llama4", "qwen"],
         help="Model type to use.",
     )
     parser.add_argument(
@@ -104,9 +125,20 @@ def main() -> None:
     )
     parser.add_argument(
         "--uniform-sampling",
-        choices=["legacy", "endpoint_inclusive"],
+        choices=["legacy", "endpoint_inclusive", "midpoint"],
         default="legacy",
         help="Uniform frame-position policy for full-video sampling.",
+    )
+    parser.add_argument(
+        "--include-frame-timestamps",
+        action="store_true",
+        help="List the timestamp corresponding to every sampled image in the prompt.",
+    )
+    parser.add_argument(
+        "--media-mode",
+        choices=("images", "video"),
+        default="images",
+        help="Send sampled frames as separate images or one chronological video payload.",
     )
     parser.add_argument(
         "--max-samples",
@@ -185,15 +217,14 @@ def main() -> None:
         default=16,
         help="Max concurrent HTTP requests (vllm only).",
     )
-    parser.set_defaults(slurm_nodes=0)
-    try:
-        from slurm_runner import add_slurm_args
+    from slurm_runner import add_slurm_args
 
-        add_slurm_args(parser)
-    except ImportError:
-        # The standalone ECCV baseline does not require the cluster submit helper.
-        pass
+    add_slurm_args(parser)
     args = parser.parse_args()
+    if args.media_mode == "video" and args.backend != "vllm":
+        parser.error("--media-mode video currently requires --backend vllm")
+    if args.media_mode == "video" and args.require_final_answer_marker:
+        parser.error("answer-marker retries are not implemented for video media mode")
 
     input_path = _resolve_path(args.input)
     output_path = _resolve_path(args.output)
@@ -232,6 +263,10 @@ def _submit_slurm(
     ]
     if getattr(args, "require_final_answer_marker", False):
         extra.append("--require-final-answer-marker")
+    if getattr(args, "include_frame_timestamps", False):
+        extra.append("--include-frame-timestamps")
+    if getattr(args, "media_mode", "images") != "images":
+        extra.extend(["--media-mode", args.media_mode])
     if args.subset_file:
         extra.extend(["--subset-file", args.subset_file])
     if args.llm_model:
@@ -337,7 +372,9 @@ def _run_longqa_eval(
             len(golden),
             len(preds),
         )
-        golden, preds = _filter_subset(golden, preds, "longqa")
+    golden, preds = _filter_subset(golden, preds, "longqa")
+    if not preds:
+        raise RuntimeError("No LongQA predictions matched the annotation rows")
     results = evaluate_longqa(golden, preds)
 
     if not eval_output:
@@ -369,9 +406,15 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
         reset_prompt_token_stats,
         setup_gpus,
         summarize_prompt_token_stats,
+        uniform_full_video_indices,
     )
 
     backend = getattr(args, "backend", "hf")
+    media_mode = getattr(args, "media_mode", "images")
+    if media_mode == "video" and backend != "vllm":
+        raise ValueError("video media mode requires the vLLM backend")
+    if args.model_type == "qwen" and backend == "vllm":
+        os.environ["VLLM_QWEN_MEDIA_MODE"] = media_mode
     if backend != "vllm":
         setup_gpus(args.num_gpus, args.model_type)
     model = create_model(
@@ -397,7 +440,7 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
     )
     resume_count = 0
     for row_idx, pred in enumerate(existing_predictions[: len(data)]):
-        if str(pred.get("video_path", "")) != str(data[row_idx].get("video_path", "")):
+        if sample_key(pred) != sample_key(data[row_idx]):
             break
         if not str(pred.get("mcq_answer", "")).strip():
             break
@@ -405,7 +448,19 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
             getattr(args, "uniform_sampling", "legacy")
         ):
             break
+        if bool(pred.get("timestamps_in_prompt", False)) != bool(
+            getattr(args, "include_frame_timestamps", False)
+        ):
+            break
+        if str(pred.get("media_mode", "images")) != str(
+            getattr(args, "media_mode", "images")
+        ):
+            break
         resume_count += 1
+    if len(existing_predictions) != resume_count:
+        with open(output_path, "w") as cached_f:
+            for pred in existing_predictions[:resume_count]:
+                cached_f.write(json.dumps(pred) + "\n")
     if resume_count:
         print(f"Resuming predictions from {resume_count}/{len(data)} cached rows")
     mode = "a" if resume_count else "w"
@@ -413,11 +468,12 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
         for batch_start in range(resume_count, len(data), batch_size):
             batch = data[batch_start : batch_start + batch_size]
             batch_frames = []
+            batch_timestamps = []
             for row in batch:
                 video_path = os.path.join(video_folder, str(row["video_path"]))
                 if not os.path.isfile(video_path):
                     raise RuntimeError(
-                        "Video is unavailable; refusing video-blind prediction: "
+                        f"Video is unavailable; refusing video-blind prediction: "
                         f"{video_path}"
                     )
                 frames = extract_frames(
@@ -428,28 +484,59 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 )
                 if not frames:
                     raise RuntimeError(
-                        "No frames extracted; refusing video-blind prediction: "
+                        f"No frames extracted; refusing video-blind prediction: "
                         f"{video_path}"
                     )
                 batch_frames.append(frames)
+                timestamps: list[float] = []
+                if getattr(args, "include_frame_timestamps", False):
+                    import cv2
+
+                    cap = cv2.VideoCapture(video_path)
+                    try:
+                        fps = float(cap.get(cv2.CAP_PROP_FPS))
+                        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    finally:
+                        cap.release()
+                    indices = uniform_full_video_indices(
+                        total_frames,
+                        args.frames_per_interval,
+                        args.max_frames,
+                        getattr(args, "uniform_sampling", "legacy"),
+                    )
+                    timestamps = [index / fps for index in indices] if fps > 0 else []
+                    if len(frames) != len(timestamps):
+                        raise RuntimeError(
+                            f"Extracted {len(frames)}/{len(timestamps)} timestamped "
+                            f"frames for {video_path}"
+                        )
+                batch_timestamps.append(timestamps)
             batch_messages = [
                 [
                     {
                         "role": "user",
-                        "content": build_longqa_prompt(
-                            row["question"],
-                            row["mcq_options"],
-                            prompt_variant=args.prompt_variant,
+                        "content": _build_prompt_with_timestamps(
+                            row, args.prompt_variant, timestamps
                         ),
                     }
                 ]
-                for row in batch
+                for row, timestamps in zip(batch, batch_timestamps)
             ]
-            responses = model.generate_batch(
-                batch_frames,
-                batch_messages,
-                max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
-            )
+            if getattr(args, "media_mode", "images") == "video":
+                responses = [
+                    model.generate_video_frames(
+                        frames,
+                        messages,
+                        max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
+                    )
+                    for frames, messages in zip(batch_frames, batch_messages)
+                ]
+            else:
+                responses = model.generate_batch(
+                    batch_frames,
+                    batch_messages,
+                    max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
+                )
             responses = _complete_missing_final_answers(
                 model,
                 batch_frames,
@@ -457,7 +544,7 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 responses,
                 getattr(args, "require_final_answer_marker", False),
             )
-            for row, response in zip(batch, responses):
+            for row, response, timestamps in zip(batch, responses, batch_timestamps):
                 pred = build_prediction_row(
                     row,
                     response,
@@ -469,6 +556,11 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 pred["uniform_sampling"] = getattr(
                     args, "uniform_sampling", "legacy"
                 )
+                pred["timestamps_in_prompt"] = bool(
+                    getattr(args, "include_frame_timestamps", False)
+                )
+                pred["frame_timestamps"] = [round(value, 3) for value in timestamps]
+                pred["media_mode"] = getattr(args, "media_mode", "images")
                 out_f.write(json.dumps(pred) + "\n")
                 out_f.flush()
             done = min(batch_start + batch_size, len(data))
@@ -494,6 +586,11 @@ def _worker_fn(
             str(g) for g in range(rank * gpus_per_model, (rank + 1) * gpus_per_model)
         ]
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(gpu_ids)
+    media_mode = getattr(args, "media_mode", "images")
+    if media_mode == "video" and getattr(args, "backend", "hf") != "vllm":
+        raise ValueError("video media mode requires the vLLM backend")
+    if args.model_type == "qwen" and getattr(args, "backend", "hf") == "vllm":
+        os.environ["VLLM_QWEN_MEDIA_MODE"] = media_mode
 
     from model import (
         create_model,
@@ -501,6 +598,7 @@ def _worker_fn(
         extract_frames,
         reset_prompt_token_stats,
         summarize_prompt_token_stats,
+        uniform_full_video_indices,
     )
 
     model = create_model(
@@ -521,33 +619,66 @@ def _worker_fn(
     with model, open(out_file, "w") as out_f:
         for batch_start in range(0, len(shard), batch_size):
             batch = shard[batch_start : batch_start + batch_size]
-            batch_frames = [
-                extract_frames(
-                    os.path.join(video_folder, str(row["video_path"])),
+            batch_frames = []
+            batch_timestamps = []
+            for row in batch:
+                video_path = os.path.join(video_folder, str(row["video_path"]))
+                frames = extract_frames(
+                    video_path,
                     frames_per_interval=args.frames_per_interval,
                     max_frames=args.max_frames,
                     sampling_mode=getattr(args, "uniform_sampling", "legacy"),
                 )
-                for row in batch
-            ]
+                batch_frames.append(frames)
+                timestamps: list[float] = []
+                if getattr(args, "include_frame_timestamps", False):
+                    import cv2
+
+                    cap = cv2.VideoCapture(video_path)
+                    try:
+                        fps = float(cap.get(cv2.CAP_PROP_FPS))
+                        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    finally:
+                        cap.release()
+                    indices = uniform_full_video_indices(
+                        total_frames,
+                        args.frames_per_interval,
+                        args.max_frames,
+                        getattr(args, "uniform_sampling", "legacy"),
+                    )
+                    timestamps = [index / fps for index in indices] if fps > 0 else []
+                    if len(frames) != len(timestamps):
+                        raise RuntimeError(
+                            f"Extracted {len(frames)}/{len(timestamps)} timestamped "
+                            f"frames for {video_path}"
+                        )
+                batch_timestamps.append(timestamps)
             batch_messages = [
                 [
                     {
                         "role": "user",
-                        "content": build_longqa_prompt(
-                            row["question"],
-                            row["mcq_options"],
-                            prompt_variant=args.prompt_variant,
+                        "content": _build_prompt_with_timestamps(
+                            row, args.prompt_variant, timestamps
                         ),
                     }
                 ]
-                for row in batch
+                for row, timestamps in zip(batch, batch_timestamps)
             ]
-            responses = model.generate_batch(
-                batch_frames,
-                batch_messages,
-                max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
-            )
+            if getattr(args, "media_mode", "images") == "video":
+                responses = [
+                    model.generate_video_frames(
+                        frames,
+                        messages,
+                        max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
+                    )
+                    for frames, messages in zip(batch_frames, batch_messages)
+                ]
+            else:
+                responses = model.generate_batch(
+                    batch_frames,
+                    batch_messages,
+                    max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
+                )
             responses = _complete_missing_final_answers(
                 model,
                 batch_frames,
@@ -555,7 +686,7 @@ def _worker_fn(
                 responses,
                 getattr(args, "require_final_answer_marker", False),
             )
-            for row, response in zip(batch, responses):
+            for row, response, timestamps in zip(batch, responses, batch_timestamps):
                 pred = build_prediction_row(
                     row,
                     response,
@@ -567,6 +698,11 @@ def _worker_fn(
                 pred["uniform_sampling"] = getattr(
                     args, "uniform_sampling", "legacy"
                 )
+                pred["timestamps_in_prompt"] = bool(
+                    getattr(args, "include_frame_timestamps", False)
+                )
+                pred["frame_timestamps"] = [round(value, 3) for value in timestamps]
+                pred["media_mode"] = getattr(args, "media_mode", "images")
                 out_f.write(json.dumps(pred) + "\n")
                 out_f.flush()
             done = min(batch_start + batch_size, len(shard))

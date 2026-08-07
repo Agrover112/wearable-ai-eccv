@@ -51,10 +51,12 @@ logger = logging.getLogger(__name__)
 
 STRATEGIES = (
     "adaq",
+    "endpoint_mmr_hybrid",
     "eventlet_hybrid",
     "focus",
     "mixed_resolution",
     "option_contrastive",
+    "balanced_option_quota_pivot",
     "option_quota_pivot",
     "temporal_pivot",
     "temporal_pivot_v2",
@@ -68,6 +70,7 @@ PROOFPACK_SCHEMA = 2
 RETRIEVAL_QUERY_MODES = (
     "legacy_joint",
     "token_safe_balanced",
+    "rank_fusion_balanced",
     "budgeted_per_option",
 )
 
@@ -268,6 +271,38 @@ def combine_balanced_retrieval_scores(
         return target.tolist()
     option_mean = np.mean(
         np.stack([_zscore(component_scores[label]) for label in option_labels]), axis=0
+    )
+    return (0.5 * target + 0.5 * option_mean).tolist()
+
+
+def combine_rrf_retrieval_scores(
+    component_scores: dict[str, list[float]], rrf_constant: float = 60.0
+) -> list[float]:
+    """Fuse target and option rankings without comparing score magnitudes."""
+    if not component_scores:
+        return []
+    if rrf_constant <= 0:
+        raise ValueError("RRF constant must be positive")
+    lengths = {len(values) for values in component_scores.values()}
+    if len(lengths) != 1:
+        raise ValueError("All retrieval score vectors must have equal length")
+
+    def reciprocal_ranks(values: list[float]) -> np.ndarray:
+        scores = np.asarray(values, dtype=np.float64)
+        order = np.argsort(-scores, kind="stable")
+        ranks = np.empty(len(scores), dtype=np.float64)
+        ranks[order] = np.arange(1, len(scores) + 1, dtype=np.float64)
+        return 1.0 / (rrf_constant + ranks)
+
+    target = reciprocal_ranks(component_scores["target"])
+    option_labels = sorted(
+        label for label in component_scores if label.startswith("option_")
+    )
+    if not option_labels:
+        return target.tolist()
+    option_mean = np.mean(
+        np.stack([reciprocal_ranks(component_scores[label]) for label in option_labels]),
+        axis=0,
     )
     return (0.5 * target + 0.5 * option_mean).tolist()
 
@@ -629,6 +664,101 @@ def _minmax(values: list[float] | np.ndarray) -> np.ndarray:
     if span < 1e-12:
         return np.zeros_like(array)
     return (array - float(array.min())) / span
+
+
+def select_endpoint_mmr_hybrid(
+    candidates: list[CandidateFrame],
+    relevance_scores: list[float],
+    image_features: np.ndarray,
+    anchor_k: int,
+    retrieval_k: int,
+    mmr_lambda: float,
+    final_max_frames: int,
+    temporal_nms_seconds: float,
+) -> tuple[list[SelectedFrame], dict[str, Any]]:
+    """Keep an endpoint grid and add a small diverse retrieval supplement."""
+    if len(candidates) != len(relevance_scores) or len(candidates) != len(image_features):
+        raise ValueError("Candidates, relevance scores, and features must align")
+    if not 0.0 <= mmr_lambda <= 1.0:
+        raise ValueError("mmr_lambda must be in [0, 1]")
+
+    anchor_positions = _uniform_positions(
+        len(candidates), min(anchor_k, final_max_frames)
+    )
+    anchor_set = set(anchor_positions)
+    retrieval_budget = min(
+        retrieval_k,
+        max(0, final_max_frames - len(anchor_positions)),
+        max(0, len(candidates) - len(anchor_positions)),
+    )
+    relevance = _minmax(relevance_scores)
+    features = np.asarray(image_features, dtype=np.float32)
+    norms = np.linalg.norm(features, axis=1, keepdims=True)
+    features = features / np.maximum(norms, 1e-8)
+
+    available = [idx for idx in range(len(candidates)) if idx not in anchor_set]
+    retrieved: list[int] = []
+    mmr_scores: dict[int, float] = {}
+    while available and len(retrieved) < retrieval_budget:
+        eligible = [
+            idx
+            for idx in available
+            if all(
+                abs(candidates[idx].timestamp - candidates[other].timestamp)
+                >= temporal_nms_seconds
+                for other in retrieved
+            )
+        ]
+        pool = eligible or available
+
+        def objective(idx: int) -> tuple[float, float, int]:
+            redundancy = (
+                max(float(np.dot(features[idx], features[other])) for other in retrieved)
+                if retrieved
+                else 0.0
+            )
+            score = mmr_lambda * float(relevance[idx]) - (1.0 - mmr_lambda) * max(
+                0.0, redundancy
+            )
+            return score, float(relevance[idx]), -idx
+
+        chosen = max(pool, key=objective)
+        mmr_scores[chosen] = objective(chosen)[0]
+        retrieved.append(chosen)
+        available.remove(chosen)
+
+    selected: dict[int, SelectedFrame] = {}
+    priorities: dict[int, int] = {}
+    for idx in anchor_positions:
+        _add_frame(
+            selected,
+            candidates,
+            idx,
+            float(relevance[idx]),
+            "endpoint_anchor",
+            0,
+            priorities,
+        )
+    for idx in retrieved:
+        _add_frame(
+            selected,
+            candidates,
+            idx,
+            float(relevance[idx]),
+            "mmr_retrieval",
+            1,
+            priorities,
+        )
+    _fill_uniform_coverage(selected, priorities, candidates, final_max_frames)
+    return _finalize_selection(selected, priorities, final_max_frames), {
+        "endpoint_anchor_frames": [candidates[idx].index for idx in anchor_positions],
+        "mmr_retrieval_frames": [candidates[idx].index for idx in retrieved],
+        "mmr_scores": {
+            str(candidates[idx].index): round(mmr_scores[idx], 6) for idx in retrieved
+        },
+        "mmr_lambda": mmr_lambda,
+        "temporal_nms_seconds": temporal_nms_seconds,
+    }
 
 
 def select_adaq_pack(
@@ -1100,6 +1230,7 @@ def select_temporal_pivot_pack(
     fill_mode: str = "semantic_boundary",
     per_pivot_direction: bool = False,
     target_component_scores: dict[str, list[float]] | None = None,
+    target_centers_per_option: int = 1,
 ) -> tuple[list[SelectedFrame], dict[str, Any]]:
     if program.operator == "GLOBAL" and not target_component_scores:
         return select_eventlet_hybrid(
@@ -1165,11 +1296,13 @@ def select_temporal_pivot_pack(
         option_labels = sorted(
             label for label in target_component_scores if label.startswith("option_")
         )
+        per_option = max(1, target_centers_per_option)
+        ranked_by_option: dict[str, list[int]] = {}
         for label in option_labels[:target_centers]:
             ranked = _rank_with_temporal_nms(
                 target_component_scores[label],
                 candidates,
-                1,
+                per_option,
                 temporal_nms_seconds,
                 allowed=allowed,
             )
@@ -1177,12 +1310,25 @@ def select_temporal_pivot_pack(
                 ranked = _rank_with_temporal_nms(
                     target_component_scores[label],
                     candidates,
-                    1,
+                    per_option,
                     temporal_nms_seconds,
                 )
                 quota_unrestricted_fallback.append(label)
-            quota_centers[label] = [candidates[index].index for index in ranked]
-            targets.extend(index for index in ranked if index not in targets)
+            ranked_by_option[label] = ranked
+            quota_centers[label] = []
+        # Round-robin allocation prevents the first option from consuming the
+        # entire target budget when multiple centers per option are requested.
+        for rank in range(per_option):
+            for label in option_labels[:target_centers]:
+                if len(targets) >= target_centers:
+                    break
+                ranked = ranked_by_option[label]
+                if rank >= len(ranked):
+                    continue
+                index = ranked[rank]
+                quota_centers[label].append(candidates[index].index)
+                if index not in targets:
+                    targets.append(index)
         remaining = max(0, target_centers - len(targets))
         target_query_scores = target_component_scores.get("target", target_scores)
         if remaining:
@@ -1296,6 +1442,7 @@ def select_temporal_pivot_pack(
         "fill_mode": fill_mode,
         "per_pivot_direction": per_pivot_direction,
         "target_quota_centers": quota_centers,
+        "target_centers_per_option": max(1, target_centers_per_option),
         "quota_unrestricted_fallback": sorted(set(quota_unrestricted_fallback)),
     }
 
@@ -1376,6 +1523,9 @@ def proofpack_fingerprint(args: argparse.Namespace) -> str:
         "mixed_medium_pixels": args.mixed_medium_pixels,
         "mixed_low_pixels": args.mixed_low_pixels,
         "qframe_temperature": args.qframe_temperature,
+        "mmr_retrieval_k": args.mmr_retrieval_k,
+        "mmr_lambda": args.mmr_lambda,
+        "rrf_constant": args.rrf_constant,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(encoded.encode("utf-8")).hexdigest()[:12]
@@ -1395,8 +1545,6 @@ def inference_fingerprint(args: argparse.Namespace, proofpack_hash: str) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    from model import MODEL_TYPES
-
     parser = argparse.ArgumentParser(description="LongQA temporal proof-pack experiments.")
     parser.add_argument(
         "--input", default="../egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl"
@@ -1416,6 +1564,11 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--no-eval", action="store_true")
+    parser.add_argument(
+        "--selection-only",
+        action="store_true",
+        help="Write/validate proof-pack metadata and skip answer generation.",
+    )
     parser.add_argument("--no-resume-grounding", action="store_true")
     parser.add_argument("--no-resume-predictions", action="store_true")
 
@@ -1452,6 +1605,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mixed-medium-pixels", type=int, default=200704)
     parser.add_argument("--mixed-low-pixels", type=int, default=50176)
     parser.add_argument("--qframe-temperature", type=float, default=0.1)
+    parser.add_argument("--mmr-retrieval-k", type=int, default=16)
+    parser.add_argument("--mmr-lambda", type=float, default=0.7)
+    parser.add_argument("--rrf-constant", type=float, default=60.0)
     parser.add_argument("--final-max-frames", type=int, default=64)
     parser.add_argument("--temporal-nms-seconds", type=float, default=10.0)
     parser.add_argument(
@@ -1479,7 +1635,7 @@ def parse_args() -> argparse.Namespace:
         default="legacy_joint",
     )
 
-    parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
+    parser.add_argument("--model-type", default="qwen", choices=["qwen", "llama4"])
     parser.add_argument("--llm-model", default="Qwen/Qwen3-VL-8B-Instruct")
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=1)
@@ -1523,6 +1679,9 @@ def main() -> None:
         for idx, (record, row) in enumerate(zip(fixed_records, rows)):
             if str(record.get("video_path", "")) != str(row.get("video_path", "")):
                 raise RuntimeError(f"Fixed proof-pack video mismatch at row {idx}")
+            stored_key = str(record.get("sample_key", ""))
+            if stored_key and stored_key != sample_key(row):
+                raise RuntimeError(f"Fixed proof-pack sample-key mismatch at row {idx}")
             if record.get("strategy") != args.strategy:
                 raise RuntimeError(
                     f"Fixed proof-pack strategy mismatch at row {idx}: "
@@ -1577,6 +1736,7 @@ def main() -> None:
         if (
             int(meta.get("index", -1)) != idx
             or str(meta.get("video_path", "")) != str(rows[idx].get("video_path", ""))
+            or str(meta.get("sample_key", "")) != sample_key(rows[idx])
             or str(meta.get("proofpack_fingerprint", "")) != fingerprint
         ):
             break
@@ -1607,14 +1767,22 @@ def main() -> None:
                 program: TemporalProgram | None = None
                 component_scores: dict[str, list[float]] = {}
                 rng = np.random.default_rng(args.selection_seed + row_idx)
-                if args.retrieval_query_mode == "token_safe_balanced":
+                if args.retrieval_query_mode in {
+                    "token_safe_balanced",
+                    "rank_fusion_balanced",
+                }:
                     program = compile_temporal_program(row["question"])
                     retrieval_queries = build_token_safe_retrieval_queries(row, program)
                     component_scores = {
                         query.label: grounder.score_embeddings(query.text, image_features)
                         for query in retrieval_queries
                     }
-                    base_scores = combine_balanced_retrieval_scores(component_scores)
+                    if args.retrieval_query_mode == "rank_fusion_balanced":
+                        base_scores = combine_rrf_retrieval_scores(
+                            component_scores, args.rrf_constant
+                        )
+                    else:
+                        base_scores = combine_balanced_retrieval_scores(component_scores)
                     queries = [
                         {"label": query.label, "hash": query_hash(query.text)}
                         for query in retrieval_queries
@@ -1648,6 +1816,18 @@ def main() -> None:
                         args.adaq_p_threshold,
                         rng,
                     )
+                elif args.strategy == "endpoint_mmr_hybrid":
+                    selected, selection_meta = select_endpoint_mmr_hybrid(
+                        candidates,
+                        base_scores,
+                        image_features,
+                        args.anchor_k,
+                        args.mmr_retrieval_k,
+                        args.mmr_lambda,
+                        args.final_max_frames,
+                        args.temporal_nms_seconds,
+                    )
+                    selection_meta["route"] = "endpoint_anchors_plus_mmr_retrieval"
                 elif args.strategy == "focus":
                     selected, selection_meta = select_focus_pack(
                         candidates,
@@ -1718,10 +1898,13 @@ def main() -> None:
                         args.qca_relevance_threshold,
                     )
                     selection_meta["route"] = "qca"
-                elif args.strategy == "option_quota_pivot":
+                elif args.strategy in {
+                    "option_quota_pivot",
+                    "balanced_option_quota_pivot",
+                }:
                     if args.retrieval_query_mode != "budgeted_per_option":
                         raise ValueError(
-                            "option_quota_pivot requires --retrieval-query-mode "
+                            f"{args.strategy} requires --retrieval-query-mode "
                             "budgeted_per_option"
                         )
                     program = compile_temporal_program_v2(row["question"])
@@ -1749,8 +1932,17 @@ def main() -> None:
                         args.fill_mode,
                         per_pivot_direction=True,
                         target_component_scores=component_scores,
+                        target_centers_per_option=(
+                            args.centers_per_option
+                            if args.strategy == "balanced_option_quota_pivot"
+                            else 1
+                        ),
                     )
-                    selection_meta["route"] = "budgeted_option_quota_pivot"
+                    selection_meta["route"] = (
+                        "balanced_option_quota_pivot"
+                        if args.strategy == "balanced_option_quota_pivot"
+                        else "budgeted_option_quota_pivot"
+                    )
                     selection_meta["temporal_program"] = {
                         "operator": program.operator,
                         "pivot": program.pivot,
@@ -1955,7 +2147,10 @@ def main() -> None:
                         )
                         selection_meta["route"] = "temporal_pivot"
 
-                if args.strategy == "option_quota_pivot":
+                if args.strategy in {
+                    "option_quota_pivot",
+                    "balanced_option_quota_pivot",
+                }:
                     quota_centers = selection_meta.get("target_quota_centers", {})
                     option_labels = sorted(
                         label for label in component_scores if label.startswith("option_")
@@ -1965,7 +2160,7 @@ def main() -> None:
                     ]
                     if not option_labels or missing_quotas:
                         raise RuntimeError(
-                            "option_quota_pivot produced incomplete option evidence "
+                            f"{args.strategy} produced incomplete option evidence "
                             f"for row {row_idx}: {missing_quotas or 'no option queries'}"
                         )
 
@@ -2003,16 +2198,29 @@ def main() -> None:
     else:
         print("Proof-pack cache complete; skipping grounder model load")
 
+    if args.selection_only:
+        if len(records) != len(rows):
+            raise RuntimeError(
+                f"Selection-only proof pack is incomplete: {len(records)}/{len(rows)}"
+            )
+        print(f"Selection-only complete: {len(records)} proof packs in {grounding_output}")
+        print(f"Runtime seconds: {time.time() - start_time:.0f}")
+        return
+
     existing = [] if args.no_resume_predictions else load_jsonl_if_exists(output_path)
     pred_start = 0
     for idx, pred in enumerate(existing[: len(rows)]):
-        if str(pred.get("video_path", "")) != str(rows[idx].get("video_path", "")):
+        if sample_key(pred) != sample_key(rows[idx]):
             break
         if str(pred.get("proofpack_inference_fingerprint", "")) != generation_fingerprint:
             break
         if not str(pred.get("mcq_answer", "")).strip():
             break
         pred_start += 1
+    if len(existing) != pred_start:
+        with open(output_path, "w") as handle:
+            for pred in existing[:pred_start]:
+                handle.write(json.dumps(pred) + "\n")
     if pred_start:
         print(f"Resuming generation from {pred_start}/{len(rows)} rows")
 
@@ -2037,6 +2245,11 @@ def main() -> None:
             selected_meta = record["selected"]
             frame_indices = [int(item["frame_index"]) for item in selected_meta]
             frames = extract_frames_by_indices(video_path, frame_indices)
+            if len(frames) != len(frame_indices):
+                raise RuntimeError(
+                    f"Extracted {len(frames)}/{len(frame_indices)} selected frames "
+                    f"for {video_path}; refusing a shifted evidence pack"
+                )
             frame_pixel_budgets = record.get("selection_meta", {}).get(
                 "frame_max_pixels", {}
             )

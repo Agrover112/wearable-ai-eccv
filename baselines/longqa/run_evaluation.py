@@ -927,6 +927,8 @@ def _generate_longqa_preds(
     subset_file: str | None = None,
     prompt_variant: str = "baseline",
     uniform_sampling: str = "legacy",
+    include_frame_timestamps: bool = False,
+    media_mode: str = "images",
     no_resume_predictions: bool = False,
     backend: str = "hf",
     tp: int | None = None,
@@ -934,6 +936,8 @@ def _generate_longqa_preds(
 ) -> None:
     if not video_folder:
         raise ValueError("video_folder is required for LongQA generation")
+    if media_mode == "video" and backend != "vllm":
+        raise ValueError("LongQA video media mode requires the vLLM backend")
     from run_generate_longqa import _run_parallel, _run_single
 
     data = load_jsonl(input_path)
@@ -957,6 +961,8 @@ def _generate_longqa_preds(
         concurrency=concurrency,
         prompt_variant=prompt_variant,
         uniform_sampling=uniform_sampling,
+        include_frame_timestamps=include_frame_timestamps,
+        media_mode=media_mode,
         subset_file=subset_file,
         no_resume_predictions=no_resume_predictions,
     )
@@ -1059,8 +1065,6 @@ def _generate_proactive_preds(
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    from model import MODEL_TYPES
-
     parser = argparse.ArgumentParser(
         description="Unified evaluation for ECCV 2026 Wearable AI Workshop.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1234,7 +1238,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--model-type",
         type=str,
         default="llama4",
-        choices=MODEL_TYPES,
+        choices=["llama4", "qwen"],
         help="Model type for generation (default: llama4).",
     )
     parser.add_argument(
@@ -1269,6 +1273,23 @@ def _build_parser() -> argparse.ArgumentParser:
             "Frames per video interval. Per-task default if not set: 4 for "
             "ConvQA, 16 for Proactive (= 2 fps over an 8s chunk)."
         ),
+    )
+    parser.add_argument(
+        "--uniform-sampling",
+        choices=["legacy", "endpoint_inclusive", "midpoint"],
+        default="legacy",
+        help="LongQA only: uniform full-video frame-position policy.",
+    )
+    parser.add_argument(
+        "--include-frame-timestamps",
+        action="store_true",
+        help="LongQA only: list sampled-image timestamps in the prompt.",
+    )
+    parser.add_argument(
+        "--media-mode",
+        choices=("images", "video"),
+        default="images",
+        help="LongQA only: send sampled frames as images or one video payload.",
     )
     parser.add_argument(
         "--max-history-turns",
@@ -1309,12 +1330,6 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=PROMPT_VARIANTS,
         default="baseline",
         help="LongQA only: prompt variant to use for generation.",
-    )
-    parser.add_argument(
-        "--uniform-sampling",
-        choices=["legacy", "endpoint_inclusive"],
-        default="legacy",
-        help="LongQA only: uniform full-video frame-position policy.",
     )
     parser.add_argument(
         "--no-resume-predictions",
@@ -1455,12 +1470,12 @@ def _run_longqa(
             len(golden),
             len(preds),
         )
-        golden, preds = _filter_subset(golden, preds, "LongQA")
-        if not preds:
-            raise ValueError(
-                "LongQA: zero predictions matched golden entries "
-                "-- check that prediction file has correct video_path and question fields"
-            )
+    golden, preds = _filter_subset(golden, preds, "LongQA")
+    if not preds:
+        raise ValueError(
+            "LongQA: zero predictions matched golden entries "
+            "-- check that prediction file has correct video_path and question fields"
+        )
 
     print(f"Evaluating LongQA: {len(golden)} samples")
     results = evaluate_longqa(golden, preds)
@@ -1777,6 +1792,10 @@ def _build_slurm_extra_args(
             extra.extend(["--prompt-variant", args.prompt_variant])
         if args.uniform_sampling != "legacy":
             extra.extend(["--uniform-sampling", args.uniform_sampling])
+        if args.include_frame_timestamps:
+            extra.append("--include-frame-timestamps")
+        if args.media_mode != "images":
+            extra.extend(["--media-mode", args.media_mode])
         if args.no_resume_predictions:
             extra.append("--no-resume-predictions")
     if args.num_gpus is not None:
@@ -1972,6 +1991,8 @@ def _run_task(
             args.subset_file,
             args.prompt_variant,
             args.uniform_sampling,
+            args.include_frame_timestamps,
+            args.media_mode,
             args.no_resume_predictions,
             backend=args.backend,
             tp=args.tp,
