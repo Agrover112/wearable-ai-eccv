@@ -1,0 +1,64 @@
+{
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
+  "parent_subset": "/CT/NDF/work/waw-26/configs/egolongqa_balanced_fold3_of5_20260808.json",
+  "selection": "semantic disagreement among supplied predictions",
+  "n": 7,
+  "samples": [
+    {
+      "video_path": "11dc8afb864c685a.mp4",
+      "question": "Earlier I saw someone pushing a blue cart down the beach; when I saw that same cart again later, what were people doing around it?",
+      "answer": "They were setting up a surfboard and beach gear next to the cart near the shoreline.",
+      "mcq_options": "A. They were loading the cart with driftwood and seaweed they had gathered along the shoreline. B. They were setting up a surfboard and beach gear next to the cart near the shoreline. C. They were using the cart as a makeshift bench while watching people near the rocky jetty. D. They were unpacking a tripod and camera gear from the cart to photograph the cloudy beach.",
+      "mcq_answer": "B",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "2ae6c4477585a8b3.mp4",
+      "question": "What item was I holding just before I petted the dog, and what was I holding when the dog walked toward the exit?",
+      "answer": "A fruitcake and a coffee cup.",
+      "mcq_options": "A. A jar of honey and a bag of Jordan almonds. B. A box of popcorn and a peanut brittle bar. C. A fruitcake and a coffee cup. D. A packet of dip mix and a bottle of wine.",
+      "mcq_answer": "C",
+      "category": "Travel-Tourism"
+    },
+    {
+      "video_path": "314dabb96387cef9.mp4",
+      "question": "When I touched a spider web decoration the second time, what Halloween item was present that wasn't there during my first spider web interaction?",
+      "answer": "A skull.",
+      "mcq_options": "A. A skeleton. B. A ghost decoration. C. A skull. D. A black cat figurine.",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "31a5289ea39eca44.mp4",
+      "question": "After I first used the purple tubing cutter on the thin irrigation lines over the raised bed, where did I set it down before I later picked it up again to cut the thicker main supply line?",
+      "answer": "On the soil inside the raised garden bed.",
+      "mcq_options": "A. On the gravel ground next to the raised bed. B. On the soil inside the raised garden bed. C. On the edge of the raised planter box. D. Inside the blue toolbox with irrigation parts.",
+      "mcq_answer": "B",
+      "category": "Gardening"
+    },
+    {
+      "video_path": "33635869f4013ce3.mp4",
+      "question": "What were the two women I had seen walking ahead of me earlier doing when I encountered them again later in the video?",
+      "answer": "They were standing next to a lamppost with a green banner.",
+      "mcq_options": "A. They were sitting on a wooden bench near a chain-link fence. B. They were standing next to a lamppost with a green banner. C. They were walking along the path while carrying a bright pink bag. D. They were taking a photo in front of the red-brick building decorated with lights.",
+      "mcq_answer": "B",
+      "category": "Outdoor Activities and Sports"
+    },
+    {
+      "video_path": "380e2adf98758c1e.mp4",
+      "question": "After passing the beige house with two top-hatted skeletons, what large Halloween decoration did I see at the next decorated house?",
+      "answer": "A large black spider on the lawn",
+      "mcq_options": "A. A large skeleton wearing a top hat on the lawn B. A giant spider web stretched across the roof C. A large black spider on the lawn D. A deflated ghost inflatable lying in the driveway",
+      "mcq_answer": "C",
+      "category": "Travel-Tourism"
+    },
+    {
+      "video_path": "4959be3d4b58cf56.mp4",
+      "question": "What fruit did I peel, slice, and then cook on the stove, and what did I pour on it while cooking?",
+      "answer": "banana; olive oil",
+      "mcq_options": "A. banana; wine B. banana; coffee C. banana; olive oil D. banana; water",
+      "mcq_answer": "C",
+      "category": "Daily Activities"
+    }
+  ]
+}

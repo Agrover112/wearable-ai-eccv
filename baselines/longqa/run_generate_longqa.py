@@ -99,7 +99,7 @@ def main() -> None:
         "--model-type",
         type=str,
         default="llama4",
-        choices=["llama4", "qwen"],
+        choices=["llama4", "qwen", "generic"],
         help="Model type to use.",
     )
     parser.add_argument(
@@ -125,7 +125,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--uniform-sampling",
-        choices=["legacy", "endpoint_inclusive", "midpoint"],
+        choices=[
+            "legacy",
+            "endpoint_inclusive",
+            "midpoint",
+            "endpoint_guarded_midpoint",
+        ],
         default="legacy",
         help="Uniform frame-position policy for full-video sampling.",
     )
@@ -413,7 +418,7 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
     media_mode = getattr(args, "media_mode", "images")
     if media_mode == "video" and backend != "vllm":
         raise ValueError("video media mode requires the vLLM backend")
-    if args.model_type == "qwen" and backend == "vllm":
+    if backend == "vllm":
         os.environ["VLLM_QWEN_MEDIA_MODE"] = media_mode
     if backend != "vllm":
         setup_gpus(args.num_gpus, args.model_type)
@@ -464,6 +469,8 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
     if resume_count:
         print(f"Resuming predictions from {resume_count}/{len(data)} cached rows")
     mode = "a" if resume_count else "w"
+    import time
+
     with model, open(output_path, mode) as out_f:
         for batch_start in range(resume_count, len(data), batch_size):
             batch = data[batch_start : batch_start + batch_size]
@@ -522,6 +529,7 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 ]
                 for row, timestamps in zip(batch, batch_timestamps)
             ]
+            generation_started = time.perf_counter()
             if getattr(args, "media_mode", "images") == "video":
                 responses = [
                     model.generate_video_frames(
@@ -537,6 +545,8 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                     batch_messages,
                     max_new_tokens=getattr(args, "longqa_max_new_tokens", 16),
                 )
+            generation_seconds = time.perf_counter() - generation_started
+            seconds_per_sample = generation_seconds / max(len(batch), 1)
             responses = _complete_missing_final_answers(
                 model,
                 batch_frames,
@@ -561,6 +571,7 @@ def _run_single(args: object, data: list, output_path: str, video_folder: str) -
                 )
                 pred["frame_timestamps"] = [round(value, 3) for value in timestamps]
                 pred["media_mode"] = getattr(args, "media_mode", "images")
+                pred["generation_seconds"] = round(seconds_per_sample, 3)
                 out_f.write(json.dumps(pred) + "\n")
                 out_f.flush()
             done = min(batch_start + batch_size, len(data))
@@ -589,7 +600,7 @@ def _worker_fn(
     media_mode = getattr(args, "media_mode", "images")
     if media_mode == "video" and getattr(args, "backend", "hf") != "vllm":
         raise ValueError("video media mode requires the vLLM backend")
-    if args.model_type == "qwen" and getattr(args, "backend", "hf") == "vllm":
+    if getattr(args, "backend", "hf") == "vllm":
         os.environ["VLLM_QWEN_MEDIA_MODE"] = media_mode
 
     from model import (

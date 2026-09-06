@@ -1,0 +1,3 @@
+environment=/scratch/inf0/user/agaur/wai-26/envs/nvila-autogaze
+python=Python 3.11.15
+bytes=14840866304

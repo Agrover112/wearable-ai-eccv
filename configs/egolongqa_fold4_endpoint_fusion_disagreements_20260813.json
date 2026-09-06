@@ -1,0 +1,96 @@
+{
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
+  "parent_subset": "/CT/NDF/work/waw-26/configs/egolongqa_balanced_fold4_of5_20260808.json",
+  "selection": "semantic disagreement among supplied predictions",
+  "n": 11,
+  "samples": [
+    {
+      "video_path": "49488192c066cb19.mp4",
+      "question": "Earlier I saw a sign explaining the shoe-covered tree, which mentioned a local hostel responsible for the shoes. Later I passed a building with that hostel's name and a class year on its sign. What was the class year?",
+      "answer": "2024",
+      "mcq_options": "A. 2023 B. 2022 C. 2024 D. 2020",
+      "mcq_answer": "C",
+      "category": "Travel-Sightseeing (Outdoors)"
+    },
+    {
+      "video_path": "4aa4c810fc8c8a91.mp4",
+      "question": "After reading the sign that said 'don't feed waterfowl', where did I later see the waterfowl the sign referred to?",
+      "answer": "On the small grassy island in the lake.",
+      "mcq_options": "A. Swimming near the wooden deck where the sign was posted. B. On the small grassy island in the lake. C. Gathered on the rocky shoreline by the large boulders. D. Wading in the shallow stream near the willow trees.",
+      "mcq_answer": "B",
+      "category": "Travel-Sightseeing (Outdoors)"
+    },
+    {
+      "video_path": "4e0a7d22563cf57f.mp4",
+      "question": "After examining a sweet and sour rice bowl and a chicken-flavored noodle package, what flavor of instant noodle did I reach for on the shelf?",
+      "answer": "Spicy Beef Flavor",
+      "mcq_options": "A. Teriyaki Beef Flavor B. Chicken Flavor C. Spicy Beef Flavor D. Teriyaki Chicken Flavor",
+      "mcq_answer": "C",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "842dab1a391dc72c.mp4",
+      "question": "What was the age range for the boys' section I visited, and what was the highest discount percentage in the girls' clearance section I saw later in the video?",
+      "answer": "4-16 and 75% off",
+      "mcq_options": "A. 4-16 and 75% off B. 4-16 and 40% off C. 12M-5T and 50% off D. 12M-5T and 75% off",
+      "mcq_answer": "A",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "91dd67529b605e34.mp4",
+      "question": "After I examined the dinosaur-themed jewelry, what specific dinosaur was featured on the clothing item I saw later in the store?",
+      "answer": "T-Rex",
+      "mcq_options": "A. Allosaurus B. T-Rex C. Triceratops D. Pteranodon",
+      "mcq_answer": "B",
+      "category": "Shopping"
+    },
+    {
+      "video_path": "99a38ba07d87dc68.mp4",
+      "question": "What formation did I see twice, once before entering the large chamber and again after passing the white frostwork area?",
+      "answer": "The tall column with vertical drapery.",
+      "mcq_options": "A. The rounded stalagmite with a circular hole near the top. B. The flat, light-colored flowstone with cracked patterns. C. The tall column with vertical drapery. D. The wall covered in finger-like calcite formations.",
+      "mcq_answer": "C",
+      "category": "Sightseeing"
+    },
+    {
+      "video_path": "a2756d0d739a9644.mp4",
+      "question": "After I used the aluminum trays for food preparation on the red table, where were they later seen in the video?",
+      "answer": "In the kitchen sink",
+      "mcq_options": "A. On the white dining table B. In the kitchen sink C. On the stove top D. By the tinsel-decorated chair",
+      "mcq_answer": "B",
+      "category": "Events"
+    },
+    {
+      "video_path": "b0f5fc37b845b78a.mp4",
+      "question": "I first noticed a Valentine's display with items priced at $5 near the fish tanks. Later, I interacted with another Valentine's item. What was the price of the item I interacted with, and which animal section had I just come from before that interaction?",
+      "answer": "$19.99, the fish section",
+      "mcq_options": "A. $12.99, the fish section B. $19.99, the reptile section C. $19.99, the fish section D. $12.99, the bird section",
+      "mcq_answer": "C",
+      "category": "Pets, social gatherings with friends and family"
+    },
+    {
+      "video_path": "eb2ca46b8e506463.mp4",
+      "question": "How did the radio display change between when I first saw the yellow diamond sign and when I was stopped behind the HFD-7364 car at the red light?",
+      "answer": "From FM2 97.1 to ENHANCE",
+      "mcq_options": "A. From FM2 97.1 to PLAYERS B. From FM2 97.1 to ENHANCE C. From PLAYERS to ENHANCE D. From ENHANCE to FM2 97.1",
+      "mcq_answer": "B",
+      "category": "Travel-Tourism"
+    },
+    {
+      "video_path": "ef25e0913ba7dcc9.mp4",
+      "question": "What did I start holding after passing the white roses, replacing the phone I had earlier?",
+      "answer": "a bottle",
+      "mcq_options": "A. a tote bag B. a dog leash C. a bottle D. a yellow hat",
+      "mcq_answer": "C",
+      "category": "Gardening"
+    },
+    {
+      "video_path": "efe05555186eeea8.mp4",
+      "question": "What Broadway show did I see listed at the TKTS booth that was also advertised on a billboard later in the video?",
+      "answer": "SIX",
+      "mcq_options": "A. CHICAGO B. WICKED C. SIX D. ALADDIN",
+      "mcq_answer": "C",
+      "category": "Travel-Sightseeing (Outdoors)"
+    }
+  ]
+}

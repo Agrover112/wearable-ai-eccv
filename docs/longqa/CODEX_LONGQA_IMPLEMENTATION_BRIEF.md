@@ -1,7 +1,9 @@
 # Codex Implementation Brief: Wearable AI Challenge 3 / EgoLongQA
 
 **Date:** 2026-07-09
+
 **Track:** Wearable AI Workshop Challenge 3 — Long Video Q&A
+
 **Goal:** Improve multiple-choice LongQA validation accuracy while reducing reliance on answer-option shortcuts.
 
 ---

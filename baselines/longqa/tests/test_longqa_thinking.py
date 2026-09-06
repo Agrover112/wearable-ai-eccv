@@ -173,6 +173,10 @@ class LongQAThinkingTests(unittest.TestCase):
             generate_batch.call_args.kwargs["thinking_token_budget"],
             0,
         )
+        self.assertIs(
+            generate_batch.call_args.kwargs["enable_thinking"],
+            False,
+        )
 
     def test_qwen35_disables_thinking_by_default(self):
         with patch.dict("os.environ", {}, clear=True):
@@ -192,6 +196,16 @@ class LongQAThinkingTests(unittest.TestCase):
             request["chat_template_kwargs"],
             {"enable_thinking": True},
         )
+
+    def test_qwen38_uses_qwen_gdn_defaults(self):
+        with patch.dict("os.environ", {}, clear=True):
+            model = VLLMModel("Qwen/Qwen3.8-27B")
+        request = model._apply_chat_template_options({"model": model.model_id})
+        self.assertEqual(
+            request["chat_template_kwargs"],
+            {"enable_thinking": False},
+        )
+        self.assertEqual(model._gdn_prefill_backend, "triton")
 
     def test_qwen3vl_request_behavior_is_unchanged(self):
         with patch.dict("os.environ", {}, clear=True):

@@ -1,0 +1,5 @@
+completed_utc=2026-09-01T12:22:34Z
+protected_archive=/scratch/inf0/user/agaur/wai-26/test_submission/qwen35_27b_dual_view_fusion_v2/artifacts/kth-saar-qwen35-dual-view-v3.tar
+protected_archive_bytes=67720555008
+protected_archive_sha256_record=d467137d5e3bfcd41dba817aa2e5f8643d72ff54fe39b5a3b764e63735f8db0d
+protected_ecr_reference=510788268643.dkr.ecr.us-east-2.amazonaws.com/wearable-ai-2026/kth-saar@sha256:1408a9dd1e17af9017a9349e2f77e7998564295d8c21da06552f8dd86eeff5d0

@@ -1,0 +1,13 @@
+{
+  "build_id": "qwen35-27b-dual-view-fusion-v2-recovery",
+  "base_image_digest": "sha256:5f8fad0c6994534b117613127d2f11b14f36551bc10866f30a909a32738fbe73",
+  "qwen_snapshot": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "siglip2_snapshot": "e8e487298228002f3d8a82e0cd5c8ea9c567f57f",
+  "changes": [
+    "Qwen remains on GPU 0 while SigLIP2 runs independently on GPU 1",
+    "Qwen context window reduced from 49152 to 32768 tokens, above the recorded 28250-token validation maximum",
+    "vLLM GPU memory reservation reduced from 0.95 to 0.90",
+    "SigLIP2 retrieval batch size reduced to 8 and temporary retrieval tensors are released after selection",
+    "full vLLM logs and startup diagnostics persist beside predictions"
+  ]
+}

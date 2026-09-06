@@ -1,0 +1,6 @@
+captured_utc=2026-09-01T14:12:54Z
+host=wks-12-94
+kernel=Linux 6.6.144.1.amd64-smp x86_64 GNU/Linux
+workspace=/CT/NDF/work/waw-26
+environment=/CT/NDF/work/miniforge3/envs/wearable-ai
+python=Python 3.10.20

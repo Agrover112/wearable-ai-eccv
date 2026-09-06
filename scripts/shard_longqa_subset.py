@@ -13,6 +13,9 @@ def main() -> None:
     parser.add_argument("--input", required=True)
     parser.add_argument("--shards", type=int, required=True)
     parser.add_argument("--output-pattern", required=True)
+    parser.add_argument(
+        "--mode", choices=("round_robin", "contiguous"), default="round_robin"
+    )
     args = parser.parse_args()
     if args.shards < 1 or "{shard}" not in args.output_pattern:
         raise ValueError("--shards must be positive and output pattern must contain {shard}")
@@ -22,7 +25,12 @@ def main() -> None:
     if not isinstance(samples, list):
         raise ValueError("subset JSON must contain a samples list")
     for shard in range(args.shards):
-        selected = samples[shard::args.shards]
+        if args.mode == "round_robin":
+            selected = samples[shard::args.shards]
+        else:
+            start = len(samples) * shard // args.shards
+            end = len(samples) * (shard + 1) // args.shards
+            selected = samples[start:end]
         output = Path(args.output_pattern.format(shard=shard))
         output.parent.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -30,6 +38,7 @@ def main() -> None:
             "n": len(selected),
             "shard": shard,
             "num_shards": args.shards,
+            "shard_mode": args.mode,
             "parent_subset": str(Path(args.input).resolve()),
             "samples": selected,
         }

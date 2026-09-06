@@ -149,10 +149,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-folder", default="../egolongqa/val")
     parser.add_argument(
         "--output-dir",
-        default=os.environ.get(
-            "FRAME_AUDIT_DIR",
-            os.path.join(os.environ.get("SCRATCH_CACHE_ROOT", "/tmp"), "frame_audits"),
-        ),
+        default="/scratch/inf0/user/agaur/wai-26/data/wearable-ai/frame_audits",
         help="Directory for exported JPEGs/contact sheets/metadata.",
     )
     parser.add_argument(

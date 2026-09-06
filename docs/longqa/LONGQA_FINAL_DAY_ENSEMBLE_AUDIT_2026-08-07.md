@@ -114,3 +114,35 @@ at most the best one or two candidates, then test only endpoint-preserving
 rules between direct answerers. Endpoint-only remains the runtime-safe
 submission; the `613/700` temporal route remains the accuracy submission unless
 a predeclared new candidate or route surpasses it.
+
+## Completed Evidence Gates
+
+Five direct candidates completed on dev140. The reasoning-enabled endpoint
+candidate remains unscored because its answer-only retry failed before writing
+a prediction; that retry path has now been corrected.
+
+| Candidate | Correct | Accuracy | Fixes over endpoint | Regressions |
+| --- | ---: | ---: | ---: | ---: |
+| Endpoint-64 reference | 130/140 | 92.86% | - | - |
+| Endpoint-48 | 124/140 | 88.57% | 3 | 9 |
+| Timestamped option verification | 116/140 | 82.86% | 0 | 14 |
+| Balanced option-quota | 121/140 | 86.43% | 3 | 12 |
+| Endpoint-48 + MMR retrieval | 125/140 | 89.29% | 5 | 10 |
+| Endpoint-48 + RRF-MMR retrieval | 123/140 | 87.86% | 5 | 12 |
+
+The experiment does not support the simple distractor-density hypothesis:
+removing 16 global frames costs six correct answers. Explicit timestamps plus
+option-by-option verification is also a clear negative result and recovers no
+endpoint mistake. Balanced option allocation confirms that the historical
+one-center behavior was not hiding a stronger option-quota result.
+
+MMR is the best new retrieval branch and repairs five endpoint mistakes, but it
+also changes ten correct endpoint answers to wrong ones. RRF does not improve
+the ranking: its selected packs overlap MMR by `62.85/64` frames on average,
+and the two resulting answer differences are both harmful. A plurality of all
+six completed candidates scores `129/140`; their oracle is `135/140`.
+Consequently none passes the frozen promotion gate and no val560 expansion is
+recommended. The current primary remains the `613/700` temporal route.
+
+The machine-readable result is
+`analysis/longqa_final_day_evidence_candidates_dev140_2026-08-08.json`.

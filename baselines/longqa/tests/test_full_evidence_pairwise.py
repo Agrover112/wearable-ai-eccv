@@ -5,9 +5,9 @@ import sys
 import unittest
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-sys.path.insert(0, str(REPO_ROOT / "baselines" / "longqa"))
+sys.path.insert(0, str(REPO_ROOT / "data" / "wearable-ai" / "starter_kit"))
 
 from evaluate_longqa_full_evidence_pairwise import pairwise_decision
 from run_score_longqa_full_evidence_pairwise import (

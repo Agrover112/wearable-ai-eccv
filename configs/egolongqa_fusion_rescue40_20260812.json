@@ -1,0 +1,792 @@
+{
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
+  "n": 40,
+  "seed": 20260812,
+  "diagnostic_only": true,
+  "selection_uses_validation_labels": true,
+  "description": "Forty diverse errors made by the 618/700 mean-probability fusion pipeline.",
+  "promotion_rule": "Use this set for rapid diagnosis only. Confirm any frozen method on a balanced fold that was not used to design it before full validation.",
+  "samples": [
+    {
+      "index": 5,
+      "key": "02597f9f4c0ec8cc.mp4||After I entered the building through the revolving doors, what was the first display I encountered, and which store that I had seen on the exterior did I later see again inside?",
+      "video_path": "02597f9f4c0ec8cc.mp4",
+      "question": "After I entered the building through the revolving doors, what was the first display I encountered, and which store that I had seen on the exterior did I later see again inside?",
+      "category": "Travel-Tourism",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "first_last",
+        "before_after",
+        "repeated_occurrence"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 17,
+      "key": "0789bad7468e72b3.mp4||After the woman finished examining scarves, what was the first clothing item she looked at, and what was the last clothing item she interacted with in the video?",
+      "video_path": "0789bad7468e72b3.mp4",
+      "question": "After the woman finished examining scarves, what was the first clothing item she looked at, and what was the last clothing item she interacted with in the video?",
+      "category": "Shopping",
+      "answer": "C",
+      "operator": "MULTI_TIME",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "first_last",
+        "before_after"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 45,
+      "key": "13604bf4b9661f8b.mp4||After I saw the 'NO PED CROSSING' sign, I later passed a car wash. What was the name of the pharmacy I saw between those two points?",
+      "video_path": "13604bf4b9661f8b.mp4",
+      "question": "After I saw the 'NO PED CROSSING' sign, I later passed a car wash. What was the name of the pharmacy I saw between those two points?",
+      "category": "Travel-Tourism",
+      "answer": "B",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_seen_by_one_rank_view_but_not_selected",
+      "question_tags": [
+        "before_after",
+        "repeated_occurrence",
+        "ocr_or_fine_text"
+      ],
+      "correct_direct_candidates": [
+        "option27",
+        "pivot9",
+        "uncertainty9",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 46,
+      "key": "13aea9ab404e96a6.mp4||Earlier I saw a decorated jar from the Middle Predynastic period, and later a silver ewer from the Early Byzantine era. What is the approximate number of years between the creation of these two artifacts?",
+      "video_path": "13aea9ab404e96a6.mp4",
+      "question": "Earlier I saw a decorated jar from the Middle Predynastic period, and later a silver ewer from the Early Byzantine era. What is the approximate number of years between the creation of these two artifacts?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "answer": "C",
+      "operator": "MULTI_TIME",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "repeated_occurrence",
+        "ocr_or_fine_text",
+        "counting"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 59,
+      "key": "19176681c6d16bdb.mp4||What tool did I retrieve from the kitchen drawer, and what did I use it for later in the video?",
+      "video_path": "19176681c6d16bdb.mp4",
+      "question": "What tool did I retrieve from the kitchen drawer, and what did I use it for later in the video?",
+      "category": "Hobbies-Daily Activities",
+      "answer": "B",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "repeated_occurrence"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27",
+        "endpoint9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 137,
+      "key": "316ebd12dea8cd7c.mp4||What did the companion put on between when we were at the crosswalk and when we were on the bridge?",
+      "video_path": "316ebd12dea8cd7c.mp4",
+      "question": "What did the companion put on between when we were at the crosswalk and when we were on the bridge?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "answer": "C",
+      "operator": "STATE_CHANGE",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "other"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 139,
+      "key": "31a5289ea39eca44.mp4||After I first used the purple tubing cutter on the thin irrigation lines over the raised bed, where did I set it down before I later picked it up again to cut the thicker main supply line?",
+      "video_path": "31a5289ea39eca44.mp4",
+      "question": "After I first used the purple tubing cutter on the thin irrigation lines over the raised bed, where did I set it down before I later picked it up again to cut the thicker main supply line?",
+      "category": "Gardening",
+      "answer": "B",
+      "operator": "MULTI_TIME",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "first_last",
+        "before_after",
+        "repeated_occurrence",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27",
+        "endpoint9",
+        "pivot9",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 160,
+      "key": "36f814e6c5afda98.mp4||After I saw the woman in black in the produce section, where did I next see her in the store?",
+      "video_path": "36f814e6c5afda98.mp4",
+      "question": "After I saw the woman in black in the produce section, where did I next see her in the store?",
+      "category": "Shopping",
+      "answer": "B",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_seen_by_one_rank_view_but_not_selected",
+      "question_tags": [
+        "before_after",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "option27",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 177,
+      "key": "3be840b7358c22ee.mp4||Where did I store the black top with a white tag that I folded on the rug?",
+      "video_path": "3be840b7358c22ee.mp4",
+      "question": "Where did I store the black top with a white tag that I folded on the rug?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "ocr_or_fine_text",
+        "location"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 202,
+      "key": "43f136ac06780df7.mp4||Shortly after entering the exhibition, I saw a stencil artwork of a maid lifting a corner of a rug to reveal bricks underneath; later, I noticed a plaque with details about this piece. According to the plaque, in what year and where was this artwork originally created?",
+      "video_path": "43f136ac06780df7.mp4",
+      "question": "Shortly after entering the exhibition, I saw a stencil artwork of a maid lifting a corner of a rug to reveal bricks underneath; later, I noticed a plaque with details about this piece. According to the plaque, in what year and where was this artwork originally created?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "before_after",
+        "repeated_occurrence",
+        "ocr_or_fine_text",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "pivot9",
+        "uncertainty9"
+      ],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 228,
+      "key": "4b665c6c345137ea.mp4||What structure did I see crossing the stream that I had not seen at the pond earlier in my walk?",
+      "video_path": "4b665c6c345137ea.mp4",
+      "question": "What structure did I see crossing the stream that I had not seen at the pond earlier in my walk?",
+      "category": "Travel-Tourism",
+      "answer": "B",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "other"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 273,
+      "key": "5ab7030a02f30518.mp4||Why did I relocate the yoga mat from its initial position before starting floor exercises?",
+      "video_path": "5ab7030a02f30518.mp4",
+      "question": "Why did I relocate the yoga mat from its initial position before starting floor exercises?",
+      "category": "Daily Activities",
+      "answer": "B",
+      "operator": "BEFORE",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "before_after"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 298,
+      "key": "635a2b36939ba236.mp4||After walking on Brea Blvd, I recalled the intersection where I saw the 'Brea's Best' sign earlier; what was the name of the cross street at that intersection?",
+      "video_path": "635a2b36939ba236.mp4",
+      "question": "After walking on Brea Blvd, I recalled the intersection where I saw the 'Brea's Best' sign earlier; what was the name of the cross street at that intersection?",
+      "category": "Hiking-Outdoors",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "before_after",
+        "ocr_or_fine_text",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27",
+        "endpoint9",
+        "pivot9",
+        "uncertainty9",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 301,
+      "key": "65a90174fbf6abee.mp4||In the artist statement I read near the end of the gallery, the artist mentioned using a sock as a tool. Which artwork that I viewed earlier in the gallery depicted a sock?",
+      "video_path": "65a90174fbf6abee.mp4",
+      "question": "In the artist statement I read near the end of the gallery, the artist mentioned using a sock as a tool. Which artwork that I viewed earlier in the gallery depicted a sock?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "answer": "B",
+      "operator": "LAST",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "other"
+      ],
+      "correct_direct_candidates": [
+        "endpoint9",
+        "pivot9",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 306,
+      "key": "679d05f7c76f25e0.mp4||When I first examined a tweed jacket, what discount was advertised in that section, and was a discount sign visible when I later examined a similar tweed jacket in a different color?",
+      "video_path": "679d05f7c76f25e0.mp4",
+      "question": "When I first examined a tweed jacket, what discount was advertised in that section, and was a discount sign visible when I later examined a similar tweed jacket in a different color?",
+      "category": "Shopping",
+      "answer": "C",
+      "operator": "FIRST",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "first_last",
+        "repeated_occurrence",
+        "ocr_or_fine_text",
+        "attribute"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 308,
+      "key": "67d2bd73430ff38e.mp4||What color were the stickers I placed immediately before and immediately after I flipped to sticker sheet A, and where on the template were they located?",
+      "video_path": "67d2bd73430ff38e.mp4",
+      "question": "What color were the stickers I placed immediately before and immediately after I flipped to sticker sheet A, and where on the template were they located?",
+      "category": "Hobbies-Daily Activities",
+      "answer": "C",
+      "operator": "MULTI_TIME",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "before_after",
+        "attribute",
+        "location"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 315,
+      "key": "68f002c1fab08f95.mp4||What did I do with the black jacket I took from the closet and placed on the bed?",
+      "video_path": "68f002c1fab08f95.mp4",
+      "question": "What did I do with the black jacket I took from the closet and placed on the bed?",
+      "category": "Fashion Advice",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "other"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 323,
+      "key": "6cdb8f146c432312.mp4||I saw a pair of women walking on the sidewalk at two different times; what did they do between those two observations?",
+      "video_path": "6cdb8f146c432312.mp4",
+      "question": "I saw a pair of women walking on the sidewalk at two different times; what did they do between those two observations?",
+      "category": "Sightseeing",
+      "answer": "B",
+      "operator": "STATE_CHANGE",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "other"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 324,
+      "key": "6d5b8909cd6e4538.mp4||After I first touched the tomatoes, what fruit did I later pick, and what dairy item was in my basket when I reached the meat section?",
+      "video_path": "6d5b8909cd6e4538.mp4",
+      "question": "After I first touched the tomatoes, what fruit did I later pick, and what dairy item was in my basket when I reached the meat section?",
+      "category": "Shopping",
+      "answer": "B",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "first_last",
+        "before_after",
+        "repeated_occurrence"
+      ],
+      "correct_direct_candidates": [
+        "uncertainty9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 339,
+      "key": "74edd72c3cbee70f.mp4||After I viewed the custom closet displays, what product did I hold that was made in Lithuania?",
+      "video_path": "74edd72c3cbee70f.mp4",
+      "question": "After I viewed the custom closet displays, what product did I hold that was made in Lithuania?",
+      "category": "Shopping",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "before_after"
+      ],
+      "correct_direct_candidates": [
+        "pivot9",
+        "uncertainty9",
+        "siglip9"
+      ],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 341,
+      "key": "7593bd8121dcfd39.mp4||Which main structure did I assemble first according to the instruction manual, and what was the last step number I completed for it before switching to a new structure?",
+      "video_path": "7593bd8121dcfd39.mp4",
+      "question": "Which main structure did I assemble first according to the instruction manual, and what was the last step number I completed for it before switching to a new structure?",
+      "category": "Daily Activities",
+      "answer": "C",
+      "operator": "MULTI_TIME",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_seen_by_one_rank_view_but_not_selected",
+      "question_tags": [
+        "first_last",
+        "before_after",
+        "ocr_or_fine_text"
+      ],
+      "correct_direct_candidates": [
+        "option27"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 345,
+      "key": "76cd872d8785dae8.mp4||What vehicle left the tread marks on the lawn that I saw early in the video, and where did I later see that vehicle?",
+      "video_path": "76cd872d8785dae8.mp4",
+      "question": "What vehicle left the tread marks on the lawn that I saw early in the video, and where did I later see that vehicle?",
+      "category": "Gardening",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_seen_by_one_rank_view_but_not_selected",
+      "question_tags": [
+        "repeated_occurrence",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "option27"
+      ],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 386,
+      "key": "86cf704fac7bb2ba.mp4||Early in the video, I saw a boarding axe displayed alongside firearms in a case about lock mechanisms. Later, I saw a similar boarding axe in a different exhibit. What was the title of the later exhibit where the boarding axe was displayed?",
+      "video_path": "86cf704fac7bb2ba.mp4",
+      "question": "Early in the video, I saw a boarding axe displayed alongside firearms in a case about lock mechanisms. Later, I saw a similar boarding axe in a different exhibit. What was the title of the later exhibit where the boarding axe was displayed?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "answer": "C",
+      "operator": "STATE_CHANGE",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "repeated_occurrence",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27",
+        "uncertainty9"
+      ],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 387,
+      "key": "871fb7842cf193f1.mp4||Which area of the canvas retained visible numbers the longest before I painted over it, and what color did I use to cover it?",
+      "video_path": "871fb7842cf193f1.mp4",
+      "question": "Which area of the canvas retained visible numbers the longest before I painted over it, and what color did I use to cover it?",
+      "category": "Daily Activities",
+      "answer": "C",
+      "operator": "BEFORE",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "before_after",
+        "ocr_or_fine_text",
+        "attribute"
+      ],
+      "correct_direct_candidates": [
+        "uncertainty9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 397,
+      "key": "88ee65ccc88209f0.mp4||What was the final use of the red cup that I first saw on the entry table and later placed on the coffee table?",
+      "video_path": "88ee65ccc88209f0.mp4",
+      "question": "What was the final use of the red cup that I first saw on the entry table and later placed on the coffee table?",
+      "category": "Events",
+      "answer": "B",
+      "operator": "FIRST",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "first_last",
+        "repeated_occurrence"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27",
+        "uncertainty9"
+      ],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 416,
+      "key": "8ebdd2fe6a852602.mp4||What did the scooter rider do after I first saw them waiting at the corner near Cohen's Fashion Optical?",
+      "video_path": "8ebdd2fe6a852602.mp4",
+      "question": "What did the scooter rider do after I first saw them waiting at the corner near Cohen's Fashion Optical?",
+      "category": "Sightseeing",
+      "answer": "B",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "all_direct_candidates_and_both_rank_views_miss",
+      "question_tags": [
+        "first_last",
+        "before_after"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 446,
+      "key": "9b21ee598535c519.mp4||What was the number of crowns on the domino I placed immediately after the opponent placed the windmill tile in their kingdom?",
+      "video_path": "9b21ee598535c519.mp4",
+      "question": "What was the number of crowns on the domino I placed immediately after the opponent placed the windmill tile in their kingdom?",
+      "category": "Daily Activities",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "before_after",
+        "ocr_or_fine_text",
+        "counting"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 470,
+      "key": "a2756d0d739a9644.mp4||After I used the aluminum trays for food preparation on the red table, where were they later seen in the video?",
+      "video_path": "a2756d0d739a9644.mp4",
+      "question": "After I used the aluminum trays for food preparation on the red table, where were they later seen in the video?",
+      "category": "Events",
+      "answer": "B",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "fusion_regression",
+      "question_tags": [
+        "before_after",
+        "repeated_occurrence",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "endpoint27",
+        "endpoint9",
+        "pivot9"
+      ],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 477,
+      "key": "a58e93d717750fbf.mp4||Based on the plaques I read, how many years apart were the Ko\u015bciuszko monument and the 'Bell' sculpture created?",
+      "video_path": "a58e93d717750fbf.mp4",
+      "question": "Based on the plaques I read, how many years apart were the Ko\u015bciuszko monument and the 'Bell' sculpture created?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "ocr_or_fine_text",
+        "counting"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 495,
+      "key": "acb3d780d280f0b6.mp4||After starting a workout at the first intersection I waited at, what distance did my watch show when I later checked it after passing a stop sign?",
+      "video_path": "acb3d780d280f0b6.mp4",
+      "question": "After starting a workout at the first intersection I waited at, what distance did my watch show when I later checked it after passing a stop sign?",
+      "category": "Sightseeing",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "all_direct_candidates_and_both_rank_views_miss",
+      "question_tags": [
+        "first_last",
+        "before_after",
+        "repeated_occurrence",
+        "ocr_or_fine_text"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 3
+    },
+    {
+      "index": 527,
+      "key": "bbf5f37b642d5756.mp4||What did I relocate from the wall near the purple streamers to the whiteboard?",
+      "video_path": "bbf5f37b642d5756.mp4",
+      "question": "What did I relocate from the wall near the purple streamers to the whiteboard?",
+      "category": "Events",
+      "answer": "B",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_seen_by_one_rank_view_but_not_selected",
+      "question_tags": [
+        "other"
+      ],
+      "correct_direct_candidates": [
+        "option27",
+        "endpoint9",
+        "uncertainty9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 551,
+      "key": "c894c42c5e02dec9.mp4||What did the white dog do after I first saw it lying on the mat and before I saw the man performing a reverse plank?",
+      "video_path": "c894c42c5e02dec9.mp4",
+      "question": "What did the white dog do after I first saw it lying on the mat and before I saw the man performing a reverse plank?",
+      "category": "Pets, social gatherings with friends and family",
+      "answer": "C",
+      "operator": "MULTI_TIME",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "first_last",
+        "before_after"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 587,
+      "key": "d9e802102d6400ba.mp4||I first saw a wall panel about Acadian textile traditions mentioning a special cotton cultivar, and later I saw a display case with textile materials in that color. What was the name of the cotton cultivar?",
+      "video_path": "d9e802102d6400ba.mp4",
+      "question": "I first saw a wall panel about Acadian textile traditions mentioning a special cotton cultivar, and later I saw a display case with textile materials in that color. What was the name of the cotton cultivar?",
+      "category": "Sightseeing",
+      "answer": "C",
+      "operator": "FIRST",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "first_last",
+        "repeated_occurrence",
+        "ocr_or_fine_text",
+        "attribute"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 1
+    },
+    {
+      "index": 624,
+      "key": "e531f121a4a804ad.mp4||I passed a clearing with signboards and picnic tables, then later saw a metal corral; what did these indicate about the area that was confirmed by the sign I saw near the ocean?",
+      "video_path": "e531f121a4a804ad.mp4",
+      "question": "I passed a clearing with signboards and picnic tables, then later saw a metal corral; what did these indicate about the area that was confirmed by the sign I saw near the ocean?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "answer": "B",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "repeated_occurrence",
+        "ocr_or_fine_text"
+      ],
+      "correct_direct_candidates": [
+        "endpoint9",
+        "pivot9",
+        "uncertainty9",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 630,
+      "key": "e6c6bf80b923fecb.mp4||After I walked past the orange traffic cone near the chain-link fence, what color was the slide on the playground structure that my dog later climbed?",
+      "video_path": "e6c6bf80b923fecb.mp4",
+      "question": "After I walked past the orange traffic cone near the chain-link fence, what color was the slide on the playground structure that my dog later climbed?",
+      "category": "Hiking-Outdoors",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "before_after",
+        "repeated_occurrence",
+        "attribute"
+      ],
+      "correct_direct_candidates": [
+        "endpoint9",
+        "uncertainty9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 645,
+      "key": "eab60fc3ebd45353.mp4||Early in my walk I picked a dark olive from the ground under a tree with multiple trunks and basal shoots. Later, near the playground, I picked another olive directly from a tree. What color was the second olive and how did that tree's structure differ from the first?",
+      "video_path": "eab60fc3ebd45353.mp4",
+      "question": "Early in my walk I picked a dark olive from the ground under a tree with multiple trunks and basal shoots. Later, near the playground, I picked another olive directly from a tree. What color was the second olive and how did that tree's structure differ from the first?",
+      "category": "Gardening",
+      "answer": "C",
+      "operator": "FIRST",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "first_last",
+        "repeated_occurrence",
+        "attribute"
+      ],
+      "correct_direct_candidates": [
+        "pivot9",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 650,
+      "key": "edaffe97b6620535.mp4||After the person in the Harry Potter robe entered the gym, did I see them again, and if not, what other costumed character did I see that was also wearing a robe?",
+      "video_path": "edaffe97b6620535.mp4",
+      "question": "After the person in the Harry Potter robe entered the gym, did I see them again, and if not, what other costumed character did I see that was also wearing a robe?",
+      "category": "Sightseeing",
+      "answer": "B",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "before_after",
+        "repeated_occurrence",
+        "attribute"
+      ],
+      "correct_direct_candidates": [
+        "endpoint9",
+        "pivot9",
+        "uncertainty9",
+        "siglip9",
+        "option9"
+      ],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 652,
+      "key": "ef2ef1313755ec07.mp4||What changed about the leaf on the stone parapet between the first time I saw it at the river overlook and when I checked it again later?",
+      "video_path": "ef2ef1313755ec07.mp4",
+      "question": "What changed about the leaf on the stone parapet between the first time I saw it at the river overlook and when I checked it again later?",
+      "category": "Gardening",
+      "answer": "B",
+      "operator": "FIRST",
+      "selection_role": "rescue",
+      "failure_bucket": "endpoint_option_consensus_wrong_unscored",
+      "question_tags": [
+        "first_last",
+        "repeated_occurrence"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 690,
+      "key": "fdb3a314f0780b11.mp4||I used a yellow bucket with an outdoor pump and later filled it in the bathtub. Where did I take it after leaving the bathroom?",
+      "video_path": "fdb3a314f0780b11.mp4",
+      "question": "I used a yellow bucket with an outdoor pump and later filled it in the bathtub. Where did I take it after leaving the bathroom?",
+      "category": "Daily Activities",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "rescue",
+      "failure_bucket": "all_direct_candidates_and_both_rank_views_miss",
+      "question_tags": [
+        "before_after",
+        "repeated_occurrence",
+        "location"
+      ],
+      "correct_direct_candidates": [],
+      "direct_answer_count": 2
+    },
+    {
+      "index": 698,
+      "key": "73794817c7d14657.mp4||Where did the red snack bag that was on the floor next to the suitcase end up later in the video?",
+      "video_path": "73794817c7d14657.mp4",
+      "question": "Where did the red snack bag that was on the floor next to the suitcase end up later in the video?",
+      "category": "Travel-Tourism",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "rescue",
+      "failure_bucket": "correct_direct_candidate_available_but_rank_views_miss",
+      "question_tags": [
+        "repeated_occurrence",
+        "location"
+      ],
+      "correct_direct_candidates": [
+        "option9"
+      ],
+      "direct_answer_count": 2
+    }
+  ]
+}

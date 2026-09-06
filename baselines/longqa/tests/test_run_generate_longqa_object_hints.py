@@ -36,6 +36,11 @@ class ObjectHintTests(unittest.TestCase):
         self.assertTrue(any("kettle" in concept for concept in concepts))
         self.assertNotIn("after", concepts)
 
+    def test_question_only_concepts_exclude_distractor_objects(self):
+        concepts = extract_object_concepts(self.row, source="question")
+        self.assertTrue(any("cup" in concept for concept in concepts))
+        self.assertFalse(any("kettle" in concept for concept in concepts))
+
     def test_detection_indices_combine_focused_and_uniform(self):
         indices = choose_detection_indices(
             self.selected, total_frames=100, proofpack_count=4, uniform_count=4

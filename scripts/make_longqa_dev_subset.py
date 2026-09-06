@@ -12,7 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STARTER_KIT = REPO_ROOT / "baselines" / "longqa"
+STARTER_KIT = REPO_ROOT / "data" / "wearable-ai" / "starter_kit"
 sys.path.insert(0, str(STARTER_KIT))
 
 from longqa_utils import has_temporal_cue, load_jsonl, normalize_answer, sample_key
@@ -23,7 +23,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--annotations",
         default=str(
-            REPO_ROOT / "data/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl"
+            REPO_ROOT
+            / "data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl"
         ),
     )
     parser.add_argument("--n", type=int, default=140)

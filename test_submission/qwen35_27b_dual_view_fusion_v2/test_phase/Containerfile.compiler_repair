@@ -1,0 +1,15 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Triton builds a small CUDA driver helper when vLLM first profiles the visual
+# encoder. The runtime image omitted both a C compiler and Python headers.
+RUN apt-get -o APT::Sandbox::User=root update \
+    && DEBIAN_FRONTEND=noninteractive apt-get -o APT::Sandbox::User=root install -y \
+        --no-install-recommends \
+        build-essential \
+        python3.10-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CC=/usr/bin/gcc

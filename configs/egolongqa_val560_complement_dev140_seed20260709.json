@@ -1,7 +1,7 @@
 {
-  "source": "wearable_ai_2026_egolongqa_val_700.jsonl",
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
   "n": 560,
-  "complement_of": "egolongqa_dev140_seed20260709.json",
+  "complement_of": "/CT/NDF/work/waw-26/configs/egolongqa_dev140_seed20260709.json",
   "samples": [
     {
       "index": 0,

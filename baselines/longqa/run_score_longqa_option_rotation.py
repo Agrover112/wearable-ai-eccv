@@ -41,7 +41,8 @@ def _probabilities(scores: dict[str, float]) -> dict[str, float]:
 
 def _fingerprint(args: argparse.Namespace) -> str:
     payload = {
-        "evidence": os.path.abspath(args.evidence_predictions),
+        "evidence": sorted(os.path.abspath(path) for path in args.evidence_predictions),
+        "evidence_key": args.evidence_key,
         "model": args.llm_model,
         "rotations": args.option_rotations,
         "subset": os.path.abspath(args.subset_file) if args.subset_file else None,
@@ -60,7 +61,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-folder", default="../egolongqa/val")
     parser.add_argument("--subset-file", default=None)
     parser.add_argument("--max-samples", type=int, default=None)
-    parser.add_argument("--evidence-predictions", required=True)
+    parser.add_argument("--evidence-predictions", action="append", required=True)
+    parser.add_argument(
+        "--evidence-key",
+        default="multicandidate_judge_frames",
+        help=(
+            "Field containing frame indices. Supports integer lists, lists of "
+            "objects with frame_index, and dot-separated nested fields."
+        ),
+    )
     parser.add_argument("--output", required=True)
     parser.add_argument("--llm-model", default="Qwen/Qwen3.5-27B")
     parser.add_argument("--max-frames", type=int, default=64)
@@ -71,6 +80,28 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _nested_value(record: dict[str, Any], key: str) -> object:
+    value: object = record
+    for part in key.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return None
+        value = value[part]
+    return value
+
+
+def _frame_indices(record: dict[str, Any], key: str) -> list[int]:
+    values = _nested_value(record, key)
+    if not isinstance(values, list):
+        return []
+    indices = []
+    for value in values:
+        if isinstance(value, dict):
+            value = value.get("frame_index")
+        if value is not None:
+            indices.append(int(value))
+    return indices
+
+
 def main() -> None:
     from model import VLLMModel, reset_prompt_token_stats, summarize_prompt_token_stats
     from run_generate_longqa import _print_context_summary
@@ -79,7 +110,12 @@ def main() -> None:
     rows = apply_subset(load_jsonl(_resolve(args.input)), args.subset_file)
     if args.max_samples is not None:
         rows = rows[: args.max_samples]
-    evidence = _index_jsonl(_resolve(args.evidence_predictions))
+    evidence: dict[str, dict[str, Any]] = {}
+    for path in args.evidence_predictions:
+        for key, record in _index_jsonl(_resolve(path)).items():
+            if key in evidence:
+                raise ValueError(f"Duplicate evidence key across inputs: {key}")
+            evidence[key] = record
     missing = [sample_key(row) for row in rows if sample_key(row) not in evidence]
     if missing:
         raise RuntimeError(f"Evidence predictions are missing {len(missing)} rows")
@@ -120,7 +156,7 @@ def main() -> None:
             row_begun = time.perf_counter()
             key = sample_key(row)
             source = evidence[key]
-            indices = [int(value) for value in source.get("multicandidate_judge_frames", [])]
+            indices = _frame_indices(source, args.evidence_key)
             if len(indices) != args.max_frames or len(set(indices)) != args.max_frames:
                 raise RuntimeError(
                     f"Expected {args.max_frames} unique recorded evidence frames for {key}; "

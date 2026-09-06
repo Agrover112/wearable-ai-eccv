@@ -1,0 +1,7 @@
+deleted_utc=2026-09-01T14:10:44Z
+deleted_path=/scratch/inf0/user/agaur/wai-26
+recorded_bytes=392437898240
+restoration_document=documentation/SCRATCH_ASSET_RESTORATION.md
+restoration_script=scripts/maintenance/restore_wearable_ai_assets.sh
+final_image_sha256=d467137d5e3bfcd41dba817aa2e5f8643d72ff54fe39b5a3b764e63735f8db0d
+final_image_local_archive=deleted

@@ -350,6 +350,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--llm-model", default="Qwen/Qwen3.5-9B")
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--max-samples", type=int, default=None)
+    parser.add_argument(
+        "--selection-only",
+        action="store_true",
+        help="Write hierarchical frame selections without running the final answer call.",
+    )
     parser.add_argument("--no-resume", action="store_true")
     args = parser.parse_args()
     if args.local_frames + args.global_frames > args.max_frames:
@@ -358,7 +363,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def fingerprint(args: argparse.Namespace) -> str:
-    ignored = {"output", "selection_output", "eval_output", "no_resume", "max_samples"}
+    ignored = {
+        "output", "selection_output", "eval_output", "no_resume", "max_samples",
+        "selection_only",
+    }
     payload = {key: value for key, value in vars(args).items() if key not in ignored}
     return hashlib.sha1(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
@@ -390,16 +398,21 @@ def main() -> None:
     existing_selections = [] if args.no_resume or not os.path.exists(selection_path) else load_jsonl(selection_path)
     start = 0
     for index, row in enumerate(rows):
-        if index >= len(existing_predictions) or index >= len(existing_selections):
+        if index >= len(existing_selections):
             break
-        if (
-            sample_key(existing_predictions[index]) != sample_key(row)
-            or existing_predictions[index].get("hierarchical_fingerprint") != run_fingerprint
-            or existing_selections[index].get("hierarchical_fingerprint") != run_fingerprint
-        ):
+        selection_valid = (
+            existing_selections[index].get("sample_key") == sample_key(row)
+            and existing_selections[index].get("hierarchical_fingerprint") == run_fingerprint
+        )
+        prediction_valid = args.selection_only or (
+            index < len(existing_predictions)
+            and sample_key(existing_predictions[index]) == sample_key(row)
+            and existing_predictions[index].get("hierarchical_fingerprint") == run_fingerprint
+        )
+        if not selection_valid or not prediction_valid:
             break
         start += 1
-    write_rows(output_path, existing_predictions[:start])
+    write_rows(output_path, [] if args.selection_only else existing_predictions[:start])
     write_rows(selection_path, existing_selections[:start])
     Path(args.score_cache_dir).mkdir(parents=True, exist_ok=True)
     model = VLLMModel(
@@ -420,20 +433,22 @@ def main() -> None:
             final_indices, metadata = select_hierarchical_pack(
                 model, row, video_path, fps, total_frames, args
             )
-            frames = extract_frames_by_indices(video_path, final_indices)
-            response = model.generate(
-                frames,
-                [{"role": "user", "content": build_longqa_prompt(row["question"], row["mcq_options"])}],
-                max_new_tokens=16,
-            )
-            prediction = build_prediction_row(row, response, prompt_variant="hierarchical_temporal_pivot")
-            prediction.update(
-                {
-                    "hierarchical_schema": SCHEMA_VERSION,
-                    "hierarchical_fingerprint": run_fingerprint,
-                    "hierarchical_final_frames": len(final_indices),
-                }
-            )
+            prediction = None
+            if not args.selection_only:
+                frames = extract_frames_by_indices(video_path, final_indices)
+                response = model.generate(
+                    frames,
+                    [{"role": "user", "content": build_longqa_prompt(row["question"], row["mcq_options"])}],
+                    max_new_tokens=16,
+                )
+                prediction = build_prediction_row(row, response, prompt_variant="hierarchical_temporal_pivot")
+                prediction.update(
+                    {
+                        "hierarchical_schema": SCHEMA_VERSION,
+                        "hierarchical_fingerprint": run_fingerprint,
+                        "hierarchical_final_frames": len(final_indices),
+                    }
+                )
             selection = {
                 "index": index,
                 "sample_key": sample_key(row),
@@ -443,14 +458,16 @@ def main() -> None:
                 "final_indices": final_indices,
                 "metadata": metadata,
             }
-            prediction_handle.write(json.dumps(prediction) + "\n")
-            prediction_handle.flush()
+            if prediction is not None:
+                prediction_handle.write(json.dumps(prediction) + "\n")
+                prediction_handle.flush()
             selection_handle.write(json.dumps(selection) + "\n")
             selection_handle.flush()
             print(f"  Hierarchical progress: {index + 1}/{len(rows)}")
     print(f"Runtime seconds: {time.time() - begun:.0f}")
     _print_context_summary(summarize_prompt_token_stats())
-    _run_eval(input_path, output_path, eval_path)
+    if not args.selection_only:
+        _run_eval(input_path, output_path, eval_path)
 
 
 if __name__ == "__main__":

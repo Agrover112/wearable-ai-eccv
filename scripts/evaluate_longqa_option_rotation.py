@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-STARTER = ROOT / "baselines" / "longqa"
+STARTER = ROOT / "data" / "wearable-ai" / "starter_kit"
 sys.path.insert(0, str(STARTER))
 
 from longqa_utils import apply_subset, load_jsonl, normalize_answer, sample_key

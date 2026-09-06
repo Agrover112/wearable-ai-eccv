@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STARTER_KIT = REPO_ROOT / "baselines" / "longqa"
+STARTER_KIT = REPO_ROOT / "data" / "wearable-ai" / "starter_kit"
 sys.path.insert(0, str(STARTER_KIT))
 
 from longqa_utils import load_jsonl, sample_key
@@ -26,6 +26,11 @@ def main() -> None:
     target.add_argument("--annotations")
     parser.add_argument("--input", action="append", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument(
+        "--allow-extras",
+        action="store_true",
+        help="Ignore input rows outside the requested target subset.",
+    )
     args = parser.parse_args()
 
     subset = (
@@ -34,15 +39,18 @@ def main() -> None:
         else load_jsonl(args.annotations)
     )
     expected = [record_key(row) for row in subset]
+    expected_set = set(expected)
     merged: dict[str, dict] = {}
     for path in args.input:
         for row in load_jsonl(path):
             key = record_key(row)
+            if args.allow_extras and key not in expected_set:
+                continue
             if key in merged:
                 raise RuntimeError(f"duplicate row across shards: {key}")
             merged[key] = row
     missing = [key for key in expected if key not in merged]
-    extras = sorted(set(merged) - set(expected))
+    extras = sorted(set(merged) - expected_set)
     if missing or extras:
         raise RuntimeError(
             f"shard coverage mismatch: missing={len(missing)}, extras={len(extras)}"

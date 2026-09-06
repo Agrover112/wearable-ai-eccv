@@ -184,6 +184,29 @@ def uniform_full_video_indices(
         return []
     start_frame = 0
     end_frame = total_frames - 1
+    if sampling_mode == "dual_view_fusion":
+        # The test-time dual-view model needs two independently rounded grids.
+        # Keep both sections (including duplicates) and preserve their order:
+        # 128 retrieval candidates followed by the exact 64-frame global view.
+        candidate_count = min(128, total_frames)
+        global_count = min(64, total_frames)
+        candidate_indices = (
+            [
+                round(start_frame + i * (end_frame - start_frame) / (candidate_count - 1))
+                for i in range(candidate_count)
+            ]
+            if candidate_count > 1
+            else [round((start_frame + end_frame) / 2)]
+        )
+        global_indices = (
+            [
+                round(start_frame + i * (end_frame - start_frame) / (global_count - 1))
+                for i in range(global_count)
+            ]
+            if global_count > 1
+            else [round((start_frame + end_frame) / 2)]
+        )
+        return candidate_indices + global_indices
     n = min(frames_per_interval, total_frames)
     if sampling_mode == "endpoint_inclusive" and n > 1:
         step = (end_frame - start_frame) / (n - 1)
@@ -196,6 +219,18 @@ def uniform_full_video_indices(
         frame_indices = [
             round((i + 0.5) * total_frames / n - 0.5) for i in range(n)
         ]
+    elif sampling_mode == "endpoint_guarded_midpoint":
+        if n == 1:
+            frame_indices = [round((start_frame + end_frame) / 2)]
+        elif n == 2:
+            frame_indices = [start_frame, end_frame]
+        else:
+            interior_count = n - 2
+            interior = [
+                round((i + 0.5) * total_frames / interior_count - 0.5)
+                for i in range(interior_count)
+            ]
+            frame_indices = [start_frame, *interior, end_frame]
     elif sampling_mode == "legacy":
         step = (end_frame - start_frame) / n
         frame_indices = [int(start_frame + i * step) for i in range(n)]
@@ -275,6 +310,28 @@ def extract_frames(
                         round(start_frame + (i + 0.5) * span / n - 0.5)
                         for i in range(n)
                     )
+                elif sampling_mode == "endpoint_guarded_midpoint":
+                    if n == 1:
+                        frame_indices.append(round((start_frame + end_frame) / 2))
+                    elif n == 2:
+                        frame_indices.extend((start_frame, end_frame))
+                    else:
+                        span = end_frame - start_frame + 1
+                        interior_count = n - 2
+                        frame_indices.extend(
+                            [
+                                start_frame,
+                                *(
+                                    round(
+                                        start_frame
+                                        + (i + 0.5) * span / interior_count
+                                        - 0.5
+                                    )
+                                    for i in range(interior_count)
+                                ),
+                                end_frame,
+                            ]
+                        )
                 elif sampling_mode == "legacy":
                     step = (end_frame - start_frame) / n
                     frame_indices.extend(int(start_frame + i * step) for i in range(n))
@@ -288,12 +345,20 @@ def extract_frames(
                 ]
 
         frames: list[object] = []
-        for idx in frame_indices:
+        dual_candidate_count = min(128, total_frames)
+        for position, idx in enumerate(frame_indices):
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
             if ret:
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frames.append(Image.fromarray(frame_rgb))
+                image = Image.fromarray(frame_rgb)
+                if sampling_mode == "dual_view_fusion" and intervals is None:
+                    image.info["wai_view"] = (
+                        "candidate" if position < dual_candidate_count else "global"
+                    )
+                    image.info["wai_frame_index"] = int(idx)
+                    image.info["wai_timestamp"] = float(idx / fps)
+                frames.append(image)
 
         return frames
     finally:
@@ -727,9 +792,12 @@ class VLLMModel(VideoQAModel):
         self._thinking_token_budget = _env_optional_nonnegative_int(
             "VLLM_THINKING_TOKEN_BUDGET"
         )
-        self._is_qwen35 = "qwen3.5" in model_id.lower()
+        model_id_lower = model_id.lower()
+        self._is_qwen_gdn_family = any(
+            version in model_id_lower for version in ("qwen3.5", "qwen3.8")
+        )
         self._enable_thinking = _env_optional_bool("QWEN_ENABLE_THINKING")
-        if self._is_qwen35 and self._enable_thinking is None:
+        if self._is_qwen_gdn_family and self._enable_thinking is None:
             self._enable_thinking = False
         self._gdn_prefill_backend = os.environ.get("VLLM_GDN_PREFILL_BACKEND")
         self._qwen_media_mode = os.environ.get(
@@ -739,8 +807,8 @@ class VLLMModel(VideoQAModel):
             raise ValueError(
                 "VLLM_QWEN_MEDIA_MODE must be `images` or `video`"
             )
-        if self._is_qwen35 and not self._gdn_prefill_backend:
-            # FlashInfer JIT-compiles Qwen3.5's GDN prefill kernel on the first
+        if self._is_qwen_gdn_family and not self._gdn_prefill_backend:
+            # FlashInfer JIT-compiles the Qwen GDN prefill kernel on the first
             # request. The cluster runtime nodes expose a driver but no matching
             # CUDA toolkit, so use vLLM's supported non-JIT implementation.
             self._gdn_prefill_backend = "triton"
@@ -751,6 +819,8 @@ class VLLMModel(VideoQAModel):
         self._proc: object | None = None
         self._port: int | None = None
         self._log: object | None = None
+        self._log_path: str | None = None
+        self._diagnostics_path: str | None = None
 
     def __enter__(self) -> "VLLMModel":
         import tempfile
@@ -765,10 +835,17 @@ class VLLMModel(VideoQAModel):
             delete=False,
             dir=log_dir,
         )
+        self._log_path = self._log.name
+        os.chmod(self._log_path, 0o644)
+        self._diagnostics_path = os.path.join(
+            log_dir, f"vllm_startup_{os.path.basename(self._log_path)}.json"
+        )
         try:
             self._start_server()
             self._wait_for_health()
-        except BaseException:
+            self._write_startup_state("ready")
+        except BaseException as exc:
+            self._write_startup_state("failed", repr(exc))
             self._kill_server()
             raise
         return self
@@ -792,7 +869,10 @@ class VLLMModel(VideoQAModel):
             "--enforce-eager",
         ]
         if self.model_type != "llama4":
-            self._context_window = _env_int("VLLM_QWEN_MAX_MODEL_LEN", 16384)
+            self._context_window = _env_int(
+                "VLLM_MAX_MODEL_LEN",
+                _env_int("VLLM_QWEN_MAX_MODEL_LEN", 16384),
+            )
             gpu_memory_utilization = _env_float("VLLM_GPU_MEMORY_UTILIZATION", 0.90)
             server_args.extend(
                 [
@@ -804,7 +884,7 @@ class VLLMModel(VideoQAModel):
             )
             server_args.extend(["--dtype", "bfloat16"])
             reasoning_parser = os.environ.get("VLLM_REASONING_PARSER")
-            if self._is_qwen35 and not reasoning_parser:
+            if self._is_qwen_gdn_family and not reasoning_parser:
                 reasoning_parser = "qwen3"
             if reasoning_parser:
                 server_args.extend(["--reasoning-parser", reasoning_parser])
@@ -851,7 +931,7 @@ class VLLMModel(VideoQAModel):
                 ["--quantization", "fp8", "--max-model-len", str(self._context_window)]
             )
         if self.max_frames > 0:
-            if self.model_type == "qwen" and self._qwen_media_mode == "video":
+            if self._qwen_media_mode == "video":
                 limit_json = '{"video": 1}'
             else:
                 limit_json = f'{{"image": {self.max_frames}}}'
@@ -873,16 +953,15 @@ class VLLMModel(VideoQAModel):
                         ),
                     ]
                 )
-                if self._qwen_media_mode == "video":
-                    server_args.extend(
-                        [
-                            "--media-io-kwargs",
-                            (
-                                '{"video": {"num_frames": '
-                                f"{self.max_frames}, \"fps\": 1.0}}}}"
-                            ),
-                        ]
-                    )
+            if self._qwen_media_mode == "video":
+                media_io_kwargs = os.environ.get(
+                    "VLLM_MEDIA_IO_KWARGS",
+                    (
+                        '{"video": {"num_frames": '
+                        f"{self.max_frames}, \"fps\": 1.0}}}}"
+                    ),
+                )
+                server_args.extend(["--media-io-kwargs", media_io_kwargs])
         max_num_batched_tokens = os.environ.get("VLLM_MAX_NUM_BATCHED_TOKENS")
         if max_num_batched_tokens:
             server_args.extend(
@@ -906,6 +985,7 @@ class VLLMModel(VideoQAModel):
 
         cmd = [sys.executable, "-m", "vllm.entrypoints.openai.api_server"]
         cmd.extend(server_args)
+        self._write_startup_diagnostics(cmd, env)
         self._proc = subprocess.Popen(
             cmd,
             stdout=self._log,
@@ -914,12 +994,114 @@ class VLLMModel(VideoQAModel):
             env=env,
         )
 
+    def _write_startup_diagnostics(
+        self,
+        cmd: list[str],
+        env: dict[str, str],
+    ) -> None:
+        """Persist enough startup state to diagnose failures outside the container."""
+        import json
+        import platform
+        import subprocess
+        import sys
+        from importlib.metadata import PackageNotFoundError, version
+
+        packages: dict[str, str] = {}
+        for package in (
+            "torch",
+            "torchvision",
+            "transformers",
+            "vllm",
+            "flashinfer-python",
+            "nvidia-cutlass-dsl",
+        ):
+            try:
+                packages[package] = version(package)
+            except PackageNotFoundError:
+                packages[package] = "not installed"
+
+        try:
+            gpu_report = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=index,name,memory.total,memory.free",
+                    "--format=csv,noheader,nounits",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                check=False,
+            ).stdout.strip()
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+            gpu_report = f"unavailable: {exc}"
+
+        relevant_env = {
+            key: env.get(key)
+            for key in (
+                "CUDA_VISIBLE_DEVICES",
+                "VLLM_USE_V1",
+                "VLLM_ENABLE_V1_MULTIPROCESSING",
+                "VLLM_FLASH_ATTN_VERSION",
+                "VLLM_GDN_PREFILL_BACKEND",
+                "VLLM_QWEN_MAX_MODEL_LEN",
+                "VLLM_GPU_MEMORY_UTILIZATION",
+                "VLLM_MAX_LOGPROBS",
+                "QWEN_MIN_PIXELS",
+                "QWEN_MAX_PIXELS",
+            )
+        }
+        payload = {
+            "status": "starting",
+            "command": cmd,
+            "server_log": self._log_path,
+            "python": sys.version,
+            "platform": platform.platform(),
+            "packages": packages,
+            "environment": relevant_env,
+            "gpus": gpu_report.splitlines(),
+        }
+        if self._diagnostics_path:
+            with open(self._diagnostics_path, "w") as diagnostics:
+                json.dump(payload, diagnostics, indent=2)
+                diagnostics.write("\n")
+
+    def _write_startup_state(self, status: str, error: str | None = None) -> None:
+        """Update the persistent startup record without removing failure artifacts."""
+        import json
+        import time
+
+        if not self._diagnostics_path:
+            return
+        try:
+            with open(self._diagnostics_path, "r") as diagnostics:
+                payload = json.load(diagnostics)
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            payload = {"server_log": self._log_path}
+        payload["status"] = status
+        payload["updated_unix_time"] = time.time()
+        if error:
+            payload["error"] = error
+        try:
+            with open(self._diagnostics_path, "w") as diagnostics:
+                json.dump(payload, diagnostics, indent=2)
+                diagnostics.write("\n")
+        except OSError:
+            logger.exception(
+                "Could not persist vLLM startup state to %s",
+                self._diagnostics_path,
+            )
+
     def _apply_chat_template_options(
-        self, request_data: dict[str, object]
+        self,
+        request_data: dict[str, object],
+        enable_thinking: bool | None = None,
     ) -> dict[str, object]:
-        if self._enable_thinking is not None:
+        effective_enable_thinking = (
+            self._enable_thinking if enable_thinking is None else enable_thinking
+        )
+        if effective_enable_thinking is not None:
             request_data["chat_template_kwargs"] = {
-                "enable_thinking": self._enable_thinking
+                "enable_thinking": effective_enable_thinking
             }
         return request_data
 
@@ -992,7 +1174,7 @@ class VLLMModel(VideoQAModel):
         )
 
     @staticmethod
-    def _read_log_tail(log_path: str, lines: int = 30) -> str:
+    def _read_log_tail(log_path: str, lines: int = 200) -> str:
         try:
             with open(log_path, "r") as f:
                 all_lines = f.readlines()
@@ -1074,6 +1256,7 @@ class VLLMModel(VideoQAModel):
         messages: list[dict[str, str]],
         max_new_tokens: int = 4096,
         thinking_token_budget: int | None = None,
+        enable_thinking: bool | None = None,
     ) -> str:
         import base64
         import io
@@ -1121,7 +1304,7 @@ class VLLMModel(VideoQAModel):
         )
         if effective_thinking_budget is not None:
             request_data["thinking_token_budget"] = effective_thinking_budget
-        self._apply_chat_template_options(request_data)
+        self._apply_chat_template_options(request_data, enable_thinking)
         payload = json.dumps(request_data).encode()
 
         req = urllib.request.Request(
@@ -1169,8 +1352,8 @@ class VLLMModel(VideoQAModel):
         """Generate with selected frames encoded as one chronological video.
 
         vLLM's JPEG-sequence video transport avoids creating temporary MP4
-        files while preserving the Qwen video-token path used by video-tuned
-        checkpoints such as VideoJudge.
+        files while preserving chronological order for any supported native
+        video processor.
         """
         import base64
         import io
@@ -1727,6 +1910,7 @@ class VLLMModel(VideoQAModel):
         batch_messages: list[list[dict[str, str]]],
         max_new_tokens: int = 4096,
         thinking_token_budget: int | None = None,
+        enable_thinking: bool | None = None,
     ) -> list[str]:
         from concurrent.futures import as_completed, ThreadPoolExecutor
 
@@ -1745,6 +1929,7 @@ class VLLMModel(VideoQAModel):
                     msgs,
                     max_new_tokens,
                     thinking_token_budget,
+                    enable_thinking,
                 ): i
                 for i, (frames, msgs) in enumerate(zip(batch_frames, batch_messages))
             }
@@ -1776,27 +1961,35 @@ class VLLMModel(VideoQAModel):
             batch_messages,
             max_new_tokens=max_new_tokens,
             thinking_token_budget=budget,
+            enable_thinking=False,
         )
+
+
+from longqa_dual_view_fusion import Qwen35DualViewFusionModel
 
 
 MODEL_REGISTRY: dict[str, type[VideoQAModel]] = {
     "llama4": Llama4ScoutModel,
     "qwen": Qwen2VLModel,
+    "qwen35_dual_view_fusion": Qwen35DualViewFusionModel,
 }
 
 DEFAULT_MODEL_IDS: dict[str, str] = {
     "llama4": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
     "qwen": "Qwen/Qwen2.5-VL-7B-Instruct",
+    "qwen35_dual_view_fusion": "/models/qwen35-27b",
 }
 
 DEFAULT_BATCH_SIZES: dict[str, int] = {
     "llama4": 4,
     "qwen": 8,
+    "qwen35_dual_view_fusion": 1,
 }
 
 DEFAULT_GPU_COUNTS: dict[str, int] = {
     "llama4": 8,
     "qwen": 1,
+    "qwen35_dual_view_fusion": 2,
 }
 
 DEFAULT_TP_SIZES: dict[str, int] = {

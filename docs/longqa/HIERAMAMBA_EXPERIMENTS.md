@@ -7,14 +7,19 @@ separate resumable stages.
 
 ## One-Time Setup
 
-Run the bootstrap on an H100 compute node with internet access:
+Run the bootstrap once on an H100 compute node with internet access:
 
 ```bash
-bash hieramamba/bootstrap_h100.sh
+sbatch slurm_hieramamba_bootstrap_h100.sh
 ```
 
-The script builds `causal-conv1d`, `mamba-ssm`, and HieraMamba's NMS extension
-for the active H100 stack. The old Colab T4 wheels must not be reused.
+Wait for this job to finish before extraction. The script creates the external
+environment and repositories under `/scratch/inf0/user/agaur/wai-26/external`,
+downloads the required checkpoints, and builds `causal-conv1d`, `mamba-ssm`,
+and HieraMamba's NMS extension for the active H100 stack. The old Colab T4
+wheels must not be reused. All Conda, pip, compiler, and model caches are kept
+under `/scratch/inf0/user/agaur/wai-26/cache/hieramamba-bootstrap`; the setup
+does not consume home-directory cache quota.
 
 Record the three paths printed by the script:
 
@@ -24,9 +29,8 @@ export HIERAMAMBA_ROOT=/scratch/inf0/user/agaur/wai-26/external/hieramamba
 export EGOVLP_ROOT=/scratch/inf0/user/agaur/wai-26/external/EgoVLP
 ```
 
-The Slurm scripts accept either the environment name through
-`HIERAMAMBA_ENV` or the full prefix through an activated shell. If a prefix is
-used, set `HIERAMAMBA_ENV` to that prefix.
+These are now the launchers' default paths, so command-line environment export
+is unnecessary. They can still be overridden for a different installation.
 
 ## Grounding Stages
 
@@ -34,11 +38,19 @@ Run these sequentially:
 
 ```bash
 sbatch slurm_hieramamba_queries_dev20.sh
-sbatch --export=ALL,HIERAMAMBA_ENV="$HIERAMAMBA_ENV_PREFIX",EGOVLP_ROOT="$EGOVLP_ROOT" \
-  slurm_hieramamba_extract_dev20.sh
-sbatch --export=ALL,HIERAMAMBA_ENV="$HIERAMAMBA_ENV_PREFIX",HIERAMAMBA_ROOT="$HIERAMAMBA_ROOT" \
-  slurm_hieramamba_infer_dev20.sh
+sbatch slurm_hieramamba_extract_dev20.sh
+sbatch slurm_hieramamba_infer_dev20.sh
 ```
+
+After query conversion has succeeded, the remaining three stages can instead
+be submitted with enforced `afterok` dependencies:
+
+```bash
+bash scripts/submit_hieramamba_dev20_after_queries.sh
+```
+
+This is the recommended command. Extraction starts only if bootstrap succeeds,
+and inference starts only if extraction succeeds.
 
 1. Query conversion sees only the question and creates one to four declarative
    visual-event queries.

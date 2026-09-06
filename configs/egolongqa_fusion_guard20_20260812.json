@@ -1,0 +1,351 @@
+{
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
+  "n": 20,
+  "seed": 20260812,
+  "diagnostic_only": true,
+  "selection_uses_validation_labels": true,
+  "description": "Twenty difficult fusion-correct rows with strong direct-candidate disagreement.",
+  "promotion_rule": "Use this set for rapid diagnosis only. Confirm any frozen method on a balanced fold that was not used to design it before full validation.",
+  "samples": [
+    {
+      "index": 33,
+      "key": "0fe0ca9e8cfad75f.mp4||Which dog did I take outside, and where was the other dog last seen indoors?",
+      "video_path": "0fe0ca9e8cfad75f.mp4",
+      "question": "Which dog did I take outside, and where was the other dog last seen indoors?",
+      "category": "Pets, social gatherings with friends and family",
+      "answer": "C",
+      "operator": "LAST",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 2,
+      "alternative_votes": 5,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 64,
+      "key": "1a89eaa35120072a.mp4||Which pi\u00f1atas had their fringe fully applied before I began decorating the donkey-shaped pi\u00f1ata with brown fringe?",
+      "video_path": "1a89eaa35120072a.mp4",
+      "question": "Which pi\u00f1atas had their fringe fully applied before I began decorating the donkey-shaped pi\u00f1ata with brown fringe?",
+      "category": "Events",
+      "answer": "C",
+      "operator": "BEFORE",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 2,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 122,
+      "key": "2c50721b06e0bdb2.mp4||The flat origami sheet had solid black lines; what part of the dolphin model did those lines help create, and how was it shaped in the final model?",
+      "video_path": "2c50721b06e0bdb2.mp4",
+      "question": "The flat origami sheet had solid black lines; what part of the dolphin model did those lines help create, and how was it shaped in the final model?",
+      "category": "Hobbies-Daily Activities",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 4,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 130,
+      "key": "2f6df18b351825a7.mp4||Which musician, whose mosaic I saw before reaching the 'M\u00fasica' exhibit, is an example of the New York-based artists highlighted in that section?",
+      "video_path": "2f6df18b351825a7.mp4",
+      "question": "Which musician, whose mosaic I saw before reaching the 'M\u00fasica' exhibit, is an example of the New York-based artists highlighted in that section?",
+      "category": "Travel-Tourism",
+      "answer": "C",
+      "operator": "BEFORE",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 2,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 136,
+      "key": "314dabb96387cef9.mp4||When I touched a spider web decoration the second time, what Halloween item was present that wasn't there during my first spider web interaction?",
+      "video_path": "314dabb96387cef9.mp4",
+      "question": "When I touched a spider web decoration the second time, what Halloween item was present that wasn't there during my first spider web interaction?",
+      "category": "Sightseeing",
+      "answer": "C",
+      "operator": "FIRST",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 3,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 165,
+      "key": "380e2adf98758c1e.mp4||After passing the beige house with two top-hatted skeletons, what large Halloween decoration did I see at the next decorated house?",
+      "video_path": "380e2adf98758c1e.mp4",
+      "question": "After passing the beige house with two top-hatted skeletons, what large Halloween decoration did I see at the next decorated house?",
+      "category": "Travel-Tourism",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 5,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 179,
+      "key": "3c908cbbbd90b987.mp4||After I passed the house with the purple witch inflatable and before I walked along the grassy slope with the black metal fence, I went through a parking lot. What color was the van parked near the building in that lot?",
+      "video_path": "3c908cbbbd90b987.mp4",
+      "question": "After I passed the house with the purple witch inflatable and before I walked along the grassy slope with the black metal fence, I went through a parking lot. What color was the van parked near the building in that lot?",
+      "category": "Hiking-Outdoors",
+      "answer": "B",
+      "operator": "MULTI_TIME",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 2,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 250,
+      "key": "5422255837b1ad5f.mp4||I visited the Sunseeker booth twice. The first time, there was one robotic mower on the artificial grass and the wall screen displayed a person. The second time, there were two mowers. What was shown on the wall screen during my second visit?",
+      "video_path": "5422255837b1ad5f.mp4",
+      "question": "I visited the Sunseeker booth twice. The first time, there was one robotic mower on the artificial grass and the wall screen displayed a person. The second time, there were two mowers. What was shown on the wall screen during my second visit?",
+      "category": "Sightseeing",
+      "answer": "C",
+      "operator": "FIRST",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 4,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 263,
+      "key": "58dcdf7f4b6b4878.mp4||Which items that I washed by hand after I first loaded the dishwasher did I later put into the dishwasher?",
+      "video_path": "58dcdf7f4b6b4878.mp4",
+      "question": "Which items that I washed by hand after I first loaded the dishwasher did I later put into the dishwasher?",
+      "category": "Daily Activities",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 4,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 271,
+      "key": "5a1dc95635ec992d.mp4||Earlier, I noticed a store with a partially visible 'YE' sign on its facade; later, when I was at its entrance, what slogan was printed on the cornhole board in front of it?",
+      "video_path": "5a1dc95635ec992d.mp4",
+      "question": "Earlier, I noticed a store with a partially visible 'YE' sign on its facade; later, when I was at its entrance, what slogan was printed on the cornhole board in front of it?",
+      "category": "Hiking-Outdoors",
+      "answer": "C",
+      "operator": "MULTI_TIME",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 2,
+      "alternative_votes": 5,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 307,
+      "key": "67a66bcb4de5fffa.mp4||After walking over the circular pavement designs multiple times, what building feature did I later notice that they were designed to match?",
+      "video_path": "67a66bcb4de5fffa.mp4",
+      "question": "After walking over the circular pavement designs multiple times, what building feature did I later notice that they were designed to match?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "answer": "C",
+      "operator": "AFTER",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 4,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 346,
+      "key": "77342df1fec5ffff.mp4||What item was the woman in the black jacket and blue mask holding when she made a three-finger gesture, which I had previously seen her pick up in another aisle?",
+      "video_path": "77342df1fec5ffff.mp4",
+      "question": "What item was the woman in the black jacket and blue mask holding when she made a three-finger gesture, which I had previously seen her pick up in another aisle?",
+      "category": "Shopping",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 3,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 354,
+      "key": "7a5c4239bc6b4a33.mp4||I stabilized the chainsaw with my foot when starting it. Later, while wearing gloves, what did I cut with pliers?",
+      "video_path": "7a5c4239bc6b4a33.mp4",
+      "question": "I stabilized the chainsaw with my foot when starting it. Later, while wearing gloves, what did I cut with pliers?",
+      "category": "Gardening",
+      "answer": "B",
+      "operator": "GLOBAL",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 4,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 415,
+      "key": "8e80cc537561590d.mp4||Earlier, I visited an exhibition titled 'Flight into Egypt: Black Artists and Ancient Egypt 1876\u2013Now' that included a painting by Henry Ossawa Tanner. Later, I saw a wall covered with numerous black-and-white images, one of which clearly displayed 'CRISIS'. What publication were those images most likely from?",
+      "video_path": "8e80cc537561590d.mp4",
+      "question": "Earlier, I visited an exhibition titled 'Flight into Egypt: Black Artists and Ancient Egypt 1876\u2013Now' that included a painting by Henry Ossawa Tanner. Later, I saw a wall covered with numerous black-and-white images, one of which clearly displayed 'CRISIS'. What publication were those images most likely from?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "answer": "B",
+      "operator": "MULTI_TIME",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 2,
+      "alternative_votes": 4,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 442,
+      "key": "98bf4e58c6519529.mp4||What Pok\u00e9mon character did I handle as a plush bag early in the video that I later saw as a keychain?",
+      "video_path": "98bf4e58c6519529.mp4",
+      "question": "What Pok\u00e9mon character did I handle as a plush bag early in the video that I later saw as a keychain?",
+      "category": "Shopping",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 5,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 538,
+      "key": "c037cfcb6d618e43.mp4||What was the price of the Navajo rug I examined before I started browsing the jewelry section?",
+      "video_path": "c037cfcb6d618e43.mp4",
+      "question": "What was the price of the Navajo rug I examined before I started browsing the jewelry section?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "answer": "C",
+      "operator": "BEFORE",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 5,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 608,
+      "key": "e1a178b47d998874.mp4||I examined the nutrition facts of a vanilla-flavored candy coating and later an almond butter. How many more calories per serving did the almond butter have compared to the candy coating?",
+      "video_path": "e1a178b47d998874.mp4",
+      "question": "I examined the nutrition facts of a vanilla-flavored candy coating and later an almond butter. How many more calories per serving did the almond butter have compared to the candy coating?",
+      "category": "Shopping",
+      "answer": "C",
+      "operator": "STATE_CHANGE",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 4,
+      "alternative_votes": 5,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 622,
+      "key": "e40865d30d1c1594.mp4||Which accessory did I move from the green top outfit to the navy patterned outfit?",
+      "video_path": "e40865d30d1c1594.mp4",
+      "question": "Which accessory did I move from the green top outfit to the navy patterned outfit?",
+      "category": "Fashion Advice",
+      "answer": "B",
+      "operator": "GLOBAL",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 3,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 655,
+      "key": "efe05555186eeea8.mp4||What Broadway show did I see listed at the TKTS booth that was also advertised on a billboard later in the video?",
+      "video_path": "efe05555186eeea8.mp4",
+      "question": "What Broadway show did I see listed at the TKTS booth that was also advertised on a billboard later in the video?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "answer": "C",
+      "operator": "GLOBAL",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 4,
+      "reference_fusion_correct": true
+    },
+    {
+      "index": 675,
+      "key": "f5cd22aab57406dc.mp4||What did I do with the branches I first saw scattered on the ground by the end of the video?",
+      "video_path": "f5cd22aab57406dc.mp4",
+      "question": "What did I do with the branches I first saw scattered on the ground by the end of the video?",
+      "category": "Outdoor Activities and Sports",
+      "answer": "C",
+      "operator": "FIRST",
+      "selection_role": "guard",
+      "failure_bucket": null,
+      "question_tags": [
+        "candidate_disagreement"
+      ],
+      "direct_answer_count": 3,
+      "alternative_votes": 3,
+      "reference_fusion_correct": true
+    }
+  ]
+}

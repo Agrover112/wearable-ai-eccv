@@ -18,7 +18,10 @@ from longqa_utils import apply_subset, load_jsonl, normalize_answer, sample_key
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--annotations", required=True)
-    parser.add_argument("--parent-subset", required=True)
+    parser.add_argument(
+        "--parent-subset",
+        help="Optional parent subset. Omit to search the complete annotation file.",
+    )
     parser.add_argument("--predictions", action="append", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
@@ -37,7 +40,9 @@ def main() -> None:
             selected.append(row)
     payload = {
         "source": str(Path(args.annotations).resolve()),
-        "parent_subset": str(Path(args.parent_subset).resolve()),
+        "parent_subset": (
+            str(Path(args.parent_subset).resolve()) if args.parent_subset else None
+        ),
         "selection": "semantic disagreement among supplied predictions",
         "n": len(selected),
         "samples": selected,

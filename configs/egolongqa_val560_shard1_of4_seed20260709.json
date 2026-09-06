@@ -1,0 +1,1270 @@
+{
+  "source": "/scratch/inf0/user/agaur/wai-26/data/wearable-ai/egolongqa/wearable_ai_2026_egolongqa_val_700.jsonl",
+  "n": 140,
+  "complement_of": "/CT/NDF/work/waw-26/configs/egolongqa_dev140_seed20260709.json",
+  "shard": 1,
+  "num_shards": 4,
+  "parent_subset": "/CT/NDF/work/waw-26/configs/egolongqa_val560_complement_dev140_seed20260709.json",
+  "samples": [
+    {
+      "index": 2,
+      "key": "017ffe52c5b5230c.mp4||After I walked past the vending machines, what was I holding when I reached the lake area?",
+      "video_path": "017ffe52c5b5230c.mp4",
+      "question": "After I walked past the vending machines, what was I holding when I reached the lake area?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 6,
+      "key": "02fb50a660ff1072.mp4||What did the historical marker I read at the entrance say about the 'wooden' railings I later saw on the stone bridge?",
+      "video_path": "02fb50a660ff1072.mp4",
+      "question": "What did the historical marker I read at the entrance say about the 'wooden' railings I later saw on the stone bridge?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 11,
+      "key": "03fb89df97cc9908.mp4||After I left the store and started driving, I used my phone to search for something. What did I search for, and what dashboard warning prompted this search?",
+      "video_path": "03fb89df97cc9908.mp4",
+      "question": "After I left the store and started driving, I used my phone to search for something. What did I search for, and what dashboard warning prompted this search?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 18,
+      "key": "07f54b96296acdff.mp4||Between the time I saw a white van on the opposite side of the road and the time I saw a white car on the opposite side, what construction equipment did I pass on the left side of the road?",
+      "video_path": "07f54b96296acdff.mp4",
+      "question": "Between the time I saw a white van on the opposite side of the road and the time I saw a white car on the opposite side, what construction equipment did I pass on the left side of the road?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "D",
+      "temporal": false
+    },
+    {
+      "index": 23,
+      "key": "0a7538816b38423d.mp4||Earlier I saw a building with a sign reading 'Jerry's Rogue River Museum & Gift Shop'. Later, at a different location, I read a sign indicating where that museum is situated relative to my current position. What did the later sign say about the museum's location?",
+      "video_path": "0a7538816b38423d.mp4",
+      "question": "Earlier I saw a building with a sign reading 'Jerry's Rogue River Museum & Gift Shop'. Later, at a different location, I read a sign indicating where that museum is situated relative to my current position. What did the later sign say about the museum's location?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 27,
+      "key": "0cf8454cd2d6f863.mp4||Which character did I first see on a large digital screen and later encounter as a physical statue near the stairs?",
+      "video_path": "0cf8454cd2d6f863.mp4",
+      "question": "Which character did I first see on a large digital screen and later encounter as a physical statue near the stairs?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 31,
+      "key": "0f1e1d0da216585c.mp4||Earlier I saw a sign for the Old Stage Road that mentioned Rocky Mount as a stop where horses were changed; which family did I later learn owned Rocky Mount in the 19th century?",
+      "video_path": "0f1e1d0da216585c.mp4",
+      "question": "Earlier I saw a sign for the Old Stage Road that mentioned Rocky Mount as a stop where horses were changed; which family did I later learn owned Rocky Mount in the 19th century?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 37,
+      "key": "1143e4c2d086afa1.mp4||After I checked the store directory, what was the number of the store I entered, and what was the price of the doorbuster item I saw inside?",
+      "video_path": "1143e4c2d086afa1.mp4",
+      "question": "After I checked the store directory, what was the number of the store I entered, and what was the price of the doorbuster item I saw inside?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 42,
+      "key": "12862b1069d474fb.mp4||What plant label did I see between touching the vibrant purple berries and pointing at the insect galleries on the fallen log?",
+      "video_path": "12862b1069d474fb.mp4",
+      "question": "What plant label did I see between touching the vibrant purple berries and pointing at the insect galleries on the fallen log?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": false
+    },
+    {
+      "index": 46,
+      "key": "13aea9ab404e96a6.mp4||Earlier I saw a decorated jar from the Middle Predynastic period, and later a silver ewer from the Early Byzantine era. What is the approximate number of years between the creation of these two artifacts?",
+      "video_path": "13aea9ab404e96a6.mp4",
+      "question": "Earlier I saw a decorated jar from the Middle Predynastic period, and later a silver ewer from the Early Byzantine era. What is the approximate number of years between the creation of these two artifacts?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 51,
+      "key": "156e2e7dc7ea203a.mp4||What item was in my cart when I first browsed the candle section and still there when I later examined Elf on the Shelf products?",
+      "video_path": "156e2e7dc7ea203a.mp4",
+      "question": "What item was in my cart when I first browsed the candle section and still there when I later examined Elf on the Shelf products?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 55,
+      "key": "17628f735391242b.mp4||What did the app identify when I first lifted the brick, and what did I do with that brick later?",
+      "video_path": "17628f735391242b.mp4",
+      "question": "What did the app identify when I first lifted the brick, and what did I do with that brick later?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 59,
+      "key": "19176681c6d16bdb.mp4||What tool did I retrieve from the kitchen drawer, and what did I use it for later in the video?",
+      "video_path": "19176681c6d16bdb.mp4",
+      "question": "What tool did I retrieve from the kitchen drawer, and what did I use it for later in the video?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 63,
+      "key": "1a732b061361ef6f.mp4||I saw a street name engraved on the pavement as I walked toward the pier early on, and later I noticed the venue's name on the menu at the bar. What were the street name and the venue name?",
+      "video_path": "1a732b061361ef6f.mp4",
+      "question": "I saw a street name engraved on the pavement as I walked toward the pier early on, and later I noticed the venue's name on the menu at the bar. What were the street name and the venue name?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 69,
+      "key": "1b0287a0da8011d5.mp4||Between the two large spiral patterns in the starry sky background, which one did I paint later in the video?",
+      "video_path": "1b0287a0da8011d5.mp4",
+      "question": "Between the two large spiral patterns in the starry sky background, which one did I paint later in the video?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 74,
+      "key": "1cd1b004f84c4e12.mp4||What was the original business of the first building I saw with a National Register of Historic Places plaque, and what additional operation did it later incorporate according to the plaque?",
+      "video_path": "1cd1b004f84c4e12.mp4",
+      "question": "What was the original business of the first building I saw with a National Register of Historic Places plaque, and what additional operation did it later incorporate according to the plaque?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 78,
+      "key": "1e8bfcf0ada52e74.mp4||What elevated structure was present at the start of my walk, and what ground-level transportation facility did I see right before entering the building with the 1544 address?",
+      "video_path": "1e8bfcf0ada52e74.mp4",
+      "question": "What elevated structure was present at the start of my walk, and what ground-level transportation facility did I see right before entering the building with the 1544 address?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "A",
+      "temporal": true
+    },
+    {
+      "index": 85,
+      "key": "205a1ef3950ef283.mp4||After I removed the wheels from the bike, what did I do to them before I rode the bike?",
+      "video_path": "205a1ef3950ef283.mp4",
+      "question": "After I removed the wheels from the bike, what did I do to them before I rode the bike?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 89,
+      "key": "21223c1e14298faf.mp4||I noticed a utility box with a honeycomb and bee design outside the store. Later, inside, I passed an aisle with a sign listing 'Syrup / Honey'. What was the aisle number?",
+      "video_path": "21223c1e14298faf.mp4",
+      "question": "I noticed a utility box with a honeycomb and bee design outside the store. Later, inside, I passed an aisle with a sign listing 'Syrup / Honey'. What was the aisle number?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 93,
+      "key": "231fceaac1eb5cac.mp4||Earlier I saw a price key at the pottery booth where a green dot indicated a specific price; later I picked up a green-labeled Essential Candy package. What was the price for the green dot and what was the primary claimed benefit of that candy?",
+      "video_path": "231fceaac1eb5cac.mp4",
+      "question": "Earlier I saw a price key at the pottery booth where a green dot indicated a specific price; later I picked up a green-labeled Essential Candy package. What was the price for the green dot and what was the primary claimed benefit of that candy?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 99,
+      "key": "248697710277f829.mp4||Who poured water into the French press before I pressed its plunger?",
+      "video_path": "248697710277f829.mp4",
+      "question": "Who poured water into the French press before I pressed its plunger?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 103,
+      "key": "262682622af0eb9d.mp4||I passed a building with exterior stairs three times during my walk. Between the first and second pass, and between the second and third pass, I saw tennis courts. Were the tennis courts on the same side of the path in both intervals?",
+      "video_path": "262682622af0eb9d.mp4",
+      "question": "I passed a building with exterior stairs three times during my walk. Between the first and second pass, and between the second and third pass, I saw tennis courts. Were the tennis courts on the same side of the path in both intervals?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 107,
+      "key": "280f3781277b0b97.mp4||What did I relocate from the staircase to a location near a light switch during a break from diamond painting?",
+      "video_path": "280f3781277b0b97.mp4",
+      "question": "What did I relocate from the staircase to a location near a light switch during a break from diamond painting?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 113,
+      "key": "295e35c4ad8632a4.mp4||Which part of the mosaic did I revisit later to add stickers of a different color than I initially used there?",
+      "video_path": "295e35c4ad8632a4.mp4",
+      "question": "Which part of the mosaic did I revisit later to add stickers of a different color than I initially used there?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 117,
+      "key": "2ae6c4477585a8b3.mp4||What item was I holding just before I petted the dog, and what was I holding when the dog walked toward the exit?",
+      "video_path": "2ae6c4477585a8b3.mp4",
+      "question": "What item was I holding just before I petted the dog, and what was I holding when the dog walked toward the exit?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 121,
+      "key": "2c4e9ea1c554519b.mp4||After I saw the 'PARKING FOR LIBRARY USE ONLY' sign, I walked through a gate into a garden with engraved bricks. One brick referenced a local music festival; what was the name of that festival?",
+      "video_path": "2c4e9ea1c554519b.mp4",
+      "question": "After I saw the 'PARKING FOR LIBRARY USE ONLY' sign, I walked through a gate into a garden with engraved bricks. One brick referenced a local music festival; what was the name of that festival?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 126,
+      "key": "2e3bc21cf6685807.mp4||What did I blend in the mason jar, and where had I first gotten that jar?",
+      "video_path": "2e3bc21cf6685807.mp4",
+      "question": "What did I blend in the mason jar, and where had I first gotten that jar?",
+      "category": "Daily Activities",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 130,
+      "key": "2f6df18b351825a7.mp4||Which musician, whose mosaic I saw before reaching the 'M\u00fasica' exhibit, is an example of the New York-based artists highlighted in that section?",
+      "video_path": "2f6df18b351825a7.mp4",
+      "question": "Which musician, whose mosaic I saw before reaching the 'M\u00fasica' exhibit, is an example of the New York-based artists highlighted in that section?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 134,
+      "key": "3091b788dc993bfe.mp4||After I walked past the 'Area Closed Beyond This Point' sign, what structure that was illustrated on a sign I had seen earlier near the greeting center became visible in the distance?",
+      "video_path": "3091b788dc993bfe.mp4",
+      "question": "After I walked past the 'Area Closed Beyond This Point' sign, what structure that was illustrated on a sign I had seen earlier near the greeting center became visible in the distance?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 138,
+      "key": "31812970338785f4.mp4||After I first examined a blue paisley fabric, what colors were the paisley fabrics I examined later in the video?",
+      "video_path": "31812970338785f4.mp4",
+      "question": "After I first examined a blue paisley fabric, what colors were the paisley fabrics I examined later in the video?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 145,
+      "key": "337838c05c845e1c.mp4||What item that I handled in the storage area earlier was later placed on the kitchen island counter?",
+      "video_path": "337838c05c845e1c.mp4",
+      "question": "What item that I handled in the storage area earlier was later placed on the kitchen island counter?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 151,
+      "key": "3491310010b29800.mp4||What accessory did the man in the background start wearing between the time I was detailing the net pattern on the woman's right thumb and the time I began the curved design on her left forearm?",
+      "video_path": "3491310010b29800.mp4",
+      "question": "What accessory did the man in the background start wearing between the time I was detailing the net pattern on the woman's right thumb and the time I began the curved design on her left forearm?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 155,
+      "key": "35c648e328355f23.mp4||After I filled the large black pot with water at the sink, what did I later do with it in the kitchen?",
+      "video_path": "35c648e328355f23.mp4",
+      "question": "After I filled the large black pot with water at the sink, what did I later do with it in the kitchen?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 160,
+      "key": "36f814e6c5afda98.mp4||After I saw the woman in black in the produce section, where did I next see her in the store?",
+      "video_path": "36f814e6c5afda98.mp4",
+      "question": "After I saw the woman in black in the produce section, where did I next see her in the store?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 165,
+      "key": "380e2adf98758c1e.mp4||After passing the beige house with two top-hatted skeletons, what large Halloween decoration did I see at the next decorated house?",
+      "video_path": "380e2adf98758c1e.mp4",
+      "question": "After passing the beige house with two top-hatted skeletons, what large Halloween decoration did I see at the next decorated house?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 169,
+      "key": "39ce44d892305734.mp4||I began my walk near a Marriott hotel with a Bill's Bar Burger sign; later, I encountered a sign about a spherical sculpture that survived the 9/11 attacks. What was the name of that sculpture?",
+      "video_path": "39ce44d892305734.mp4",
+      "question": "I began my walk near a Marriott hotel with a Bill's Bar Burger sign; later, I encountered a sign about a spherical sculpture that survived the 9/11 attacks. What was the name of that sculpture?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 174,
+      "key": "3b07bfcac97cf475.mp4||What artwork did I examine in detail early in my visit that was later visible in the background as I prepared to leave the gallery?",
+      "video_path": "3b07bfcac97cf475.mp4",
+      "question": "What artwork did I examine in detail early in my visit that was later visible in the background as I prepared to leave the gallery?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 178,
+      "key": "3bee9eedd712ce8a.mp4||After I left the pavilion, what sign did I read that identified the lily pads I had observed on the lake before I entered the pavilion?",
+      "video_path": "3bee9eedd712ce8a.mp4",
+      "question": "After I left the pavilion, what sign did I read that identified the lily pads I had observed on the lake before I entered the pavilion?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 182,
+      "key": "3d90471ed252f1ca.mp4||Earlier I saw the ocean far in the distance while walking on a path. Later I was close enough to see waves crashing on rocks below a railing. What notable landmark did I pass in between these two ocean views?",
+      "video_path": "3d90471ed252f1ca.mp4",
+      "question": "Earlier I saw the ocean far in the distance while walking on a path. Later I was close enough to see waves crashing on rocks below a railing. What notable landmark did I pass in between these two ocean views?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 188,
+      "key": "40344e725fcd2287.mp4||After I saw the man in the blue sweater walking with the red hoodie man at W 66 St, what did the blue sweater man do at the next intersection?",
+      "video_path": "40344e725fcd2287.mp4",
+      "question": "After I saw the man in the blue sweater walking with the red hoodie man at W 66 St, what did the blue sweater man do at the next intersection?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 196,
+      "key": "42342fe7ec0f0ecd.mp4||After seeing the 'West I-495' sign early in the drive, what highway did I later merge onto, and what distant landmark confirmed I was heading toward Manhattan?",
+      "video_path": "42342fe7ec0f0ecd.mp4",
+      "question": "After seeing the 'West I-495' sign early in the drive, what highway did I later merge onto, and what distant landmark confirmed I was heading toward Manhattan?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 201,
+      "key": "43e9700097961f34.mp4||What was the name of the day care I passed early in my walk, and what was the name of the high school I encountered later that featured a mural of a woman with a raised fist?",
+      "video_path": "43e9700097961f34.mp4",
+      "question": "What was the name of the day care I passed early in my walk, and what was the name of the high school I encountered later that featured a mural of a woman with a raised fist?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 209,
+      "key": "469f55fef5c7c288.mp4||After I darkened the flower's center with a black pencil, what tool did I later use to lighten a part of a petal?",
+      "video_path": "469f55fef5c7c288.mp4",
+      "question": "After I darkened the flower's center with a black pencil, what tool did I later use to lighten a part of a petal?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 214,
+      "key": "47f45a2c0350ed90.mp4||What materials did I collect from the surroundings before building the snowman, and where did I find each?",
+      "video_path": "47f45a2c0350ed90.mp4",
+      "question": "What materials did I collect from the surroundings before building the snowman, and where did I find each?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 218,
+      "key": "4895df868cca4688.mp4||When I first checked the scoreboard, it showed 0:56 remaining in the 2nd quarter with a score of 10-21. Later, the scoreboard showed 0:18 remaining with the same score. What was different on the field between these two times?",
+      "video_path": "4895df868cca4688.mp4",
+      "question": "When I first checked the scoreboard, it showed 0:56 remaining in the 2nd quarter with a score of 10-21. Later, the scoreboard showed 0:18 remaining with the same score. What was different on the field between these two times?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 222,
+      "key": "4962704615e4fa8a.mp4||What did I retrieve from the kitchen that I later used to discard items while preparing fishing gear in the garage?",
+      "video_path": "4962704615e4fa8a.mp4",
+      "question": "What did I retrieve from the kitchen that I later used to discard items while preparing fishing gear in the garage?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 227,
+      "key": "4ad1f0bdbc6f74dc.mp4||After moving the shop vac from the garage to the living room, what did I use it for immediately after scraping a staple from the subfloor near the new kitchen flooring?",
+      "video_path": "4ad1f0bdbc6f74dc.mp4",
+      "question": "After moving the shop vac from the garage to the living room, what did I use it for immediately after scraping a staple from the subfloor near the new kitchen flooring?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 231,
+      "key": "4d98837f12753a68.mp4||After passing the parking lot with handicap signs, I continued on a path that eventually became an asphalt road. Did I walk on a gravel surface again at any point after that transition?",
+      "video_path": "4d98837f12753a68.mp4",
+      "question": "After passing the parking lot with handicap signs, I continued on a path that eventually became an asphalt road. Did I walk on a gravel surface again at any point after that transition?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 235,
+      "key": "4edf1dd9738170df.mp4||After seeing a sign that mentioned 184 St near the subway entrance, I waited on a platform marked 181 and boarded a train. What was the first station the train stopped at after I boarded?",
+      "video_path": "4edf1dd9738170df.mp4",
+      "question": "After seeing a sign that mentioned 184 St near the subway entrance, I waited on a platform marked 181 and boarded a train. What was the first station the train stopped at after I boarded?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 240,
+      "key": "5007b14318474903.mp4||After I took an empty glass jar from the bottom shelf of the pantry, what did I later fill it with on the kitchen island?",
+      "video_path": "5007b14318474903.mp4",
+      "question": "After I took an empty glass jar from the bottom shelf of the pantry, what did I later fill it with on the kitchen island?",
+      "category": "Daily Activities",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 244,
+      "key": "5294641f57768c0e.mp4||After I saw the rainbow during my walk, what book did I take from the Little Free Library and what specific content did I read in it?",
+      "video_path": "5294641f57768c0e.mp4",
+      "question": "After I saw the rainbow during my walk, what book did I take from the Little Free Library and what specific content did I read in it?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 248,
+      "key": "53a3fa0a7c4eba36.mp4||What was the last ship I placed on my board, and which ship was the first to be hit by my opponent?",
+      "video_path": "53a3fa0a7c4eba36.mp4",
+      "question": "What was the last ship I placed on my board, and which ship was the first to be hit by my opponent?",
+      "category": "Pets, social gatherings with friends and family",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 254,
+      "key": "5540d5b0bb1a7b9a.mp4||After I passed the outdoor sculpture of a rabbit and hippo sharing a meal and later saw a giant spaghetti can advertisement inside, what transit service did I encounter next?",
+      "video_path": "5540d5b0bb1a7b9a.mp4",
+      "question": "After I passed the outdoor sculpture of a rabbit and hippo sharing a meal and later saw a giant spaghetti can advertisement inside, what transit service did I encounter next?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 258,
+      "key": "5658c4855c99f1bd.mp4||What type of birds were depicted in the sculpture that I first noticed as a distant white shape across the pond and later saw up close?",
+      "video_path": "5658c4855c99f1bd.mp4",
+      "question": "What type of birds were depicted in the sculpture that I first noticed as a distant white shape across the pond and later saw up close?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 263,
+      "key": "58dcdf7f4b6b4878.mp4||Which items that I washed by hand after I first loaded the dishwasher did I later put into the dishwasher?",
+      "video_path": "58dcdf7f4b6b4878.mp4",
+      "question": "Which items that I washed by hand after I first loaded the dishwasher did I later put into the dishwasher?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 268,
+      "key": "5918181b632cc3d4.mp4||When I first spotted the stone chimney cabin in the distance, what was in the foreground, and what object was hanging from the porch roof when I later stood on that cabin's porch?",
+      "video_path": "5918181b632cc3d4.mp4",
+      "question": "When I first spotted the stone chimney cabin in the distance, what was in the foreground, and what object was hanging from the porch roof when I later stood on that cabin's porch?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 272,
+      "key": "5a96fde1c24cb409.mp4||What part of the chainsaw did I wipe with the yellow cloth after I took it outside and before I reinstalled the chain?",
+      "video_path": "5a96fde1c24cb409.mp4",
+      "question": "What part of the chainsaw did I wipe with the yellow cloth after I took it outside and before I reinstalled the chain?",
+      "category": "Gardening",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 276,
+      "key": "5b8fb3f69d96e95e.mp4||What was the connection between the jellyfish decorations I saw hanging from the ceiling in the aquarium and the sign about plastic straws in the cafe?",
+      "video_path": "5b8fb3f69d96e95e.mp4",
+      "question": "What was the connection between the jellyfish decorations I saw hanging from the ceiling in the aquarium and the sign about plastic straws in the cafe?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": false
+    },
+    {
+      "index": 280,
+      "key": "5d7ef5596447050b.mp4||I saw an Elecampane sign twice during my walk. What was a key difference in the immediate surroundings between the first and second time I encountered it?",
+      "video_path": "5d7ef5596447050b.mp4",
+      "question": "I saw an Elecampane sign twice during my walk. What was a key difference in the immediate surroundings between the first and second time I encountered it?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 286,
+      "key": "5f392677e7824e40.mp4||What did I book on my phone earlier that matches the location with the fountain I visited later?",
+      "video_path": "5f392677e7824e40.mp4",
+      "question": "What did I book on my phone earlier that matches the location with the fountain I visited later?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 290,
+      "key": "614db0132c094efa.mp4||At the start, I was building a four-legged LEGO structure on my lap. After following the instruction booklet through step 38, what did the LEGO model become, and what specific feature was added in step 38 that was absent in the initial design?",
+      "video_path": "614db0132c094efa.mp4",
+      "question": "At the start, I was building a four-legged LEGO structure on my lap. After following the instruction booklet through step 38, what did the LEGO model become, and what specific feature was added in step 38 that was absent in the initial design?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 294,
+      "key": "62b5891eb1a85b09.mp4||What did I do with the clothes that were in the washing machine before I worked on my bike?",
+      "video_path": "62b5891eb1a85b09.mp4",
+      "question": "What did I do with the clothes that were in the washing machine before I worked on my bike?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 298,
+      "key": "635a2b36939ba236.mp4||After walking on Brea Blvd, I recalled the intersection where I saw the 'Brea's Best' sign earlier; what was the name of the cross street at that intersection?",
+      "video_path": "635a2b36939ba236.mp4",
+      "question": "After walking on Brea Blvd, I recalled the intersection where I saw the 'Brea's Best' sign earlier; what was the name of the cross street at that intersection?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 303,
+      "key": "665750c3d20adfbc.mp4||Earlier in the video, I saw two condiment products with prices $8.58 and $9.98 in the same aisle. Later, I reached for one of them. What was the price of the product I interacted with?",
+      "video_path": "665750c3d20adfbc.mp4",
+      "question": "Earlier in the video, I saw two condiment products with prices $8.58 and $9.98 in the same aisle. Later, I reached for one of them. What was the price of the product I interacted with?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 308,
+      "key": "67d2bd73430ff38e.mp4||What color were the stickers I placed immediately before and immediately after I flipped to sticker sheet A, and where on the template were they located?",
+      "video_path": "67d2bd73430ff38e.mp4",
+      "question": "What color were the stickers I placed immediately before and immediately after I flipped to sticker sheet A, and where on the template were they located?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 316,
+      "key": "69afe7c01d4fb660.mp4||Between seeing the Penn Station model and the LuEsther T. Mertz Library model, which other landmark with a bilingual (English and Spanish) sign did I encounter?",
+      "video_path": "69afe7c01d4fb660.mp4",
+      "question": "Between seeing the Penn Station model and the LuEsther T. Mertz Library model, which other landmark with a bilingual (English and Spanish) sign did I encounter?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": false
+    },
+    {
+      "index": 320,
+      "key": "6b8c690b8133259a.mp4||After reading about the massive fish harvests at Washington's fisheries, what boat design did I later learn about that was suited for this work, and what specific feature made it suitable?",
+      "video_path": "6b8c690b8133259a.mp4",
+      "question": "After reading about the massive fish harvests at Washington's fisheries, what boat design did I later learn about that was suited for this work, and what specific feature made it suitable?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 324,
+      "key": "6d5b8909cd6e4538.mp4||After I first touched the tomatoes, what fruit did I later pick, and what dairy item was in my basket when I reached the meat section?",
+      "video_path": "6d5b8909cd6e4538.mp4",
+      "question": "After I first touched the tomatoes, what fruit did I later pick, and what dairy item was in my basket when I reached the meat section?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 329,
+      "key": "6f0d26d3e3eb2ff1.mp4||Which item in my pickup order, shown on my phone, required the employee to make a phone call, and where had I previously seen similar items during my visit?",
+      "video_path": "6f0d26d3e3eb2ff1.mp4",
+      "question": "Which item in my pickup order, shown on my phone, required the employee to make a phone call, and where had I previously seen similar items during my visit?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 333,
+      "key": "70d8108d8287f08e.mp4||Early in the video, I saw a sign on the wall that read 'The House of the Lord'. Later, I looked through a window into a room with the same sign. What was depicted in the large painting visible in that room?",
+      "video_path": "70d8108d8287f08e.mp4",
+      "question": "Early in the video, I saw a sign on the wall that read 'The House of the Lord'. Later, I looked through a window into a room with the same sign. What was depicted in the large painting visible in that room?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 339,
+      "key": "74edd72c3cbee70f.mp4||After I viewed the custom closet displays, what product did I hold that was made in Lithuania?",
+      "video_path": "74edd72c3cbee70f.mp4",
+      "question": "After I viewed the custom closet displays, what product did I hold that was made in Lithuania?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 344,
+      "key": "76bbd3472a7a2dd0.mp4||What sport was advertised on a sign I passed early in my walk, and what different sport did I later observe people playing near the waterfront?",
+      "video_path": "76bbd3472a7a2dd0.mp4",
+      "question": "What sport was advertised on a sign I passed early in my walk, and what different sport did I later observe people playing near the waterfront?",
+      "category": "Sightseeing",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 349,
+      "key": "786fc2d06d1a1893.mp4||After seeing the silver SUV parked near the flagpole in the background, where did I later see the same vehicle?",
+      "video_path": "786fc2d06d1a1893.mp4",
+      "question": "After seeing the silver SUV parked near the flagpole in the background, where did I later see the same vehicle?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 353,
+      "key": "7a5ad35cb65315bb.mp4||I saw a person walking a dog on the grassy field earlier, and later I passed a sign attached to the fence. What did the sign say about dogs?",
+      "video_path": "7a5ad35cb65315bb.mp4",
+      "question": "I saw a person walking a dog on the grassy field earlier, and later I passed a sign attached to the fence. What did the sign say about dogs?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 357,
+      "key": "7b25699f021f7fa4.mp4||What structure did I see on the left side of the road before I turned into the area where I later observed picnic tables and trash cans?",
+      "video_path": "7b25699f021f7fa4.mp4",
+      "question": "What structure did I see on the left side of the road before I turned into the area where I later observed picnic tables and trash cans?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 361,
+      "key": "7b74a542cd93fefa.mp4||At the start, I was at the base of a staircase leading to a white building with arched windows. Later, I saw the same building from a distance while near a rainbow arch sculpture. How did my position relative to the building change?",
+      "video_path": "7b74a542cd93fefa.mp4",
+      "question": "At the start, I was at the base of a staircase leading to a white building with arched windows. Later, I saw the same building from a distance while near a rainbow arch sculpture. How did my position relative to the building change?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 367,
+      "key": "7d218c229be9704a.mp4||When I saw the 'COST ENX' graffiti for the second time, what was the color of the van parked on the street below it?",
+      "video_path": "7d218c229be9704a.mp4",
+      "question": "When I saw the 'COST ENX' graffiti for the second time, what was the color of the van parked on the street below it?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 373,
+      "key": "807c58c65ef0c3a7.mp4||I first saw the Hondashi box on the counter and later filled a bowl with water at the sink. What did I use that water and Hondashi for, and where is it now cooking?",
+      "video_path": "807c58c65ef0c3a7.mp4",
+      "question": "I first saw the Hondashi box on the counter and later filled a bowl with water at the sink. What did I use that water and Hondashi for, and where is it now cooking?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 379,
+      "key": "83af08b0c9b7bc0f.mp4||After observing the Eastern Diamondback Rattlesnake, what did the 'Snake, Rattle And Roll' exhibit clarify about who possesses rattles?",
+      "video_path": "83af08b0c9b7bc0f.mp4",
+      "question": "After observing the Eastern Diamondback Rattlesnake, what did the 'Snake, Rattle And Roll' exhibit clarify about who possesses rattles?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 383,
+      "key": "8489ba53a98bcdbe.mp4||When I first noticed the yellow CAT skid steer in the background, what was I doing, and what did I later use it for?",
+      "video_path": "8489ba53a98bcdbe.mp4",
+      "question": "When I first noticed the yellow CAT skid steer in the background, what was I doing, and what did I later use it for?",
+      "category": "Outdoor Activities and Sports",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 388,
+      "key": "8765a7c347d3f82b.mp4||What did the plaque I saw later reveal about the marine paintings I had observed earlier on the wooden wall?",
+      "video_path": "8765a7c347d3f82b.mp4",
+      "question": "What did the plaque I saw later reveal about the marine paintings I had observed earlier on the wooden wall?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 394,
+      "key": "88c14ad96aa2ed09.mp4||After I began folding the clothes from the floor pile, where did I relocate the neon green garment that I had previously seen on the top shelf?",
+      "video_path": "88c14ad96aa2ed09.mp4",
+      "question": "After I began folding the clothes from the floor pile, where did I relocate the neon green garment that I had previously seen on the top shelf?",
+      "category": "Fashion Advice",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 401,
+      "key": "8a2b0052cec40e85.mp4||Earlier, I read in the 'Radicals and Reformers' section that Greenwich Village bohemians advocated for birth control. Which exhibit later showed a specific event related to this cause?",
+      "video_path": "8a2b0052cec40e85.mp4",
+      "question": "Earlier, I read in the 'Radicals and Reformers' section that Greenwich Village bohemians advocated for birth control. Which exhibit later showed a specific event related to this cause?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 405,
+      "key": "8b02497f95b7204c.mp4||What was the size and price of the beige jacket I examined later, and how did its price compare to the light green jacket I looked at earlier?",
+      "video_path": "8b02497f95b7204c.mp4",
+      "question": "What was the size and price of the beige jacket I examined later, and how did its price compare to the light green jacket I looked at earlier?",
+      "category": "Fashion Advice",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 410,
+      "key": "8c38bd641a5b2916.mp4||At the beginning and end of my walk, I was on a sidewalk next to a beige wall; what difference in the wall's appearance confirms I was on opposite sides of the same street?",
+      "video_path": "8c38bd641a5b2916.mp4",
+      "question": "At the beginning and end of my walk, I was on a sidewalk next to a beige wall; what difference in the wall's appearance confirms I was on opposite sides of the same street?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 414,
+      "key": "8e5ac230c68c9cd8.mp4||What item did I first notice in a wire basket, later pick up to examine, and eventually wear on my feet?",
+      "video_path": "8e5ac230c68c9cd8.mp4",
+      "question": "What item did I first notice in a wire basket, later pick up to examine, and eventually wear on my feet?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 418,
+      "key": "8f6a3caa4cf18e28.mp4||Where was the stove grate that I lifted while cleaning when I was eating the meal later in the video?",
+      "video_path": "8f6a3caa4cf18e28.mp4",
+      "question": "Where was the stove grate that I lifted while cleaning when I was eating the meal later in the video?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 422,
+      "key": "9068818ab1d1e684.mp4||After I passed the San Francisco Bay Trail sign, I later saw a person walking an animal on the path. What was the animal, and what building did I encounter shortly after that?",
+      "video_path": "9068818ab1d1e684.mp4",
+      "question": "After I passed the San Francisco Bay Trail sign, I later saw a person walking an animal on the path. What was the animal, and what building did I encounter shortly after that?",
+      "category": "Outdoor Activities and Sports",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 427,
+      "key": "91dd67529b605e34.mp4||After I examined the dinosaur-themed jewelry, what specific dinosaur was featured on the clothing item I saw later in the store?",
+      "video_path": "91dd67529b605e34.mp4",
+      "question": "After I examined the dinosaur-themed jewelry, what specific dinosaur was featured on the clothing item I saw later in the store?",
+      "category": "Shopping",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 432,
+      "key": "93026d95399f1fd3.mp4||Which item that was next to the hot glue gun on the table early in the video did I later hang on the dark door in the hallway?",
+      "video_path": "93026d95399f1fd3.mp4",
+      "question": "Which item that was next to the hot glue gun on the table early in the video did I later hang on the dark door in the hallway?",
+      "category": "Pets, social gatherings with friends and family",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 438,
+      "key": "94ce0afd5f08b035.mp4||After seeing the melon on the kitchen bar in the first scene, where was it later located?",
+      "video_path": "94ce0afd5f08b035.mp4",
+      "question": "After seeing the melon on the kitchen bar in the first scene, where was it later located?",
+      "category": "Daily Activities",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 445,
+      "key": "9a2c0a4621c76951.mp4||Which item from the 'Please bring' list on my phone in the gift bags aisle was already in my cart when I was in the floral section?",
+      "video_path": "9a2c0a4621c76951.mp4",
+      "question": "Which item from the 'Please bring' list on my phone in the gift bags aisle was already in my cart when I was in the floral section?",
+      "category": "Events",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 450,
+      "key": "9bbb12e711478ff8.mp4||Earlier, I saw a woman in a black jacket and blue jeans walking past a furniture store. Later, when I was near the T-Mobile store, where was that same woman and what was she doing?",
+      "video_path": "9bbb12e711478ff8.mp4",
+      "question": "Earlier, I saw a woman in a black jacket and blue jeans walking past a furniture store. Later, when I was near the T-Mobile store, where was that same woman and what was she doing?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 454,
+      "key": "9da6c6890a9414bb.mp4||What did I do with the paper towel after cleaning the steam wand?",
+      "video_path": "9da6c6890a9414bb.mp4",
+      "question": "What did I do with the paper towel after cleaning the steam wand?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 461,
+      "key": "9fd7a3d8bf39c2e8.mp4||What was the name of the last commercial complex I passed before entering the residential neighborhood with wooden fences?",
+      "video_path": "9fd7a3d8bf39c2e8.mp4",
+      "question": "What was the name of the last commercial complex I passed before entering the residential neighborhood with wooden fences?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 465,
+      "key": "a12fcce1fd9303be.mp4||After I put on the blue gloves, what was the first part of the wall I patched, and what was the last part I patched in the video?",
+      "video_path": "a12fcce1fd9303be.mp4",
+      "question": "After I put on the blue gloves, what was the first part of the wall I patched, and what was the last part I patched in the video?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 470,
+      "key": "a2756d0d739a9644.mp4||After I used the aluminum trays for food preparation on the red table, where were they later seen in the video?",
+      "video_path": "a2756d0d739a9644.mp4",
+      "question": "After I used the aluminum trays for food preparation on the red table, where were they later seen in the video?",
+      "category": "Events",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 475,
+      "key": "a503f181e5981135.mp4||How did the Manhattan Bridge's position relative to me change from when I first saw it to when I last saw it?",
+      "video_path": "a503f181e5981135.mp4",
+      "question": "How did the Manhattan Bridge's position relative to me change from when I first saw it to when I last saw it?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 479,
+      "key": "a5de9225be1f781f.mp4||Which pajama pant that I examined had cuffed ankles, and what was the theme of the gift set box directly above it on the shelf at that moment?",
+      "video_path": "a5de9225be1f781f.mp4",
+      "question": "Which pajama pant that I examined had cuffed ankles, and what was the theme of the gift set box directly above it on the shelf at that moment?",
+      "category": "Fashion Advice",
+      "mcq_answer": "C",
+      "temporal": false
+    },
+    {
+      "index": 484,
+      "key": "a812622abd9dbec3.mp4||What item that I moved from the bed early on now occupies the left nightstand, which initially held a floral-patterned folded sheet?",
+      "video_path": "a812622abd9dbec3.mp4",
+      "question": "What item that I moved from the bed early on now occupies the left nightstand, which initially held a floral-patterned folded sheet?",
+      "category": "Shopping",
+      "mcq_answer": "A",
+      "temporal": false
+    },
+    {
+      "index": 491,
+      "key": "aba51830e340f122.mp4||What item that I first saw leaning against the brick house near the gas meter did I later carry while standing in the front yard?",
+      "video_path": "aba51830e340f122.mp4",
+      "question": "What item that I first saw leaning against the brick house near the gas meter did I later carry while standing in the front yard?",
+      "category": "Gardening",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 496,
+      "key": "acf854d6fe306870.mp4||I saw a bottle from a French wine region in the cellar and later a sign for a mountain in a display case. What was the wine region and the mountain's altitude?",
+      "video_path": "acf854d6fe306870.mp4",
+      "question": "I saw a bottle from a French wine region in the cellar and later a sign for a mountain in a display case. What was the wine region and the mountain's altitude?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 501,
+      "key": "b1282fb2240f4723.mp4||Earlier in my walk I passed a Whole Foods Market. What was the promotional phrase on the exterior window of the grocery store I later entered?",
+      "video_path": "b1282fb2240f4723.mp4",
+      "question": "Earlier in my walk I passed a Whole Foods Market. What was the promotional phrase on the exterior window of the grocery store I later entered?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 509,
+      "key": "b38d58abcd059eeb.mp4||What was the name of the shopping center where the restaurant with the $7.95 lunch special was located?",
+      "video_path": "b38d58abcd059eeb.mp4",
+      "question": "What was the name of the shopping center where the restaurant with the $7.95 lunch special was located?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "B",
+      "temporal": false
+    },
+    {
+      "index": 513,
+      "key": "b62094c953346377.mp4||What large holiday decoration did I first notice in the Lawn & Garden section and later see again up close, with my dog looking at it, near the Christmas trees?",
+      "video_path": "b62094c953346377.mp4",
+      "question": "What large holiday decoration did I first notice in the Lawn & Garden section and later see again up close, with my dog looking at it, near the Christmas trees?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 517,
+      "key": "b724c4870790d192.mp4||What statistic about bat species diversity was presented early in the walk, and what threat to that diversity was highlighted near the end?",
+      "video_path": "b724c4870790d192.mp4",
+      "question": "What statistic about bat species diversity was presented early in the walk, and what threat to that diversity was highlighted near the end?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 523,
+      "key": "b863b8980be825e3.mp4||After leaving the snowy driveway, I passed a black sedan with orange pumpkins on its roof. Did I see pumpkins on any other vehicles later in the video?",
+      "video_path": "b863b8980be825e3.mp4",
+      "question": "After leaving the snowy driveway, I passed a black sedan with orange pumpkins on its roof. Did I see pumpkins on any other vehicles later in the video?",
+      "category": "Outdoor Activities and Sports",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 527,
+      "key": "bbf5f37b642d5756.mp4||What did I relocate from the wall near the purple streamers to the whiteboard?",
+      "video_path": "bbf5f37b642d5756.mp4",
+      "question": "What did I relocate from the wall near the purple streamers to the whiteboard?",
+      "category": "Events",
+      "mcq_answer": "B",
+      "temporal": false
+    },
+    {
+      "index": 535,
+      "key": "be368a6954a25857.mp4||After I first noticed the Migrant Mother photograph on a display stand, what did I later read in a book about the public's reaction to a magazine's satirical edit of it?",
+      "video_path": "be368a6954a25857.mp4",
+      "question": "After I first noticed the Migrant Mother photograph on a display stand, what did I later read in a book about the public's reaction to a magazine's satirical edit of it?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 539,
+      "key": "c060b9a8c96fcc0f.mp4||After the table was initially set with a blue tablecloth for a meal, what did I change about the table and what did I do with the wooden board that involved the isopropyl alcohol?",
+      "video_path": "c060b9a8c96fcc0f.mp4",
+      "question": "After the table was initially set with a blue tablecloth for a meal, what did I change about the table and what did I do with the wooden board that involved the isopropyl alcohol?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 544,
+      "key": "c21062e32dcbecee.mp4||What action did I take with the fallen tree in the sandy dunes, and how did its condition differ from the fallen log I passed earlier in the forest?",
+      "video_path": "c21062e32dcbecee.mp4",
+      "question": "What action did I take with the fallen tree in the sandy dunes, and how did its condition differ from the fallen log I passed earlier in the forest?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 548,
+      "key": "c7403ae0345a15f9.mp4||Later in the video, I noticed parallel tire tracks on the grass in the backyard. What vehicle that I had seen being operated earlier left those tracks?",
+      "video_path": "c7403ae0345a15f9.mp4",
+      "question": "Later in the video, I noticed parallel tire tracks on the grass in the backyard. What vehicle that I had seen being operated earlier left those tracks?",
+      "category": "Gardening",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 554,
+      "key": "c919300af537a381.mp4||What item that I saw on the table when I first handled the shipping package later became part of the wrapped gift I prepared?",
+      "video_path": "c919300af537a381.mp4",
+      "question": "What item that I saw on the table when I first handled the shipping package later became part of the wrapped gift I prepared?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 558,
+      "key": "cc37909ac018919c.mp4||After I read the sign about plant ancestors from 800-750 million years ago, I later saw a bonsai with a sign stating its age. What was the name of that bonsai, and how did its age compare to the evolutionary time scale I learned about earlier?",
+      "video_path": "cc37909ac018919c.mp4",
+      "question": "After I read the sign about plant ancestors from 800-750 million years ago, I later saw a bonsai with a sign stating its age. What was the name of that bonsai, and how did its age compare to the evolutionary time scale I learned about earlier?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 563,
+      "key": "ce7e498bea4c4036.mp4||Where did the pink toy that was in the box I opened near the red table end up later in the video?",
+      "video_path": "ce7e498bea4c4036.mp4",
+      "question": "Where did the pink toy that was in the box I opened near the red table end up later in the video?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 568,
+      "key": "d00b07b27508e864.mp4||The plaque about the dry dock mentioned cleaning and scraping ship hulls; what color were the tools I later saw arranged in a circular display that were likely used for this task?",
+      "video_path": "d00b07b27508e864.mp4",
+      "question": "The plaque about the dry dock mentioned cleaning and scraping ship hulls; what color were the tools I later saw arranged in a circular display that were likely used for this task?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 573,
+      "key": "d1a6067a7a75a228.mp4||What was the difference in bike path activity between the first and second time I saw a 'LOOK' sign on the ground?",
+      "video_path": "d1a6067a7a75a228.mp4",
+      "question": "What was the difference in bike path activity between the first and second time I saw a 'LOOK' sign on the ground?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 577,
+      "key": "d5bbef6bd26a6384.mp4||Which item that I saw inside the kitchen cabinet earlier was later visible in the SUV's cargo area?",
+      "video_path": "d5bbef6bd26a6384.mp4",
+      "question": "Which item that I saw inside the kitchen cabinet earlier was later visible in the SUV's cargo area?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 581,
+      "key": "d6921118cad55955.mp4||What structural elements did I notice below the walkway early in my visit that were directly beneath the area where I later observed tiered seating facing the water?",
+      "video_path": "d6921118cad55955.mp4",
+      "question": "What structural elements did I notice below the walkway early in my visit that were directly beneath the area where I later observed tiered seating facing the water?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 586,
+      "key": "d9db6fb1cdf4bc7d.mp4||I entered the Dining Concourse and first saw a bakery. Later, at a seafood stall, what was the price of the combo that included a lobster roll and clam chowder?",
+      "video_path": "d9db6fb1cdf4bc7d.mp4",
+      "question": "I entered the Dining Concourse and first saw a bakery. Later, at a seafood stall, what was the price of the combo that included a lobster roll and clam chowder?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 592,
+      "key": "dcc8378bca4fb4d8.mp4||What item did I first use to keep the rear brake lever engaged during adjustment and later use to secure the work light to the wooden beam?",
+      "video_path": "dcc8378bca4fb4d8.mp4",
+      "question": "What item did I first use to keep the rear brake lever engaged during adjustment and later use to secure the work light to the wooden beam?",
+      "category": "Hobbies-Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 598,
+      "key": "deacfa3d4686dfa2.mp4||What did I interact with earlier that caused the purple stain on my hand later in the video?",
+      "video_path": "deacfa3d4686dfa2.mp4",
+      "question": "What did I interact with earlier that caused the purple stain on my hand later in the video?",
+      "category": "Hiking-Outdoors",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 603,
+      "key": "e0350daea52c7ddf.mp4||After unboxing, I found a small plastic bag with a spare part; what happened to that part by the time I powered on the factory?",
+      "video_path": "e0350daea52c7ddf.mp4",
+      "question": "After unboxing, I found a small plastic bag with a spare part; what happened to that part by the time I powered on the factory?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 611,
+      "key": "e1e7ce832da64fd4.mp4||What color of mineral staining did I see inside the cave after passing the wooden staircase, that was not present on the cliff faces I saw before the staircase?",
+      "video_path": "e1e7ce832da64fd4.mp4",
+      "question": "What color of mineral staining did I see inside the cave after passing the wooden staircase, that was not present on the cliff faces I saw before the staircase?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 616,
+      "key": "e31690b83652844a.mp4||Early in my walk, I crossed a street and noticed a city name on a manhole cover. Much later, after exploring the area around the ASU Art Museum, I came across a mosaic sculpture under a tree that displayed the same city name alongside desert flora. What city was it?",
+      "video_path": "e31690b83652844a.mp4",
+      "question": "Early in my walk, I crossed a street and noticed a city name on a manhole cover. Much later, after exploring the area around the ASU Art Museum, I came across a mosaic sculpture under a tree that displayed the same city name alongside desert flora. What city was it?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 622,
+      "key": "e40865d30d1c1594.mp4||Which accessory did I move from the green top outfit to the navy patterned outfit?",
+      "video_path": "e40865d30d1c1594.mp4",
+      "question": "Which accessory did I move from the green top outfit to the navy patterned outfit?",
+      "category": "Fashion Advice",
+      "mcq_answer": "B",
+      "temporal": false
+    },
+    {
+      "index": 627,
+      "key": "e5f0a71c73ee4f93.mp4||After I parked and walked towards the store with the red star logo, I entered and later visited its discount section. What was the name of that section and what was the lowest price point advertised there?",
+      "video_path": "e5f0a71c73ee4f93.mp4",
+      "question": "After I parked and walked towards the store with the red star logo, I entered and later visited its discount section. What was the name of that section and what was the lowest price point advertised there?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 632,
+      "key": "e78f2a7a7ab24341.mp4||Which shop did I see both on the ground floor and later from an upper level?",
+      "video_path": "e78f2a7a7ab24341.mp4",
+      "question": "Which shop did I see both on the ground floor and later from an upper level?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 637,
+      "key": "e9054b8f2eba960d.mp4||Earlier in my walk I noticed pumpkins on a neighbor's lawn; what similar decoration was on my front porch when I arrived home?",
+      "video_path": "e9054b8f2eba960d.mp4",
+      "question": "Earlier in my walk I noticed pumpkins on a neighbor's lawn; what similar decoration was on my front porch when I arrived home?",
+      "category": "Pets, social gatherings with friends and family",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 641,
+      "key": "ea130c0e5f45f32f.mp4||What boroughs were listed on the tennis court poster I saw inside a subway car, and how did those boroughs relate to the subway line advertised on a platform sign I saw earlier?",
+      "video_path": "ea130c0e5f45f32f.mp4",
+      "question": "What boroughs were listed on the tennis court poster I saw inside a subway car, and how did those boroughs relate to the subway line advertised on a platform sign I saw earlier?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 647,
+      "key": "ebd8e191c386b280.mp4||Which track piece that was initially positioned near the green-roofed building did I later use to create a junction connecting the elevated bridge to the main track loop?",
+      "video_path": "ebd8e191c386b280.mp4",
+      "question": "Which track piece that was initially positioned near the green-roofed building did I later use to create a junction connecting the elevated bridge to the main track loop?",
+      "category": "Daily Activities",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 652,
+      "key": "ef2ef1313755ec07.mp4||What changed about the leaf on the stone parapet between the first time I saw it at the river overlook and when I checked it again later?",
+      "video_path": "ef2ef1313755ec07.mp4",
+      "question": "What changed about the leaf on the stone parapet between the first time I saw it at the river overlook and when I checked it again later?",
+      "category": "Gardening",
+      "mcq_answer": "B",
+      "temporal": true
+    },
+    {
+      "index": 656,
+      "key": "f007e9c9cb65c590.mp4||After I first noticed the book 'AIDS, Sex, and Culture' on the shelf, I later opened it to the contents page. What was the title of the third chapter?",
+      "video_path": "f007e9c9cb65c590.mp4",
+      "question": "After I first noticed the book 'AIDS, Sex, and Culture' on the shelf, I later opened it to the contents page. What was the title of the third chapter?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 662,
+      "key": "f157244a935aeb48.mp4||What brand was the red, round appliance I opened to inspect its interior, and where did I later see that brand's name prominently displayed on a sign?",
+      "video_path": "f157244a935aeb48.mp4",
+      "question": "What brand was the red, round appliance I opened to inspect its interior, and where did I later see that brand's name prominently displayed on a sign?",
+      "category": "Shopping",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 669,
+      "key": "f35cc4940be701c8.mp4||Earlier I viewed a large stormy landscape painting and pottery in a room with beige walls and gray flooring. Later, after passing a sign reading 'DESIGN 1880 TO NOW', I entered a space with light wood flooring. What types of objects were primarily displayed in these two areas?",
+      "video_path": "f35cc4940be701c8.mp4",
+      "question": "Earlier I viewed a large stormy landscape painting and pottery in a room with beige walls and gray flooring. Later, after passing a sign reading 'DESIGN 1880 TO NOW', I entered a space with light wood flooring. What types of objects were primarily displayed in these two areas?",
+      "category": "Travel-Sightseeing (Indoors)",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 674,
+      "key": "f5af4eee813b9c6c.mp4||After passing the Palace of Fine Arts Theatre sign, what named location did I encounter before I reached the parking lot where the Golden Gate Bridge was visible in the background?",
+      "video_path": "f5af4eee813b9c6c.mp4",
+      "question": "After passing the Palace of Fine Arts Theatre sign, what named location did I encounter before I reached the parking lot where the Golden Gate Bridge was visible in the background?",
+      "category": "Travel-Sightseeing (Outdoors)",
+      "mcq_answer": "D",
+      "temporal": true
+    },
+    {
+      "index": 680,
+      "key": "f7695db49909a96f.mp4||After I passed a sign showing campsite numbers 1-27 and 28-95, I later picked up a laminated sheet. What animal was featured on that sheet?",
+      "video_path": "f7695db49909a96f.mp4",
+      "question": "After I passed a sign showing campsite numbers 1-27 and 28-95, I later picked up a laminated sheet. What animal was featured on that sheet?",
+      "category": "Sightseeing",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 687,
+      "key": "fc12d4e78cb8b907.mp4||After I melted butter in the pot on the stove, what ingredient did I add to it, and where had I prepared that ingredient earlier?",
+      "video_path": "fc12d4e78cb8b907.mp4",
+      "question": "After I melted butter in the pot on the stove, what ingredient did I add to it, and where had I prepared that ingredient earlier?",
+      "category": "Daily Activities",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 692,
+      "key": "fe34b3af082ac499.mp4||After I sat with the two women on the mat, which one later climbed the purple route on the steep overhang?",
+      "video_path": "fe34b3af082ac499.mp4",
+      "question": "After I sat with the two women on the mat, which one later climbed the purple route on the steep overhang?",
+      "category": "Travel-Tourism",
+      "mcq_answer": "C",
+      "temporal": true
+    },
+    {
+      "index": 696,
+      "key": "ff5854db35d7a9bc.mp4||What was the title of the book that I saw partially on the table before opening the game box and fully after I started playing?",
+      "video_path": "ff5854db35d7a9bc.mp4",
+      "question": "What was the title of the book that I saw partially on the table before opening the game box and fully after I started playing?",
+      "category": "Pets, social gatherings with friends and family",
+      "mcq_answer": "C",
+      "temporal": true
+    }
+  ]
+}

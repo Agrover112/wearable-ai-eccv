@@ -65,6 +65,7 @@ STRATEGIES = (
     "qca_router",
     "multi_event",
     "multi_event_router",
+    "qwen_window_rerank",
 )
 PROOFPACK_SCHEMA = 2
 RETRIEVAL_QUERY_MODES = (

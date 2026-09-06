@@ -123,10 +123,19 @@ def _resolve_path(path: str) -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
 
 
-def extract_object_concepts(row: dict[str, Any], limit: int = 12) -> list[str]:
+def extract_object_concepts(
+    row: dict[str, Any],
+    limit: int = 12,
+    source: str = "question_options",
+) -> list[str]:
     """Extract reproducible open-vocabulary detector prompts without an LLM."""
     options = parse_mcq_options(row.get("mcq_options", ""))
-    texts = [*options.values(), str(row.get("question", ""))]
+    if source == "question":
+        texts = [str(row.get("question", ""))]
+    elif source == "question_options":
+        texts = [*options.values(), str(row.get("question", ""))]
+    else:
+        raise ValueError(f"Unknown concept source: {source}")
     concepts: list[str] = []
     for text in texts:
         raw_tokens = [
@@ -557,6 +566,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--box-threshold", type=float, default=0.25)
     parser.add_argument("--text-threshold", type=float, default=0.20)
     parser.add_argument("--concept-limit", type=int, default=12)
+    parser.add_argument(
+        "--concept-source",
+        choices=("question", "question_options"),
+        default="question_options",
+    )
     parser.add_argument("--proofpack-detection-frames", type=int, default=24)
     parser.add_argument("--uniform-detection-frames", type=int, default=8)
     parser.add_argument("--detail-count", type=int, default=8)
@@ -608,6 +622,7 @@ def main() -> None:
         "box_threshold": args.box_threshold,
         "text_threshold": args.text_threshold,
         "concept_limit": args.concept_limit,
+        "concept_source": args.concept_source,
         "proofpack_detection_frames": args.proofpack_detection_frames,
         "uniform_detection_frames": args.uniform_detection_frames,
         "detail_count": args.detail_count,
@@ -628,6 +643,7 @@ def main() -> None:
                 "box_threshold": args.box_threshold,
                 "text_threshold": args.text_threshold,
                 "concept_limit": args.concept_limit,
+                "concept_source": args.concept_source,
                 "proofpack_detection_frames": args.proofpack_detection_frames,
                 "uniform_detection_frames": args.uniform_detection_frames,
             },
@@ -661,7 +677,9 @@ def main() -> None:
                 args.proofpack_detection_frames,
                 args.uniform_detection_frames,
             )
-            concepts = extract_object_concepts(row, args.concept_limit)
+            concepts = extract_object_concepts(
+                row, args.concept_limit, args.concept_source
+            )
             per_frame: dict[int, list[dict[str, Any]]] = {}
             missing_indices = []
             missing_paths: list[Path] = []

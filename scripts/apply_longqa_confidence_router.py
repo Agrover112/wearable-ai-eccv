@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-STARTER_KIT = REPO_ROOT / "baselines" / "longqa"
+STARTER_KIT = REPO_ROOT / "data" / "wearable-ai" / "starter_kit"
 sys.path.insert(0, str(STARTER_KIT))
 
 from longqa_utils import load_jsonl, normalize_answer, sample_key

@@ -1792,3 +1792,576 @@ inputs and commands successfully.
 - **Healthy jobs:** endpoint-48 `49544971`, timestamped verification `49544973`, balanced option-quota `49544974`, MMR hybrid `49544975`, and RRF-MMR hybrid `49544976` all started normally. The option-quota and MMR selection stages completed from cached SigLIP2 features before their Qwen answer passes; RRF selection was progressing normally. Hugging Face `404` metadata probes in the retrieval stderr files are benign because the required processor and model files resolve successfully afterward.
 - **Early failure:** direct endpoint reasoning job `49544972` stopped before model startup. The launcher passed `--longqa-max-new-tokens` and `--require-final-answer-marker`, but the unified `run_evaluation.py` CLI had not exposed or forwarded those existing LongQA generator controls.
 - **Fix:** the unified CLI now accepts both controls, forwards them into the LongQA generation namespace, and forwards them through its optional SLURM submission path. The corrected launcher passes parser, Python compilation, and shell validation. Job `49544972` produced no predictions and should be resubmitted with the same launcher.
+- **Second reasoning failure:** resubmitted job `49545055` reached Qwen inference but stopped on the first sample because its answer-only retry reopened reasoning and again omitted the final-answer marker. The launcher exported `THINKING_TOKEN_BUDGET`, while the direct model backend reads `VLLM_THINKING_TOKEN_BUDGET`; consequently the retry could not force a zero-token reasoning budget. The launcher now exports the backend variable, allowing the existing `generate_final_answer_batch` path to disable thinking during the 64-token continuation. The failed job wrote no predictions and can be resubmitted from the beginning.
+- **Third reasoning failure and final retry fix:** job `49545884` confirmed that a zero reasoning-token budget alone does not override Qwen3.5's `enable_thinking=true` chat-template setting. It again stopped safely on the first row with zero predictions. The VLLM answer-only retry now explicitly sends both `thinking_token_budget=0` and `enable_thinking=false`; normal generation retains the configured thinking mode. A focused mock assertion verifies both retry controls before another submission.
+
+### Final-day evidence-selection results (2026-08-08)
+
+- **Completed jobs:** endpoint-48 `49544971`, timestamped verification `49544973`, balanced option-quota `49544974`, MMR hybrid `49544975`, and RRF-MMR hybrid `49544976` completed all `140/140` dev rows. Their scores are respectively `124/140` (`88.57%`), `116/140` (`82.86%`), `121/140` (`86.43%`), `125/140` (`89.29%`), and `123/140` (`87.86%`). The unchanged endpoint-64 reference is `130/140` (`92.86%`), and the frozen temporal route is `132/140` (`94.29%`).
+- **Endpoint recovery:** endpoint-48, balanced option-quota, MMR, and RRF-MMR recover `3`, `3`, `5`, and `5` endpoint errors, but introduce `9`, `12`, `10`, and `12` regressions. Timestamped verification recovers zero endpoint errors and introduces 14 regressions. None passes the predeclared promotion gate of either exceeding `130/140` or making at least three fixes with at most one regression.
+- **Route recovery:** relative to the stronger frozen temporal route, MMR and RRF-MMR each repair three errors but introduce ten and twelve regressions. Endpoint-48 and balanced option-quota each repair one route error. Timestamped verification repairs none. No endpoint-preserving consensus rule over these candidates improves the route.
+- **Voting and oracle:** plurality across endpoint and the five completed candidates scores `129/140`, below endpoint alone. Their diagnostic oracle is `135/140`, so five additional answers exist in the pool but cannot be isolated by ordinary voting. MMR is the most complementary new branch, especially on `AFTER` and `MULTI_TIME`, but its global-question changes are all harmful and its routing precision is not adequate for held-out promotion.
+- **Rank-fusion result:** MMR and RRF-MMR agree on `138/140` answers. Their 64-frame proof packs overlap by `62.85` frames on average; the 16 retrieved supplements overlap by `14.85` frames. Reciprocal-rank fusion therefore did not create meaningfully different evidence, and its two answer changes relative to MMR were both detrimental.
+- **Runtime/context:** answer-stage runtimes were `6055` seconds for endpoint-48, `8073` for timestamps, `7735` for balanced option-quota, `7993` for MMR, and `8062` for RRF-MMR. Mean context fill was `42.74%` for endpoint-48, `58.59%` for timestamps, and `56.88%` for all three 64-frame retrieval variants.
+- **Decision:** do not run val560 expansions for these five candidates. Retain the `613/700` frozen temporal route as the primary accuracy artifact and endpoint-only `608/700` as the simpler submission. The direct-thinking candidate remains unscored after three safe first-row failures; its final retry path is fixed, but it requires a fresh submission if still worth the compute.
+- **Analysis artifact:** `analysis/longqa_final_day_evidence_candidates_dev140_2026-08-08.json` records the six-candidate accuracies, agreement, majority, and oracle without using labels to construct predictions.
+
+### Pre-test deep-push audit and final launchers (2026-08-08)
+
+- **Residual-error split:** the `613/700` route has 87 errors. Existing direct candidates contain the correct answer for 49; all seven direct candidates miss the remaining 38, including 25 unanimous wrong answers. Arbitration and missing/incorrect evidence are therefore both material.
+- **Hard-vote conclusion:** endpoint-preserving consensus thresholds and candidate-subset votes were exhaustively checked over the completed direct pool. None improves the frozen route. RRF is not defined for one-letter outputs because they provide no option ranking.
+- **Boundary hypothesis:** the BlackSwan pre/post-state mechanism is only an analogy, not a matching task. The local controlled evidence is stronger: exact endpoint coverage beats both endpoint-omitting grids. `endpoint_guarded_midpoint` now retains the exact first and last frames and fills the other 62 positions from midpoint bins. Existing sampling modes are unchanged.
+- **Answer-rank fusion:** the new evidence-rank scorer runs only on endpoint/option-quota disagreements, obtains A-D log-probability rankings under both evidence packs, and evaluates consensus, probability fusion, candidate-restricted fusion, cross-view confirmation, and RRF with endpoint fallback. Dev140 requires 34 Qwen calls over 17 disagreements.
+- **Launchers:** run `slurm_longqa_qwen35_27b_endpoint_guarded_midpoint_dev.sh` and `slurm_longqa_qwen35_27b_endpoint_guarded_midpoint_val560.sh` concurrently if the deadline window requires a full candidate. Run `slurm_longqa_qwen35_27b_evidence_rank_fusion_dev.sh`; gate its val560 counterpart on at least `132/140` or a no-regression correction pattern.
+- **Validation:** Python compilation, shell syntax, parser checks, exact 64-frame boundary assertions, proof-pack coverage checks (`140 + 560`), fusion-policy assertions, and dry runs pass. Full rationale and commands: `documentation/LONGQA_PRETEST_DEEP_PUSH_2026-08-08.md`.
+
+### Pre-test launch checkpoint (2026-08-08, 09:27 CEST)
+
+- **Guarded-midpoint jobs:** dev140 job `49555295` and val560 job `49555298` both started successfully and continue writing valid predictions. At the latest checkpoint they contain 30 and 25 rows respectively; neither run is complete.
+- **Rolling comparison:** guarded midpoint is `26/30` on the ordered dev prefix, versus `29/30` for endpoint and the frozen temporal route. On the first 25 val-complement rows it is `22/25`, equal to endpoint and the route, with one fix and one regression. These ordered-prefix figures are monitoring signals only and must not be reported as final accuracies.
+- **Rank-fusion failure and repair:** dev job `49555300` exited before model startup because proof-pack records carry an explicit `sample_key` but no repeated `question` field. The rank-fusion index reconstructed an incomplete key instead of honoring that field. `run_score_longqa_evidence_rank_fusion.py` now uses the stored key first; all 140 proof-pack rows align after the fix, and the failed job produced no predictions.
+- **Deadline-safe sharding:** contiguous 140-row quarters of val560 and a three-task tail array are prepared. This can complement the already-running unsharded job without overlapping the first quarter; the merge utility validates exact ordered coverage and can ignore extra rows from the live first-quarter source. Do not launch the extra GPUs solely from the current weak dev prefix; first allow more dev evidence or use it only when completing a full guarded-midpoint artifact before the submission deadline is itself the priority.
+
+### Evidence-rank fusion dev result (2026-08-08)
+
+- **Completion:** repaired job `49557610` completed all 140 rows and archived cleanly with an empty stderr. Endpoint and option-quota disagree on 14 dev rows, so the run required 28 multimodal scoring calls and finished in 995 seconds. Mean context fill was `56.93%`.
+- **Best policies:** mean log probability and candidate-restricted mean log probability both score **`132/140` (`94.29%`)**, versus endpoint at `130/140`. Mean probability scores `131/140`; RRF, view consensus, and cross-view confirmation remain at `130/140`.
+- **Change audit:** mean-log-probability fusion changes five endpoint answers: three fixes, one regression, and one wrong-to-wrong change. Relative to the frozen `132/140` temporal route it makes three changes: one fix, one regression, and one wrong-to-wrong change. It therefore ties rather than exceeds the route, but provides a genuinely different, label-free arbitration rule that merits the held-out val560 gate.
+- **Next gate:** val560 contains 78 endpoint/option-quota disagreements, requiring 156 scoring calls. Extrapolating from dev suggests roughly 70--90 minutes after scheduling and model startup. Promote only the policy named before inspecting held-out labels: `mean_logprob`.
+- **Guarded-midpoint rolling checkpoint:** at 60 dev rows it scores `55/60`, versus `57/60` for endpoint and the route, with two fixes and four regressions. At 51 held-out rows it scores `42/51`, tied with endpoint and one behind the route, with two fixes and two regressions. Both guarded-midpoint jobs remain incomplete.
+
+### Evidence-rank fusion held-out result and guarded-midpoint gate (2026-08-08)
+
+- **Held-out completion:** evidence-rank-fusion job `49558139` completed all `560/560` rows cleanly in 8,870 seconds. It scored 78 endpoint/option-quota disagreements with 156 multimodal calls; mean context fill was `56.85%`.
+- **Frozen-policy result:** the policy fixed before held-out evaluation, `mean_logprob`, scores `483/560` on val560. Together with its `132/140` dev result, this gives **`615/700` (`87.86%`)**, two answers above the frozen temporal route and seven above endpoint alone. Across all 700 rows it changes 46 endpoint answers, producing 25 fixes, 18 regressions, and three wrong-to-wrong changes.
+- **Exploratory policies:** `mean_probability` scores `131/140 + 487/560 = 618/700` (`88.29%`), and candidate-restricted mean log probability scores `132/140 + 484/560 = 616/700` (`88.00%`). These are valid label-free inference policies but were not the held-out policy named in advance; their full-validation scores should be treated as exploratory rather than used to claim an unbiased selection result. RRF falls to `605/700`.
+- **Guarded-midpoint dev rejection:** job `49555295` completed at `125/140` (`89.29%`), below endpoint `130/140` and the route `132/140`. It does not pass the promotion gate.
+- **Guarded-midpoint val status:** job `49555298` remains active at 222/560 rows. On this ordered prefix it scores `181/222`, versus endpoint `189/222` and the route `192/222`. Given the completed dev rejection and negative held-out prefix, completing this candidate is not justified for accuracy selection.
+- **Submission exports:** validated 700-row leaderboard files are available for the predeclared `mean_logprob` result at `submissions/egolongqa/qwen35_27b_evidence_rank_mean_logprob_2026-08-08/` and the exploratory `mean_probability` result at `submissions/egolongqa/qwen35_27b_evidence_rank_mean_probability_2026-08-08/`. Both contain exactly one valid answer per unique video in annotation order and require no fallback repairs.
+
+### Test-preparation split and error audit (2026-08-08)
+
+- **Dev140 diagnosis:** the old category/letter/temporal-stratified dev set contains 130 endpoint-correct rows and only 14 endpoint/option disagreements, making it materially easier than the full validation distribution. It remains preserved for historical comparisons but should no longer be the sole promotion gate.
+- **Balanced evaluation folds:** five new disjoint 140-row folds cover all 700 examples exactly once and balance category, compiler-v2 temporal operator, answer position, duration quartile, frozen endpoint correctness, and endpoint/option agreement. Endpoint correct counts are `122, 121, 122, 122, 121`; disagreement counts are `18, 19, 18, 18, 19`.
+- **Cross-fold results:** temporal route scores `121,122,124,123,123`; mean log probability scores `123,123,123,125,121`; mean probability scores `124,121,124,127,122`. The probability rule beats the log-probability rule on four folds but does not beat the temporal route on every fold.
+- **Fusion error split:** the `618/700` candidate has 82 errors. Thirty-five are incorrect endpoint/option consensus rows that bypass scoring, 18 are fusion regressions from a correct endpoint answer, 19 have a correct direct specialist that both rank views miss, seven have the correct option ranked first by one view but suppressed by averaging, and three are missed by all direct candidates and both scored views.
+- **Available headroom:** a seven-direct-candidate oracle remains `662/700` (`94.57%`); 44 current fusion errors have a correct direct candidate and 38 do not. The uncertainty branch is correct on 25 fusion errors, supporting a third uncertainty evidence view. Consensus-hard misses are dominated by repeated instances, compound options, first/last transitions, OCR, exact prices/counts, and object-state tracking.
+- **Artifacts:** detailed rationale and test plan are in `documentation/LONGQA_TEST_PREPARATION_AUDIT_2026-08-08.md`; machine-readable fold and error artifacts are under `analysis/longqa_*20260808*` and `configs/egolongqa_balanced_fold*_of5_20260808.json`.
+
+### Balanced-fold temporal suppression results (2026-08-08)
+
+- **Evaluation reference:** all three experiments use balanced fold 0, where the current endpoint/option-quota mean-probability fusion scores `124/140` (`88.57%`). This replaces the unusually easy historical dev140 as the immediate screening set.
+- **Uncertainty third view:** repaired job `49562658` scored the uncertainty-selected frame pack on only the 18 endpoint/option disagreements. Three-view mean probability scores `122/140`, median probability and RRF score `120/140`, entropy-weighted probability scores `123/140`, and conservative uncertainty tie-breaking scores `121/140`. No policy improves the cached two-view fusion; the uncertainty evidence is not a reliable equal-weight vote.
+- **Atomic hypothesis verifier:** job `49562442` compared only three direct candidates: endpoint 27B, option-quota 27B, and uncertainty-pivot 9B. It planned and retrieved evidence for 41 disagreements, requested four refinements, and scores `122/140`. Its eight overrides contain three fixes and five regressions. The regressions concentrate on repeated occurrences and first/last questions in Shopping and Sightseeing, showing that visible support for one occurrence was still mistaken for proof of the requested occurrence.
+- **Wrong-time contrast:** repaired job `49562659` applied to 53 directional questions and scores `115/140` with requested-side frames alone. Subtracting opposite-side option support degrades monotonically: lambda `0.25`, `0.5`, and `1.0` score `110`, `104`, and `94` correct. The unchanged fusion already scores `49/53` on these directional rows; requested-side sampling fixes one error but causes ten regressions. Opposite-side visibility is therefore not valid negative evidence, especially when objects or actions recur.
+- **Decision:** do not expand any of these three methods to all 700 rows and do not add them to the primary ensemble. Retain `618/700` mean-probability fusion as the current submission artifact. The next useful gates are the question-only targeted object ledger and hierarchical occurrence search; defer the 560-call option-permutation experiment until either produces a genuinely complementary candidate.
+
+### Balanced-fold object ledger and hierarchical selection (2026-08-08)
+
+- **Targeted object ledger:** job `49564239` completed all 140 balanced-fold rows in `12,182` seconds and scores `113/140` (`80.71%`), versus `124/140` for the current probability fusion. Relative to that fusion it makes two fixes, thirteen regressions, and three wrong-to-wrong changes; their diagnostic oracle is only `126/140`.
+- **Useful ledger recoveries:** the two fixes are a Shopping `MULTI_TIME` first/last-product question and a global outdoor-sign question. This confirms that explicit object occurrences can occasionally recover evidence absent from the fusion, but the current branch is far too imprecise for routing.
+- **Ledger implementation diagnosis:** question-only Grounding DINO prompts avoid direct option leakage, but detections remain overly dense: approximately `184.7` detections and `45.2` hit frames per question across 48 inspected frames. The current ledger then retains only the first 16 non-empty chronological lines rather than consolidating each concept into first, strongest, and last distinct occurrences. This biases the prompt toward early repeated detections and explains many identity, price, and final-state regressions.
+- **Hierarchical selection:** job `49564240` completed the selection-only stage for all 140 rows in `23,160` seconds with empty stderr. Every record contains exactly 64 unique frames: 48 locally selected frames plus 16 global anchors, with three pivot centers and eight target centers. No accuracy exists yet because the 27B answer stage is deliberately separate.
+- **Latency implication:** hierarchical selection averages about `165.4` seconds per question before the 27B answer call. It remains under the 300-second test limit in isolation, but leaves limited room for additional answerers or verification passes and would add a separate 9B checkpoint to the submitted model.
+- **Hierarchical answer result:** job `49571948` consumed the cached selections and completed all 140 rows in `7,469` seconds. The 27B answer stage averages `53.4` seconds per question with `56.88%` mean context fill; combined with selection, the full method takes approximately `218.8` seconds per question.
+- **Accuracy and change audit:** hierarchical selection scores `117/140` (`83.57%`). Relative to balanced-fold mean-probability fusion (`124/140`), it changes 17 answers: three fixes, ten regressions, and four wrong-to-wrong changes, for a two-method oracle of `127/140`. Its useful fixes cover a gate/fence state change, a first/last wall-patching sequence, and an outdoor-sign inference, but it loses several OCR, repeated-instance, first/last, and cross-event questions.
+- **Decision:** reject the hierarchical branch for expansion. Its three complementary answers do not justify ten regressions, a separate 9B selector checkpoint, or approximately `219` seconds per question. Do not run fold 1 or val560. Retain the cached outputs only for error analysis; the current `618/700` mean-probability fusion remains the primary artifact. The object ledger likewise remains rejected until redesigned around temporally deduplicated first/peak/last occurrences and explicit OCR handling.
+
+### Targeted rescue experiment setup (2026-08-09)
+
+- **Reference and split:** all new arms use balanced fold 0 and preserve the `124/140` mean-probability-fusion answer on non-target rows. No full-set expansion is scheduled automatically.
+- **Prompt ablation:** `slurm_longqa_qwen35_27b_prompt_ablation_fold0_array.sh` holds Qwen3.5-27B, endpoint-inclusive 64-frame evidence, resolution, and decoding fixed while comparing evidence-first, option-verification, visible-support, and clause-completeness instructions. The cached endpoint run is the unchanged baseline.
+- **OCR ablation:** `slurm_longqa_qwen35_27b_ocr_ablation_fold0_array.sh` targets 38 text-sensitive fold-0 questions. Both arms use identical question-conditioned detail crops; task 0 answers from the crops directly, while task 1 first creates a transcription and then answers. This isolates the value of textual transcription from the value of enlargement.
+- **Occurrence strips:** `slurm_longqa_qwen35_27b_occurrence_strips_fold0.sh` targets 50 repeated-occurrence, paired-endpoint, or state-change questions. Question-only detections are linked by appearance, adjacent observations within eight seconds are merged, and first/strongest/last distinct occurrences receive one-second before/center/after context.
+- **Density ablation:** `slurm_longqa_qwen35_27b_density_ablation_fold0_array.sh` compares raw top-48 pivot evidence against temporal and perceptual deduplication under the same prompt and answerer. It directly tests whether repeated nearby frames bias Qwen toward a visually frequent distractor.
+- **Support ablation:** `slurm_longqa_qwen35_27b_clause_support_fold0_array.sh` targets 98 compound or candidate-disagreement rows and makes approximately 336 scored calls per arm. Whole-option and explicit-clause prompts see identical endpoint-inclusive evidence and each emit unrestricted, conservative, and strict fallback policies.
+- **Conservative router:** `slurm_longqa_targeted_rescue_router_fold0.sh` is CPU-only and must wait for both OCR arms, occurrence strips, and clause-support task 1. The two OCR arms form one evidence family rather than two votes; an alternative replaces fusion only when confirmed by clause support or by the independent occurrence family.
+- **Validation:** modified/new Python files compile, all shell launchers pass `bash -n`, real prerequisite paths resolve, dry-run commands construct successfully, exact endpoint inclusion and occurrence grouping assertions pass, and dry-run output directories were removed. Detailed gates and run order are in `documentation/LONGQA_TARGETED_RESCUE_EXPERIMENTS_2026-08-09.md`.
+
+### Targeted rescue results (2026-08-10)
+
+- **Completion:** prompt array `49595487`, OCR array `49595488`, density array `49595489`, occurrence job `49595490`, and support array `49595491` completed every balanced-fold row. The first CPU router submission `49598746` failed before reading data because its standalone script did not add the starter-kit directory to `sys.path`; the import path was fixed and the router was then executed successfully from the same completed artifacts.
+- **Prompt ablation:** evidence-first, option-verification, visible-support, and clause-completeness prompts score respectively `103/140`, `119/140`, `118/140`, and `100/140`. The unchanged endpoint prompt scores `122/140` on this fold, while fusion scores `124/140`. Relative to endpoint, option verification makes one fix and four regressions; visible support makes two fixes and six regressions. More elaborate instructions therefore reduce accuracy despite identical frames and decoding. Runtimes are `7,692--7,830` seconds per arm with approximately `57%` mean context fill.
+- **OCR ablation:** crops alone score `113/140`; adding an intermediate transcription raises this to `118/140`, showing that transcription is useful relative to the same crop pack but not relative to fusion. The transcription arm changes ten fusion answers with one fix, seven regressions, and two wrong-to-wrong changes. The 38-question crop and transcription runs take `2,319` and `2,778` seconds respectively.
+- **Occurrence strips:** the 50-question appearance-linked first/strongest/last occurrence branch scores `113/140`. It changes fifteen fusion answers with one fix, twelve regressions, and two wrong-to-wrong changes. The full job takes `4,642` seconds including SigLIP2 track preparation; merging adjacent detections does not make question-only Grounding DINO identity links reliable enough for answering.
+- **Density ablation:** raw top-48 pivot evidence scores `116/140`, temporal deduplication scores `115/140`, and perceptual deduplication scores `117/140`. Temporal suppression retains only `37.87` frames on average and hurts accuracy. Perceptual suppression finds only `0.59` near duplicates per question and still retains 48 frames by pulling lower-ranked evidence, yielding only one answer over raw-48 and remaining seven below fusion. The direct distractor-density hypothesis is therefore not supported by these selectors.
+- **Support scoring:** whole-option unrestricted, conservative, and strict policies score `114`, `122`, and `123` correct. Explicit-clause variants score `117`, `119`, and `122`. Strict whole-option scoring is the closest result but its five overrides contain one fix, two regressions, and two wrong-to-wrong changes. The one genuine correction is a kitchen-tool/use question; similarly confident support margins also cause OCR and compound-temporal regressions, so a stronger fixed threshold does not isolate it. Each arm makes 336 multimodal calls and takes about `6,780` seconds.
+- **Router result:** OCR-plus-clause and any-family-plus-clause policies remain at `124/140`, each making one wrong-to-wrong change. Occurrence-plus-clause makes no changes. Requiring OCR and occurrence families to agree causes one regression and scores `123/140`. The two OCR arms are still treated as one family; no synthetic candidate is introduced.
+- **Decision:** none passes the predeclared correction/regression gate. Do not run fold 1 or full-set expansions for prompt, OCR, occurrence, density, support, or rescue-routing variants. Retain the `618/700` mean-probability fusion artifact as primary. The router import and array-log archival paths are fixed for reproducibility; cosmetic `cp` messages in the completed array stderr files did not affect predictions or scores.
+
+### Confidence and segment-fusion results (2026-08-10)
+
+- **Completion:** margin export job `49601012`, consensus-challenge job `49601013`, and segment late-fusion job `49601014` completed cleanly with empty stderr. The two GPU jobs each targeted the same 29 balanced-fold rows: 18 endpoint/option disagreements plus 11 endpoint/option consensus rows challenged by at least three of four independent 9B branches.
+- **Margin-weighted full export:** weighting each evidence view by its own top-versus-second option-probability margin scores **`619/700` (`88.43%`)**. It differs from equal mean probability on exactly one row, correcting the Brea Boulevard cross-street question from `A` to gold `C`. This is a fixed label-invariant rule, but its selection followed inspection of validation results and must be reported as exploratory rather than as an unbiased held-out gain.
+- **Consensus challenge:** rescoring both complete 64-frame views does not change any answer relative to the `618/700` primary, including all 11 challenged consensus rows. Mean log probability, mean probability, and margin-weighted probability therefore remain at `124/140` on fold 0. The independent 9B disagreement signal identifies difficult rows, but another full-context score preserves the same distractor bias.
+- **Segment late fusion:** splitting each 64-frame view into four chronological 16-frame blocks does not work as a global replacement. Mean probability, per-view top-two evidence, adjacent-block evidence, block RRF, and stability-guarded adjacent evidence score respectively `120`, `121`, `122`, `119`, `121`, and `121` out of 140, versus primary `124/140`.
+- **Segment correction pattern:** adjacent-block fusion makes three fixes, five regressions, and one wrong-to-wrong change. All three fixes occur among challenged 27B consensus rows rather than ordinary endpoint/option disagreements. They cover a gate/fence modification, an unused paint color, and a playground slide after a temporal anchor.
+- **Exploratory unanimity gate:** requiring all four 9B branches to agree on the same alternative and requiring adjacent-block fusion to select that alternative changes three fold-0 answers. It produces two fixes, zero regressions, and one wrong-to-wrong change, raising the fold from `124/140` to **`126/140` (`90.00%`)**. This rule was discovered after inspecting fold 0 and needs confirmation unchanged on fold 1 before any expansion.
+- **Runtime/context:** full-view consensus scoring makes 58 calls in 3,276 seconds with about `57%` context fill. Segment scoring makes 232 shorter calls in 3,263 seconds with about `14.5%` context fill. Both average roughly 113 seconds per targeted row, but a deployable unanimity gate would also need the four 9B branches, so its complete per-video latency must be audited against the 300-second test limit.
+- **Decision:** retain `618/700` as the conservative primary and `619/700` as an exploratory confidence-weighted export. Reject unrestricted segment aggregation. The only justified next gate is the frozen four-branch-unanimity plus adjacent-segment rule on balanced fold 1; do not fit a threshold or category router on fold 0.
+- **Fold-1 confirmation prepared:** `slurm_longqa_qwen35_27b_unanimous_segment_gate_fold1.sh` freezes the rule above, excludes ordinary endpoint/option disagreements, and scores only six unanimous consensus challenges on balanced fold 1. It requires 48 short-context scoring calls. The evaluator reproduces `126/140` on the cached fold-0 features before launch.
+
+### Unanimous segment gate fold-1 rejection (2026-08-10)
+
+- **Completion:** job `49610099` completed cleanly with empty stderr. It scored the six precomputed unanimous consensus challenges using 48 short-context calls in 1,079 seconds; mean context fill was `14.49%`.
+- **Frozen result:** the existing mean-probability primary scores `121/140` on balanced fold 1. The predeclared four-branch-unanimity plus adjacent-segment rule scores **`119/140` (`85.00%`)**, making two changes, zero fixes, and two regressions. It therefore fails the no-regression confirmation gate.
+- **Row audit:** all six challenged endpoint/option consensus answers were already correct. Adjacent-block scoring correctly retained four of them but changed two correct answers: the Nature Store ornament-location question from `B` to `D`, and the road-surface comparison question from `B` to `C`.
+- **Interpretation:** unanimity among the four 9B branches is not reliable evidence that a 27B consensus is wrong. The branches share enough model and evidence-selection bias to agree on the same distractor. Segment scoring can reinforce that correlated error rather than independently verify it.
+- **Decision:** reject the unanimity gate and do not run it on folds 2--4 or export it over all 700 rows. Retain `618/700` as the conservative primary and `619/700` only as the explicitly exploratory margin-weighted result. Do not tune the unanimity threshold or segment policy using fold-1 labels.
+# Open video-model evaluation suite prepared (2026-08-10; not yet run)
+
+- Added consistent five-sample smoke jobs for MiniCPM-V 4.5 (192 frames),
+  Molmo2-8B (256), InternVL3.5-30B-A3B-Flash (64), Cosmos-Reason2-8B (128),
+  and NVILA-8B-HD-Video with AutoGaze (128 tile frames plus 64 thumbnails).
+- All runs preserve the baseline MCQ prompt, use endpoint-inclusive chronological
+  sampling, record per-sample generation time, and fail promotion when a call
+  exceeds the workshop's 300-second limit.
+- Added gated balanced-fold-2 launchers. No accuracy is recorded yet; these are
+  prepared experiments, not completed results.
+- Run order and exact commands: `documentation/LONGQA_OPEN_VLM_RUNBOOK_2026-08-10.md`.
+
+### Initial smoke-launch failures and fixes (2026-08-10)
+
+- Jobs `49612893` (MiniCPM-V 4.5), `49612894` (Molmo2-8B), `49612895`
+  (InternVL3.5 Flash), and `49612896` (Cosmos-Reason2-8B) exited before model
+  startup. The common launcher incorrectly passed `--input` to
+  `run_evaluation.py`; it now passes the supported `--golden` argument. These
+  jobs produced no predictions and are not benchmark results.
+- NVILA setup job `49612898` created the empty Python environment but failed
+  while building `flash-attn`: no CUDA toolkit or `CUDA_HOME` was available.
+  Smoke job `49612919` consequently failed on `import torch`. The setup now
+  installs CUDA Toolkit 12.8, pins PyTorch 2.10/torchvision 0.25, builds
+  `flash-attn` against that stack, and writes `.autogaze_ready` only after all
+  imports and CUDA availability pass. The NVILA runner refuses incomplete
+  environments.
+- The corrected common vLLM command and all modified Python/shell files pass
+  local parser and syntax checks. All five smoke tests require a fresh run.
+
+### Second smoke-launch failures and fixes (2026-08-10)
+
+- Jobs `49612953`--`49612956` reached the vLLM startup path but exited before
+  loading MiniCPM, Molmo2, InternVL, or Cosmos. The isolated vLLM subprocess
+  could not import `psutil`, which is installed in the cluster user-site rather
+  than the conda environment. The common launcher now adds that exact user-site
+  directory to `PYTHONPATH` and verifies both `psutil` and `vllm` before model
+  startup. No predictions were produced.
+- NVILA setup job `49613419` successfully installed CUDA Toolkit 12.8, then a
+  CUDA conda activation hook failed under strict shell mode because
+  `NVCC_PREPEND_FLAGS` was unset. The setup now initializes the CUDA compiler
+  environment variables before activation; this has been validated against the
+  partially installed environment and its CUDA 12.8 `nvcc`. Smoke job
+  `49613451` correctly refused to use the incomplete environment.
+- These remain infrastructure failures rather than accuracy or latency results.
+  The four vLLM smoke tests and NVILA setup each require another fresh run.
+
+### Third open-video-model smoke status (2026-08-10)
+
+- Jobs `49613478`--`49613481` passed the shared launcher checks, but none
+  produced predictions. The remaining failures are now model-specific rather
+  than defects in the common evaluation command.
+- **MiniCPM-V 4.5 (`49613478`):** vLLM fails while applying its multimodal
+  processor because the cached tokenizer wrapper lacks `im_start_id`. Repeating
+  this vLLM job unchanged will not help; MiniCPM requires its native
+  Transformers `model.chat` video path or a compatible vLLM/Transformers stack.
+- **Molmo2-8B (`49613479`):** the requested context length was `49,152`, above
+  the checkpoint's declared limit of `36,864`. Both the smoke and fold-2
+  launchers now use a conservative `32,768`; this is the only vLLM smoke job
+  ready for an immediate rerun.
+- **InternVL3.5-30B-A3B-Flash (`49613480`):** all checkpoint shards downloaded,
+  but vLLM's loader rejects a checkpoint `gating` weight. This is a checkpoint
+  compatibility failure, not GPU memory exhaustion. A native Transformers
+  video adapter is required before another run.
+- **Cosmos-Reason2-8B (`49613481`):** Hugging Face returned `401` for the gated
+  repository. The job must wait until access is approved and the cluster cache
+  is authenticated; there is currently no Hugging Face token in either checked
+  cache location.
+- **NVILA setup (`49613482`):** dependency installation reached the
+  `flash-attn==2.8.3.post1` build, but the `.autogaze_ready` marker has not yet
+  been written and the captured log contains no final success or failure. Do
+  not launch the NVILA smoke test until that marker exists.
+- **Molmo corrected rerun (`49613789`):** lowering the context limit passed the
+  original validation check, but vLLM then rejected the 256-frame visual item:
+  its estimated `31,872` multimodal tokens exceeded the default `8,192` batched
+  prefill budget. The Molmo launchers now set both the context and batched-token
+  budgets to `32,768`. This run also produced no predictions and requires one
+  more smoke submission.
+- **Molmo successful smoke (`49613918`):** the final corrected job completed all
+  five samples and scores `4/5` (`80.00%`). Mean generation time is `101.85`
+  seconds and the maximum is `121.59` seconds, so every measured call passes the
+  workshop's 300-second gate. Mean context fill is `80.16%` of the `32,768`
+  token window. This is only a five-row compatibility/latency result; four of
+  the five gold labels are `C`, so it is not an accuracy estimate suitable for
+  model selection. Molmo is now eligible for the balanced-fold evaluation.
+- **NVILA storage/status check:** the environment currently occupies about
+  `13 GB`, the AutoGaze source tree about `1.2 MB`, and the setup writes its
+  dependency/build cache under scratch rather than the repository. Scratch had
+  approximately `14 TB` free at inspection time. Setup `49613482` remains
+  incomplete at the silent `flash-attn` build with no readiness marker; its
+  four-hour Slurm limit bounds the unattended run.
+- **NVILA setup completion (`49613482`):** the previously silent
+  `flash-attn==2.8.3.post1` build completed after approximately 95 minutes.
+  Final checks report PyTorch `2.10.0+cu128`, CUDA `12.8`, Transformers
+  `4.57.6`, AutoGaze import success, and `torch.cuda.is_available() == True`.
+  The `.autogaze_ready` marker was written at `22:56`; the five-row NVILA smoke
+  test is now eligible to run.
+- **Molmo fold-2 scheduler hold (`49614243`):** Slurm held and requeued the job
+  with `user env retrieval failed` before executing the batch script. It
+  produced no log or prediction artifacts and was canceled by the user. This is
+  a scheduler launch failure rather than a Molmo/runtime failure; resubmit the
+  unchanged fold-2 command as a fresh job.
+- **Repeated Molmo scheduler hold (`49621732`):** a second submission using
+  command-line `--export=ALL,OPEN_VLM_KEY=molmo` received the same pre-launch
+  `user env retrieval failed requeued held` state and was canceled. A dedicated
+  Molmo fold-2 launcher now embeds the fixed model configuration and declares
+  `#SBATCH --export=ALL`, so it can be submitted without dynamic environment
+  export.
+- **NVILA smoke failure (`49621731`):** the job entered the native Transformers
+  path but failed before model loading because the remote NVILA processor
+  imports `cv2`, which the setup did not install or test. Setup now installs
+  `opencv-python-headless`, imports `cv2` in its final verification, and writes
+  a versioned `nvila-autogaze-v2` marker. The runner rejects the old marker;
+  rerun the idempotent setup before retrying the smoke test.
+- **NVILA checkpoint-ID failure (`49621760`):** repaired setup `49621754`
+  completed successfully with OpenCV `5.0.0` and wrote the v2 marker. The next
+  smoke reached processor construction, then failed because the downloaded
+  NVILA processor defaults to the obsolete/private `bfshi/AutoGaze` checkpoint
+  identifier. The current official AutoGaze repository documents
+  `nvidia/AutoGaze`; the local runner now passes that checkpoint explicitly.
+  No predictions were produced, and the five-row smoke must be rerun.
+- **Molmo fold-2 start (`49621755`):** the dedicated launcher bypassed the
+  previous Slurm environment-retrieval hold. The model server loaded, completed
+  multimodal warmup, and accepted its first request; the 140-row run was active
+  at the latest inspection.
+- **NVILA model-load failure (`49621837`):** the corrected official AutoGaze
+  checkpoint loaded successfully, confirming both the ID and processor setup.
+  Model construction then stopped because `device_map="auto"` requires the
+  optional `accelerate` package. Since this experiment uses exactly one H100,
+  the runner now loads the 8B model directly in BF16 and moves it to CUDA,
+  removing the unnecessary dependency. No predictions were produced; setup
+  does not need to be rerun before the next smoke attempt.
+- **NVILA successful smoke (`49622042`):** NVILA-8B-HD-Video with the official
+  AutoGaze checkpoint completed all five rows and passed the mechanical smoke
+  gate. Mean generation time is `118.31` seconds and the maximum is `172.60`
+  seconds, so every measured call is below the 300-second limit. Accuracy is
+  only `1/5` (`20.00%`), with predictions `A,D,C,D,D` against gold
+  `B,C,C,C,C`; the model is therefore not promoted directly to the 140-row
+  fold. The five-row set is label-skewed and not a stable accuracy estimate,
+  but this result is poor enough to require prompt/input diagnosis before
+  spending a larger allocation.
+- **NVILA cached rerun (`49622118`):** the job loaded AutoGaze and NVILA, found
+  all five valid cached predictions, and reevaluated them without new video
+  inference. It confirms deterministic resume behavior but adds no result; the
+  smoke remains `1/5` with `118.31` seconds mean recorded generation time.
+- **Molmo fold-2 throughput audit (`49621755`):** the run was healthy at
+  `31/140`, with predictions continuing to update and no request failures.
+  Recorded model generation averages `90.96` seconds, but extraction,
+  timestamping, serialization, and transfer of 256 frames raise observed
+  end-to-end throughput to approximately `278` seconds (`4.6` minutes) per
+  row. The original ten-hour allocation would likely stop around row 128; the
+  launcher now requests 14 hours for future submissions. Predictions resume
+  from the validated cached prefix, so a timeout does not discard completed
+  rows.
+
+### Open-model partial result and hard iteration suite (2026-08-12)
+
+- **Molmo fold-2 timeout:** job `49621755` reached `132/140` valid predictions
+  before Slurm stopped it at the original time limit. On those 132 rows,
+  Molmo2-8B scores `98/132` (`74.24%`), versus `116/132` (`87.88%`) for the
+  current mean-probability Qwen fusion. Their partial oracle is `120/132`
+  (`90.91%`): Molmo uniquely repairs four Qwen errors but introduces 22 losses.
+  The four repairs are repeated-occurrence or state-transition questions in
+  Shopping, Sightseeing, Daily Activities, and Gardening. Rerunning
+  `slurm_longqa_molmo2_8b_video256_fold2.sh` resumes the fixed run directory and
+  computes only the remaining eight rows.
+- **NVILA decision:** the completed five-row AutoGaze smoke remains `1/5` with
+  `118.31` seconds mean model generation. Do not spend a full fold on the
+  current prompt/input formulation. AutoGaze may still be useful as a patch
+  selector, but NVILA has not earned promotion as an answer model.
+- **Fast diagnostic sets:** added deterministic `rescue40`, `guard20`, and
+  combined `hard60` configs under `configs/`. Rescue rows cover all five known
+  fusion failure mechanisms; guard rows are difficult examples that the fusion
+  gets right despite direct-candidate disagreement. These sets use validation
+  labels and are for diagnosis only, not accuracy estimation.
+- **Diagnostic metric:** `scripts/evaluate_longqa_hard_iteration.py` reports
+  rescue fixes, guard regressions, and net gain separately. A method must be
+  frozen and confirmed on an untouched balanced fold before promotion.
+- **Cached-candidate sanity check:** endpoint 27B repairs `8/40` rescue rows
+  while breaking `4/20` guards. Option-quota 27B is `5/40` and `6/20`;
+  endpoint 9B is `9/40` and `17/20`; SigLIP2 pivot 9B is `9/40` and `17/20`;
+  uncertainty-pivot 9B is `12/40` and `15/20`; option-quota pivot 9B is
+  `10/40` and `17/20`. The suite therefore exposes the expected trade-off:
+  existing specialists find some missing evidence but are too imprecise for
+  unconditional routing.
+
+### Qwen multimodal window-reranking suite prepared (2026-08-12; not yet run)
+
+- **Pipeline:** SigLIP2 performs broad recall over 128 uniformly spaced
+  candidates. Qwen3-VL-Reranker-2B then cross-encodes at most 24 shortlisted
+  three-frame chronological windows against each complete answer hypothesis.
+  Every option receives a fixed minimum quota, and the selector prefers windows
+  whose support for one option exceeds support for the competing options. The
+  final Qwen3.5-27B answer pack contains 40 endpoint-inclusive global frames and
+  up to 24 frames from eight reranked windows, with exactly 64 frames total.
+- **Controlled variants:** `balanced` tests multimodal reranking without
+  before/after masking. `temporal` uses the same recall, model, frame budget,
+  and answer prompt, but identifies the strongest reference-event window and
+  prevents option-window selection from the wrong side for explicit `BEFORE`
+  and `AFTER` questions. Other temporal operators retain balanced selection.
+- **Staging:** first run the three-row temporal smoke. After it succeeds, the
+  balanced and temporal `rescue40` jobs are independent and may run together.
+  Promote only a variant repairing at least `4/40` rescue failures. Run the
+  corresponding `guard20` job next and reject the variant if it breaks more
+  than one guard answer. Only a surviving frozen variant should run on balanced
+  fold 3.
+- **Implementation safeguards:** the official Qwen reranker checkpoint is
+  pinned to revision `93eac850736c677b682c67fc0302b03e552a7b16`; proof packs
+  and answer predictions resume independently; the reranker process exits
+  before Qwen3.5-27B starts; every selected pack validates the exact frame
+  budget. Python compilation, all launcher dry runs, and direct option-balance,
+  temporal-mask, and 64-frame invariant tests pass. `pytest` is unavailable in
+  the environment, so the focused test functions were invoked directly.
+
+### Qwen multimodal reranker smoke result (2026-08-12)
+
+- **Completion:** job `49669496` completed the temporal three-row smoke end to
+  end. Qwen3-VL-Reranker-2B produced `3/3` proof packs, and Qwen3.5-27B produced
+  `3/3` parseable answers. The apparent Hugging Face `404` metadata probes are
+  non-fatal; the pinned checkpoint, processor, and tokenizer all loaded.
+- **Selection invariants:** every row used 128 candidates, 24 shortlisted
+  windows, eight selected window centers, and exactly 64 final frames. The
+  retrieval windows contributed 19--24 unique frames alongside 40 global
+  endpoint-inclusive frames. All four options received their required minimum
+  evidence quota, and neither `AFTER` row required temporal-filter fallback.
+- **Diagnostic signal:** the smoke repairs `1/3` sampled fusion failures. The
+  repaired row is from the bucket where one existing rank view had already seen
+  the correct answer; the two endpoint/option-consensus errors remain wrong.
+  This is a mechanical and directional signal only, not enough data to judge
+  accuracy.
+- **Runtime/context:** the Qwen3.5 answer stage, including its 150-second vLLM
+  startup, completed in 352 seconds for all three rows. Mean context fill was
+  `56.91%`. The smoke passes promotion to the two independent rescue40 jobs.
+
+### Qwen reranker rescue40 and Molmo fold-2 results (2026-08-13)
+
+- **Completion:** balanced Qwen-reranker job `49669639` and temporal
+  Qwen-reranker job `49669640` completed all `40/40` rescue rows without fatal
+  errors. Molmo continuation `49669426` resumed from `132/140` and completed the
+  remaining eight rows cleanly.
+- **Qwen reranker results:** balanced reranking repairs **`15/40`** known fusion
+  errors, while temporal reranking repairs `14/40`. Balanced repairs examples
+  in every failure bucket: `4/10` where another direct candidate was correct,
+  `3/5` where one rank view saw the answer, `4/8` fusion regressions, `3/14`
+  wrong endpoint/option consensuses, and `1/3` complete candidate-pool misses.
+  It therefore clears the predeclared `4/40` guard-stage threshold.
+- **Temporal ablation:** balanced and temporal predictions differ on exactly one
+  row. The temporal restriction changes the pharmacy-between-two-events answer
+  from gold `B` to `A`; all other 39 answers are identical. The reranker score
+  tensors are identical by construction, and two rows required temporal-filter
+  fallback. Current gains therefore come from cross-encoded window reranking,
+  not the simple before/after side mask. Reject the temporal variant and advance
+  only balanced reranking to guard20.
+- **Complementarity:** on rescue40, endpoint 27B repairs eight errors and
+  balanced reranking repairs fifteen. Eleven balanced repairs are missed by
+  endpoint, while endpoint has four repairs missed by balanced; their diagnostic
+  oracle is `19/40`. Adding option-quota raises that oracle to `21/40`. These are
+  gold-selected diagnostic figures and cannot be used as a validation estimate.
+- **Reranker behavior:** Qwen relevance scores are not saturated (`0.113--0.828`),
+  but the mean top-versus-second option margin per window is only `0.045`. The
+  final packs contain a mean `21.5` unique reranked frames plus 40 global frames.
+  This supports testing the branch as distinct evidence, while also warning
+  against treating its relevance margin as calibrated confidence.
+- **Molmo full fold:** Molmo2-8B with 256 endpoint-inclusive frames scores
+  `104/140` (`74.29%`) on balanced fold 2, versus `124/140` for mean-probability
+  Qwen fusion. Molmo uniquely corrects four fusion errors and loses 24
+  fusion-correct rows; their oracle is `128/140` (`91.43%`). The four Molmo-only
+  fixes concern repeated occurrences or state transitions in Shopping,
+  Sightseeing, Daily Activities, and Gardening. Retain Molmo as an audit signal,
+  not a general voting member.
+
+### Qwen reranker guard20 rejection (2026-08-13)
+
+- **Completion:** balanced guard job `49675030` completed all `20/20` proof
+  packs and predictions without fatal errors. It preserves 15 fusion-correct
+  answers but regresses five, scoring `15/20` on the deliberately difficult
+  guard set. Mean answer-stage context fill is `56.90%`.
+- **Gate decision:** five regressions exceed the predeclared maximum of one.
+  Reject balanced reranking as a general replacement and do not run the existing
+  140-row balanced-fold launcher. The five losses are three Shopping questions,
+  one Hiking/OCR question, and one Fashion question; operators are three
+  `GLOBAL`, one `MULTI_TIME`, and one `STATE_CHANGE`.
+- **Failure behavior:** all five bad reranker answers disagree with endpoint
+  27B, and four agree with option-quota 27B. Thus the new visual evidence can
+  inherit option-focused distractor bias rather than independently resolve it.
+  Raw reranker score margins do not separate repairs from regressions and must
+  not be used as calibrated confidence.
+- **Restricted follow-up:** on the gold-selected hard60 audit, a conservative
+  rule that restores endpoint only when fusion differs from endpoint and the
+  reranked branch independently agrees with endpoint makes four fixes and zero
+  regressions (`20/60` to `24/60`). This rule was discovered after inspecting
+  hard60 and is not a result. There are 47 endpoint/fusion disagreements in the
+  full validation set and seven in untouched balanced fold 3. A valid next test
+  would freeze this rule and evaluate only those seven fold-3 disagreements,
+  without inspecting their labels beforehand.
+
+### Frozen endpoint-confirmation fold-3 job prepared (2026-08-13; not yet run)
+
+- **Target set:** a label-free subset builder finds exactly seven rows in
+  balanced fold 3 where endpoint 27B and the current mean-probability fusion
+  disagree. The frozen config is
+  `configs/egolongqa_fold3_endpoint_fusion_disagreements7_20260813.json`.
+- **Policy:** run balanced Qwen window reranking only on those seven rows. Keep
+  fusion on every fold-3 row unless the reranked answer exactly matches endpoint;
+  in that case restore endpoint. The merge script validates that the candidate
+  predictions cover exactly the seven expected disagreement keys before making
+  any changes. Gold labels are consulted only after the 140 frozen predictions
+  have been written, to report fixes and regressions.
+- **Launcher:**
+  `slurm_longqa_qwen3vl_reranker2b_endpoint_confirm_fold3.sh`. The reranker
+  proof pack and candidate answers resume independently. Python compilation,
+  shell syntax, launcher dry-run construction, and a synthetic end-to-end merge
+  test pass.
+
+### Frozen endpoint-confirmation fold-3 result (2026-08-13)
+
+- **Completion:** job `49676131` completed all seven targeted reranker proof
+  packs and answers, then produced and evaluated the complete 140-row frozen
+  policy output without fatal errors. The reranker candidate itself scores
+  `6/7` on the endpoint/fusion disagreements, but candidate accuracy is not the
+  routing metric.
+- **Policy outcome:** the reranker agrees with endpoint on two of seven rows, so
+  the frozen rule makes two overrides. One fixes the irrigation tubing-cutter
+  location from fusion `C` to gold `B`; one regresses the repeated blue beach
+  cart question from gold/fusion `B` to endpoint/reranker `D`. Net change is
+  zero: both baseline fusion and the endpoint-confirmation policy score
+  **`127/140` (`90.71%`)** on balanced fold 3.
+- **Decision:** the conservative endpoint-restoration rule does not generalize
+  beyond the gold-selected hard60 discovery set. Do not expand it to the full
+  validation set or use it for test inference. Retain the original
+  mean-probability fusion as primary; retain Qwen window reranking only as an
+  analysis branch until a stronger, independently confirmed routing signal is
+  found.
+
+### Qwen-verified event-burst results (2026-08-13)
+
+- **Smoke completion (`49680624`):** the event-only three-row smoke completed
+  mechanically with `3/3` proof packs and parseable Qwen3.5-27B answers. It
+  scored `0/3`; mean context fill was `57.07%`. The Hugging Face `404` lines in
+  stderr were non-fatal metadata probes.
+- **Option-conditioned rescue40 (`49680864`):** the full diagnostic job
+  completed without runtime errors and repairs **`15/40`** known fusion errors.
+  It repairs `2/3` complete candidate-pool misses, `6/10` cases where another
+  direct candidate was correct, `3/5` rank-view misses, `3/8` fusion
+  regressions, and `1/14` unanimous endpoint/option errors. Mean context fill
+  was `57.08%`; total wall time was approximately 2.52 hours.
+- **Complementarity:** the earlier balanced Qwen-window reranker also repairs
+  `15/40`, but only seven repairs overlap. Each branch contributes eight unique
+  repairs, and their diagnostic oracle is `23/40`. This establishes distinct
+  evidence behavior, not a deployable routing policy; the rescue40 set was
+  selected using validation labels.
+- **Promotion state:** the option-conditioned event-burst branch clears the
+  predefined rescue threshold. It must now run on guard20 before any balanced
+  fold. The detail-panel answer ablation can reuse the completed rescue40 proof
+  pack and run independently while guard20 is evaluated.
+
+### Qwen-verified event-burst guard and panel rejection (2026-08-13)
+
+- **Guard20 (`49681842`):** the job completed all `20/20` predictions without
+  fatal errors, but preserves only **`11/20`** fusion-correct answers. Its nine
+  regressions fail the predeclared preservation gate by a wide margin. Mean
+  context fill was `57.06%`; total runtime was approximately 1.30 hours.
+- **Detail-panel rescue40 (`49681843`):** adding object-detail panels produces
+  **`15/40`** repairs, exactly matching the event-burst result without panels.
+  It changes only three answers relative to that branch: one additional repair,
+  one lost repair, and one wrong-to-wrong change. Their oracle is `16/40`, so
+  the panels add negligible complementary value. Mean context fill was `57.17%`;
+  total runtime was approximately 1.41 hours.
+- **Decision:** reject both variants for promotion. Do not run event bursts on
+  balanced fold 4 or full validation, and do not spend another guard run on the
+  panel variant. The event evidence is useful on selected failures but is much
+  too willing to overturn already-correct answers.
+- **Exploratory agreement diagnostic:** on the gold-selected hard60 audit, the
+  event-burst and balanced Qwen-reranker branches agree on eight changes among
+  rescue40; seven are repairs. They agree on two changes among guard20; both are
+  regressions. Applying only these agreements changes hard60 from `20/60` to
+  `25/60`, but this post-hoc rule remains unsafe and is not a validation result.
+
+### Frozen candidate-agreement fold-4 experiment prepared (2026-08-13; not yet run)
+
+- **Target:** 11 label-free endpoint/fusion disagreements in untouched balanced
+  fold 4, stored in
+  `configs/egolongqa_fold4_endpoint_fusion_disagreements_20260813.json`.
+- **Independent candidates:** balanced Qwen window reranking and
+  option-conditioned verified event bursts run only on those 11 rows. Their GPU
+  jobs are independent and may run concurrently.
+- **Frozen policies:** start from primary fusion. `dual_agreement` changes an
+  answer only when both evidence branches agree on the same alternative;
+  `endpoint_confirmed_agreement` additionally requires that alternative to equal
+  the endpoint-uniform answer. Both complete 140-row prediction files are
+  written before labels are used for evaluation.
+- **Launchers:**
+  `slurm_longqa_qwen3vl_reranker2b_agreement_fold4.sh`,
+  `slurm_longqa_qwen35_27b_verified_bursts_agreement_fold4.sh`, then
+  `slurm_longqa_qwen35_27b_candidate_agreement_fold4_merge.sh` after both GPU
+  jobs finish successfully.
+
+### Frozen candidate-agreement fold-4 result (2026-08-14)
+
+- **Candidate completion:** Qwen window-reranker job `49682131` and verified
+  event-burst job `49682132` both completed all `11/11` targeted rows without
+  fatal errors. The reranker candidate scores `7/11`; event bursts score `8/11`.
+  Mean answer-stage context fill is `56.9%` and `57.05%`, respectively.
+- **Agreement outcome:** the two branches agree against primary fusion on only
+  one row, and that answer also matches endpoint-uniform Qwen. Both frozen
+  policies therefore make the same single override: the radio-display state
+  change moves from fusion `A` to gold `B`.
+- **Held-out fold result:** primary fusion scores `122/140` (`87.14%`) on
+  balanced fold 4. Dual agreement and endpoint-confirmed agreement both score
+  **`123/140` (`87.86%`)**, with one repair and zero regressions.
+- **Interpretation:** the conservative agreement gate passes its first untouched
+  fold, but the evidence is one changed example. It is suitable for a cautious
+  full-validation candidate and ablation, not yet strong enough to replace the
+  primary submission without comparing complete outputs.
+
+### Full candidate-agreement validation prepared (2026-08-14; not yet run)
+
+- The fold-4 policy is frozen and expanded to all 47 endpoint/fusion
+  disagreements. Only these 47 rows receive new GPU inference; all remaining
+  rows retain primary fusion predictions.
+- Run the balanced Qwen reranker and verified event-burst launchers concurrently,
+  then run the CPU merge after both succeed. The merge again writes complete
+  700-row dual-agreement and endpoint-confirmed prediction files before
+  evaluating either policy.
+
+### Full candidate-agreement validation result (2026-08-14)
+
+- **Candidate completion:** reranker job `49691478` and verified event-burst job
+  `49691479` completed all `47/47` endpoint/fusion disagreements. The candidate
+  branches score `30/47` and `29/47`, respectively. Mean context fill is
+  `56.87%` and `57.02%`.
+- **Parser handling:** two event-burst responses did not contain a parseable
+  option letter. The agreement router now treats malformed auxiliary responses
+  as abstentions, preserving primary fusion. No GPU rerun was required.
+- **Dual agreement:** five overrides yield three repairs, one regression, and
+  one wrong-to-wrong change. Full validation improves from `618/700` (`88.29%`)
+  to **`620/700` (`88.57%`)**.
+- **Endpoint-confirmed agreement:** four overrides yield the same three repairs
+  and one regression, without the wrong-to-wrong change. It also scores
+  **`620/700` (`88.57%`)** and is the cleaner policy because it changes fewer
+  baseline answers.
+- **Decision:** retain endpoint-confirmed agreement as a positive validation
+  candidate, but not as proof of test improvement. The net gain is two examples,
+  and the full validation labels have now been observed. Keep the original
+  `618/700` fusion submission as the lower-risk reference.
+
+### Qwen3.8-27B evaluation prepared (2026-08-14; not yet run)
+
+- The newly released Apache-2.0 `Qwen/Qwen3.8-27B` is a dense native
+  vision-language model with image/video support. Local metadata loading confirms
+  that it reuses the `Qwen3_5ForConditionalGeneration` architecture supported by
+  the current Transformers and vLLM environment.
+- The backend family detection now applies non-thinking defaults, the Triton GDN
+  prefill path, and the Qwen reasoning parser to both Qwen3.5 and Qwen3.8.
+- The staged evaluation consists of endpoint64 smoke5, matched fold-4 endpoint64,
+  cached option-quota fold 4, and Qwen3.8 evidence-rank fusion. The two fold-4
+  answer branches may run concurrently only after smoke succeeds; fusion waits
+  for both answer branches.

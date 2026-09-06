@@ -160,8 +160,6 @@ def _write_evaluation(input_path: str, output_path: str, eval_output: str) -> No
 
 
 def parse_args() -> argparse.Namespace:
-    from model import MODEL_TYPES
-
     parser = argparse.ArgumentParser(
         description="Generate open LongQA answers and match them to MCQ options."
     )
@@ -179,7 +177,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--frames-per-interval", type=int, default=64)
     parser.add_argument("--max-new-tokens", type=int, default=96)
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--model-type", default="qwen", choices=MODEL_TYPES)
+    parser.add_argument("--model-type", default="qwen", choices=["qwen", "llama4"])
     parser.add_argument("--llm-model", default=None)
     parser.add_argument("--backend", default="vllm", choices=["hf", "vllm"])
     parser.add_argument("--tp", type=int, default=None)

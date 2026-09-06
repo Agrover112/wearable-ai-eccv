@@ -94,6 +94,29 @@ least `0.05` and its preferred answer is one of the ensemble candidates. At
 most eight admitted crops are combined with temporal-pivot context. This tests
 whether the crop adds useful evidence rather than merely looking salient.
 
+## Experiment 5: Finer Conditional Dynamic TCoT
+
+Script:
+
+```bash
+sbatch slurm_longqa_qwen3_conditional_ug_dynamic_tcot_s8x3_dev.sh
+```
+
+This is a controlled temporal-granularity comparison with Experiment 3. Both
+start from the same 128 candidates, retain four uncertainty-selected frames in
+each of 16 chronological regions, and preserve the same final frame budget.
+
+- Experiment 3 divides the 64-frame shortlist into four sections and selects
+  up to six seed frames per section: at most 24 seeds.
+- Experiment 5 divides the shortlist into eight sections and selects up to
+  three seed frames per section: also at most 24 seeds.
+
+For a ten-minute video, the sections shrink from approximately 2.5 minutes to
+1.25 minutes. The finer partition may better separate repeated actions and
+local before/after transitions without increasing the selected or final frame
+budgets. Uncertainty scores are reusable across the two experiments, while the
+TCoT selection cache remains isolated by its configuration fingerprint.
+
 ## Recommended Order
 
 The scripts have no result dependency and can technically run together.

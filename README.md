@@ -10,6 +10,9 @@ Face and never stored (the split is ~203 GB).
 - Project conventions: [`CLAUDE.md`](CLAUDE.md)
 - LongQA baseline implementation: [`baselines/longqa/README_PROJECT.md`](baselines/longqa/README_PROJECT.md)
 - Baseline results and diagnostics: [`docs/longqa/RUN_LOG.md`](docs/longqa/RUN_LOG.md)
+- Submitted dual-view method: [`docs/longqa/IMPLEMENTATION_CATALOG.md`](docs/longqa/IMPLEMENTATION_CATALOG.md#final-model)
+- Full reproduction guide: [`docs/longqa/REPRODUCIBILITY_GUIDE.md`](docs/longqa/REPRODUCIBILITY_GUIDE.md)
+- Final container source: [`test_submission/qwen35_27b_dual_view_fusion_v2/`](test_submission/qwen35_27b_dual_view_fusion_v2/)
 
 ## Setup
 

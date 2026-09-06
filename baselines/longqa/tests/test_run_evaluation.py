@@ -57,6 +57,17 @@ def test_midpoint_uniform_sampling_uses_bin_centers():
     assert uniform_full_video_indices(100, 4, 4, "midpoint") == [12, 37, 62, 87]
 
 
+def test_endpoint_guarded_midpoint_keeps_boundaries_and_midpoint_phase():
+    assert uniform_full_video_indices(
+        100, 4, 4, "endpoint_guarded_midpoint"
+    ) == [0, 24, 74, 99]
+    guarded = uniform_full_video_indices(
+        1000, 64, 64, "endpoint_guarded_midpoint"
+    )
+    assert len(guarded) == 64
+    assert guarded[0] == 0 and guarded[-1] == 999
+
+
 def test_uniform_sampling_phases_are_distinct_and_capped():
     endpoint = uniform_full_video_indices(1000, 64, 64, "endpoint_inclusive")
     legacy = uniform_full_video_indices(1000, 64, 64, "legacy")

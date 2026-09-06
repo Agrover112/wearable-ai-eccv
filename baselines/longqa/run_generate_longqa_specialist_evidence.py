@@ -8,6 +8,7 @@ import gc
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,9 +18,11 @@ from longqa_utils import (
     apply_subset,
     build_longqa_prompt,
     build_prediction_row,
+    classify_question_types,
     compute_diagnostics,
     index_row_aligned_metadata,
     load_jsonl,
+    normalize_answer,
     sample_key,
 )
 from run_generate_longqa_grounded import (
@@ -36,8 +39,9 @@ from run_generate_longqa_object_hints import (
 from run_generate_longqa_uncertainty import _index_jsonl, _video_metadata
 
 
-MODES = ("qwen_ocr", "object_reid")
-SCHEMA_VERSION = 1
+MODES = ("qwen_ocr", "qwen_ocr_crops", "qwen_ocr_ledger", "object_reid")
+GATES = ("all", "ocr", "occurrence")
+SCHEMA_VERSION = 2
 
 
 def _resolve(path: str | None) -> str | None:
@@ -61,6 +65,32 @@ def raw_crop(image: object, detection: dict[str, Any], expansion: float = 1.35) 
 
 def normalize_label(label: object) -> str:
     return " ".join(str(label).lower().replace("_", " ").split())
+
+
+def gate_matches(row: dict[str, Any], gate: str) -> bool:
+    if gate == "all":
+        return True
+    if gate == "ocr":
+        return "ocr_named_detail" in classify_question_types(row.get("question", ""))
+    question = str(row.get("question", "")).lower()
+    repeated = bool(
+        re.search(r"\b(again|same|twice|second time|reappeared|returned)\b", question)
+    )
+    paired = any(
+        left in question and right in question
+        for left, right in (
+            ("first", "last"),
+            ("earlier", "later"),
+            ("before", "after"),
+            ("previously", "later"),
+        )
+    )
+    state_change = bool(re.search(r"\b(changed|different|difference)\b", question))
+    return repeated or paired or state_change
+
+
+def fallback_answer(record: dict[str, Any]) -> str:
+    return normalize_answer(record.get("mcq_answer_parsed") or record.get("mcq_answer"))
 
 
 def cluster_reid_observations(
@@ -102,13 +132,34 @@ def cluster_reid_observations(
     return clusters
 
 
+def split_temporal_occurrences(
+    observations: list[dict[str, Any]], gap_seconds: float
+) -> list[list[dict[str, Any]]]:
+    occurrences: list[list[dict[str, Any]]] = []
+    for observation in sorted(observations, key=lambda item: float(item["timestamp"])):
+        if (
+            not occurrences
+            or float(observation["timestamp"])
+            - float(occurrences[-1][-1]["timestamp"])
+            > gap_seconds
+        ):
+            occurrences.append([observation])
+        else:
+            occurrences[-1].append(observation)
+    return occurrences
+
+
 def summarize_tracks(
-    clusters: list[dict[str, Any]], max_tracks: int
+    clusters: list[dict[str, Any]], max_tracks: int, occurrence_gap_seconds: float
 ) -> tuple[list[int], list[dict[str, Any]]]:
+    for cluster in clusters:
+        cluster["occurrences"] = split_temporal_occurrences(
+            cluster["observations"], occurrence_gap_seconds
+        )
     ranked = sorted(
         clusters,
         key=lambda cluster: (
-            -len(cluster["observations"]),
+            -len(cluster["occurrences"]),
             -max(float(item["score"]) for item in cluster["observations"]),
             cluster["label"],
         ),
@@ -116,28 +167,38 @@ def summarize_tracks(
     events: list[dict[str, Any]] = []
     selected_indices: list[int] = []
     for track_number, cluster in enumerate(ranked, start=1):
-        observations = sorted(
-            cluster["observations"], key=lambda item: float(item["timestamp"])
+        occurrences = cluster["occurrences"]
+        representatives = [
+            max(occurrence, key=lambda item: float(item["score"]))
+            for occurrence in occurrences
+        ]
+        peak_number = max(
+            range(len(representatives)),
+            key=lambda index: float(representatives[index]["score"]),
         )
-        peak = max(observations, key=lambda item: float(item["score"]))
-        chosen = [("first", observations[0]), ("peak", peak), ("last", observations[-1])]
-        seen = set()
-        for role, item in chosen:
+        roles: dict[int, list[str]] = {}
+        for role, occurrence_number in (
+            ("first", 0),
+            ("strongest", peak_number),
+            ("last", len(representatives) - 1),
+        ):
+            roles.setdefault(occurrence_number, []).append(role)
+        for occurrence_number in sorted(roles):
+            item = representatives[occurrence_number]
             frame_index = int(item["frame_index"])
-            if (role, frame_index) in seen:
-                continue
-            seen.add((role, frame_index))
             selected_indices.append(frame_index)
             events.append(
                 {
                     "track_id": f"T{track_number:02d}",
                     "label": cluster["label"],
-                    "role": role,
+                    "role": "/".join(roles[occurrence_number]),
+                    "occurrence": occurrence_number + 1,
+                    "occurrences": len(occurrences),
                     "frame_index": frame_index,
                     "timestamp": float(item["timestamp"]),
                     "score": float(item["score"]),
                     "reid_similarity": float(item.get("reid_similarity", 1.0)),
-                    "observations": len(observations),
+                    "observations": len(occurrences[occurrence_number]),
                 }
             )
     return sorted(set(selected_indices)), sorted(events, key=lambda item: item["timestamp"])
@@ -185,7 +246,9 @@ def prepare_reid_record(
         return {"sample_key": sample_key(row), "selected_indices": [], "events": []}
     features = grounder.encode_images(candidates)
     clusters = cluster_reid_observations(observations, features, args.reid_threshold)
-    selected, events = summarize_tracks(clusters, args.max_tracks)
+    selected, events = summarize_tracks(
+        clusters, args.max_tracks, args.occurrence_gap_seconds
+    )
     return {
         "sample_key": sample_key(row),
         "video_path": row["video_path"],
@@ -201,7 +264,8 @@ def build_reid_ledger(events: list[dict[str, Any]]) -> str:
         return "- No repeated target object could be linked confidently."
     return "\n".join(
         f"- {event['timestamp']:.1f}s: {event['track_id']} ({event['label']}), "
-        f"{event['role']} observation"
+        f"occurrence {event['occurrence']}/{event['occurrences']} "
+        f"({event['role']})"
         for event in events
     )
 
@@ -236,6 +300,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--proofpack", required=True)
     parser.add_argument("--proofpack-reference", required=True)
     parser.add_argument("--detections-input", required=True)
+    parser.add_argument("--fallback-predictions", default=None)
+    parser.add_argument("--gate", choices=GATES, default="all")
     parser.add_argument("--mode", choices=MODES, required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--evidence-output", required=True)
@@ -250,6 +316,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--detections-per-frame", type=int, default=2)
     parser.add_argument("--max-reid-detections", type=int, default=48)
     parser.add_argument("--max-tracks", type=int, default=6)
+    parser.add_argument("--occurrence-gap-seconds", type=float, default=8.0)
     parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args()
 
@@ -285,8 +352,16 @@ def main() -> None:
         "specialist proof pack",
     )
     detections = _index_jsonl(_resolve(args.detections_input))
+    fallback = (
+        _index_jsonl(_resolve(args.fallback_predictions))
+        if args.fallback_predictions
+        else {}
+    )
     required = {sample_key(row) for row in rows}
-    for label, indexed in (("proofpack", proofpacks), ("detections", detections)):
+    indexed_inputs = [("proofpack", proofpacks), ("detections", detections)]
+    if args.fallback_predictions:
+        indexed_inputs.append(("fallback", fallback))
+    for label, indexed in indexed_inputs:
         missing = required - set(indexed)
         if missing:
             raise RuntimeError(f"{label} is missing {len(missing)} specialist rows")
@@ -302,7 +377,12 @@ def main() -> None:
         if record.get("specialist_fingerprint") == fingerprint
     }
     if args.mode == "object_reid":
-        pending = [row for row in rows if sample_key(row) not in evidence_records]
+        pending = [
+            row
+            for row in rows
+            if gate_matches(row, args.gate)
+            and sample_key(row) not in evidence_records
+        ]
         if pending:
             grounder = create_text_image_grounder(
                 args.reid_model,
@@ -355,11 +435,37 @@ def main() -> None:
     with model, open(output_path, "a") as handle:
         for index, row in enumerate(rows[start:], start=start):
             key = sample_key(row)
+            applied = gate_matches(row, args.gate)
+            if not applied:
+                if key not in fallback:
+                    raise RuntimeError(
+                        f"gate excluded {key}, but no fallback prediction was supplied"
+                    )
+                prediction = build_prediction_row(
+                    row,
+                    fallback_answer(fallback[key]),
+                    prompt_variant=f"specialist_{args.mode}_fallback",
+                )
+                prediction.update(
+                    {
+                        "specialist_schema": SCHEMA_VERSION,
+                        "specialist_fingerprint": fingerprint,
+                        "specialist_mode": args.mode,
+                        "specialist_gate": args.gate,
+                        "specialist_applied": False,
+                        "specialist_final_frames": 0,
+                        "specialist_evidence": {},
+                    }
+                )
+                handle.write(json.dumps(prediction) + "\n")
+                handle.flush()
+                print(f"  Specialist progress: {index + 1}/{len(rows)} (fallback)")
+                continue
             video_path = os.path.join(video_folder, str(row["video_path"]))
             fps, total_frames = _video_metadata(video_path)
             selected = proofpacks[key]["selected"]
             detection_frames = detections[key].get("frames", [])
-            if args.mode == "qwen_ocr":
+            if args.mode.startswith("qwen_ocr"):
                 details = choose_detail_frames(detection_frames, args.detail_count)
                 detail_indices = [int(item["frame_index"]) for item in details]
                 source_images = extract_frames_by_indices(video_path, detail_indices)
@@ -374,19 +480,22 @@ def main() -> None:
                     if top:
                         crops.append(crop_detection(image, top[0], float(item["timestamp"])))
                         valid_details.append(item)
-                ocr_prompt = (
-                    "Transcribe only visible text that may help answer this question. "
-                    "Preserve names, prices, numbers, capitalization, and timestamps. "
-                    "Do not answer the multiple-choice question and do not infer unreadable text.\n\n"
-                    f"Question: {row['question']}\n\nOptions:\n{row['mcq_options']}"
-                )
-                ledger = str(
-                    model.generate(
-                        crops,
-                        [{"role": "user", "content": ocr_prompt}],
-                        max_new_tokens=256,
+                use_ledger = args.mode in {"qwen_ocr", "qwen_ocr_ledger"}
+                ledger = ""
+                if use_ledger:
+                    ocr_prompt = (
+                        "Transcribe only visible text that may help answer this question. "
+                        "Preserve names, prices, numbers, capitalization, and timestamps. "
+                        "Do not answer the multiple-choice question and do not infer unreadable text.\n\n"
+                        f"Question: {row['question']}\n\nOptions:\n{row['mcq_options']}"
                     )
-                )
+                    ledger = str(
+                        model.generate(
+                            crops,
+                            [{"role": "user", "content": ocr_prompt}],
+                            max_new_tokens=256,
+                        )
+                    )
                 base_count = max(1, args.max_frames - len(crops))
                 valid_detail_indices = [int(item["frame_index"]) for item in valid_details]
                 base = choose_base_frames(selected, base_count, set(valid_detail_indices))
@@ -399,11 +508,20 @@ def main() -> None:
                 )
                 evidence.sort(key=lambda item: (item[0], item[1]))
                 frames = [item[2] for item in evidence[: args.max_frames]]
-                prompt = (
-                    "The following is an automatic transcription of selected visual details. "
-                    "It may omit or misread text, so verify it against the images.\n\n"
-                    f"Transcription:\n{ledger}\n\n"
-                    + build_longqa_prompt(row["question"], row["mcq_options"])
+                if use_ledger:
+                    prefix = (
+                        "The following is an automatic transcription of selected visual details. "
+                        "It may omit or misread text, so verify it against the images.\n\n"
+                        f"Transcription:\n{ledger}\n\n"
+                    )
+                else:
+                    prefix = (
+                        "The chronological evidence includes enlarged details immediately "
+                        "after their source frame. Read visible names, prices, numbers, and "
+                        "labels directly from those details.\n\n"
+                    )
+                prompt = prefix + build_longqa_prompt(
+                    row["question"], row["mcq_options"], "visible_support"
                 )
                 evidence_meta = {
                     "detail_indices": valid_detail_indices,
@@ -422,10 +540,14 @@ def main() -> None:
                 ledger = build_reid_ledger(record.get("events", []))
                 prompt = (
                     "The object track IDs below link visually similar detections across time. "
-                    "They are retrieval aids and may be wrong; confirm identity and state from "
+                    "Adjacent detections have been merged into distinct occurrences. Each "
+                    "selected occurrence is shown with nearby before/center/after images. "
+                    "The links may be wrong, so confirm identity, event order, and state from "
                     "the chronological images.\n\n"
                     f"Object tracks:\n{ledger}\n\n"
-                    + build_longqa_prompt(row["question"], row["mcq_options"])
+                    + build_longqa_prompt(
+                        row["question"], row["mcq_options"], "clause_complete"
+                    )
                 )
                 evidence_meta = {
                     "final_indices": final_indices,
@@ -442,6 +564,8 @@ def main() -> None:
                     "specialist_schema": SCHEMA_VERSION,
                     "specialist_fingerprint": fingerprint,
                     "specialist_mode": args.mode,
+                    "specialist_gate": args.gate,
+                    "specialist_applied": True,
                     "specialist_final_frames": len(frames),
                     "specialist_evidence": evidence_meta,
                 }

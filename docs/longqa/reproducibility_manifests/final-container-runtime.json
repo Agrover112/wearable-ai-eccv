@@ -1,0 +1,68 @@
+{
+  "python": "3.10.12 (main, Jul 15 2026, 23:40:17) [GCC 11.4.0]",
+  "platform": "Linux-6.12.95.1.amd64-smp-x86_64-with-glibc2.35",
+  "packages": {
+    "torch": "2.10.0+cu128",
+    "torchvision": "0.25.0+cu128",
+    "transformers": "5.8.1",
+    "vllm": "0.19.1",
+    "flashinfer-python": "0.6.6",
+    "nvidia-cutlass-dsl": "4.7.0"
+  },
+  "command": [
+    "/usr/bin/python3",
+    "-m",
+    "vllm.entrypoints.openai.api_server",
+    "--model",
+    "/models/qwen35-27b",
+    "--host",
+    "127.0.0.1",
+    "--tensor-parallel-size",
+    "1",
+    "--port",
+    "54405",
+    "--trust-remote-code",
+    "--enforce-eager",
+    "--max-model-len",
+    "32768",
+    "--gpu-memory-utilization",
+    "0.9",
+    "--dtype",
+    "bfloat16",
+    "--gdn-prefill-backend",
+    "triton",
+    "--limit-mm-per-prompt",
+    "{\"image\": 64}",
+    "--mm-processor-kwargs",
+    "{\"min_pixels\": 784, \"max_pixels\": 451584}",
+    "--max-logprobs",
+    "100"
+  ],
+  "environment": {
+    "CUDA_VISIBLE_DEVICES": null,
+    "VLLM_USE_V1": "1",
+    "VLLM_ENABLE_V1_MULTIPROCESSING": null,
+    "VLLM_FLASH_ATTN_VERSION": "3",
+    "VLLM_GDN_PREFILL_BACKEND": "triton",
+    "VLLM_QWEN_MAX_MODEL_LEN": "32768",
+    "VLLM_GPU_MEMORY_UTILIZATION": "0.90",
+    "VLLM_MAX_LOGPROBS": "100",
+    "QWEN_MIN_PIXELS": "784",
+    "QWEN_MAX_PIXELS": "451584"
+  },
+  "gpus": [
+    "0, NVIDIA H100 NVL, 95830, 95322",
+    "1, NVIDIA H100 NVL, 95830, 95322"
+  ],
+  "startup_status": "ready",
+  "component_startup": {
+    "status": "ready",
+    "qwen_tensor_parallel_size": 1,
+    "qwen_gpu_indices": [
+      0
+    ],
+    "siglip_gpu_index": 1,
+    "visible_gpu_count": 2,
+    "updated_unix_time": 1787915006.8236525
+  }
+}

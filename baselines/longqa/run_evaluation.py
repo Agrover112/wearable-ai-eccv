@@ -895,7 +895,9 @@ def _compute_num_workers(
         MODEL_REGISTRY,
     )
 
-    if model_type not in MODEL_REGISTRY:
+    if model_type not in MODEL_REGISTRY and not (
+        backend == "vllm" and model_type == "generic"
+    ):
         known = ", ".join(sorted(MODEL_REGISTRY))
         raise ValueError(f"Unknown model_type {model_type!r}. Known types: {known}")
 
@@ -1242,7 +1244,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--model-type",
         type=str,
         default="llama4",
-        choices=["llama4", "qwen"],
+        choices=["llama4", "qwen", "generic", "qwen35_dual_view_fusion"],
         help="Model type for generation (default: llama4).",
     )
     parser.add_argument(
@@ -1280,7 +1282,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--uniform-sampling",
-        choices=["legacy", "endpoint_inclusive", "midpoint"],
+        choices=[
+            "legacy",
+            "endpoint_inclusive",
+            "midpoint",
+            "endpoint_guarded_midpoint",
+            "dual_view_fusion",
+        ],
         default="legacy",
         help="LongQA only: uniform full-video frame-position policy.",
     )
@@ -2000,6 +2008,13 @@ def _run_task(
         raise ValueError("--video-folder is required for generation")
     if do_generate:
         assert video_folder is not None  # narrowed by guard above
+        # Put subprocess diagnostics on the mounted output volume. The
+        # container filesystem and scheduler scratch may disappear after a
+        # failed run, while the predictions directory is retained.
+        predictions_dir = os.path.dirname(preds_path) or "."
+        diagnostics_dir = os.path.join(predictions_dir, "inference_diagnostics")
+        os.makedirs(diagnostics_dir, exist_ok=True)
+        os.environ["VLLM_LOG_DIR"] = diagnostics_dir
     if do_generate and task == "longqa":
         _generate_longqa_preds(
             golden_path,
@@ -2198,6 +2213,15 @@ def main() -> None:
 
     parser = _build_parser()
     args = parser.parse_args()
+    if args.model_type == "qwen35_dual_view_fusion":
+        # The registered model consumes a 128-frame retrieval grid followed by
+        # an independently rounded 64-frame endpoint-inclusive global grid.
+        args.backend = "hf"
+        args.batch_size = 1
+        args.max_frames = 192
+        args.frames_per_interval = 192
+        args.uniform_sampling = "dual_view_fusion"
+        args.longqa_max_new_tokens = 16
     _validate_main_args(parser, args)
 
     if args.slurm_nodes > 0:

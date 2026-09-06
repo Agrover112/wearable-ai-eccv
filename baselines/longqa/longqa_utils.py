@@ -17,6 +17,8 @@ PROMPT_VARIANTS = (
     "temporal_anchor",
     "anti_shortcut",
     "combined",
+    "visible_support",
+    "clause_complete",
     "thinking",
 )
 
@@ -130,6 +132,21 @@ _VARIANT_INSTRUCTIONS = {
         "evidence, including object identity, color, text, shape, quantity, "
         "location, spatial relationships, and actions. Return only the final "
         "option letter."
+    ),
+    "visible_support": (
+        "Compare all four options against the chronological images. Select an "
+        "option only when its decisive details are visibly supported. Do not "
+        "treat a similar object, a repeated event at the wrong time, or a larger "
+        "number of loosely related frames as stronger evidence. Missing evidence "
+        "is not contradiction. Return only the final option letter."
+    ),
+    "clause_complete": (
+        "Treat every option as a set of factual clauses. Internally verify each "
+        "clause, including object identity, attribute, location, and temporal "
+        "order. Reject an option when even one decisive clause is contradicted "
+        "or belongs to a different occurrence of the event. Prefer the option "
+        "whose complete claim is supported, not one matching only its most "
+        "prominent clause. Return only the final option letter."
     ),
     "thinking": (
         "Reason carefully from the chronological visual evidence. Identify the "
