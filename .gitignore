@@ -1,0 +1,13 @@
+.cache/
+.conda/
+__pycache__/
+*.py[cod]
+data/
+outputs/
+handoffs/
+*.mp4
+.env
+*.token
+AGENTS.md
+CLAUDE.md
+scripts/activate.sh
